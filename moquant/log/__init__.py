@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-' Interact with tushare '
+' Log util '
 __author__ = 'Momojie'
+
+
+def info(message):
+    print(message)
