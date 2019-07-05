@@ -7,6 +7,7 @@ import datetime
 import moquant.tsclient as ts
 import moquant.log as log
 from moquant.dbclient import DBClient
+from moquant.dbclient.stock_daily_info import StockDailyInfo
 
 
 def fetch_data_by_code(stock_code):
@@ -21,16 +22,27 @@ def fetch_data_by_code(stock_code):
             from_date = datetime.datetime.strftime(max_date_time, "%Y%m%d")
         to_date = datetime.datetime.strftime(datetime.datetime.strptime(from_date, '%Y%m%d') + datetime.timedelta(days=1000), "%Y%m%d")
         now_date = datetime.datetime.strftime(datetime.datetime.now(), "%Y%m%d")
-        if from_date > now_date:
-            break
 
-        log.info('获取股票日线行情 %s %s~%s' % (stock_code, from_date, to_date))
+        log.info('To fetch daily info of stock %s %s~%s' % (stock_code, from_date, to_date))
         stock_daily = ts.fetch_daily_bar(stock_code, to_date, from_date)
+        #print(stock_daily)
 
-        client.store_dataframe(stock_daily, 'stock_daily_trade_info')
+        if not stock_daily.empty:
+            client.store_dataframe(stock_daily, 'stock_daily_trade_info')
+            print('Successfully save daily info of stock %s %s~%s' % (stock_code, from_date, to_date))
+
         if to_date >= now_date:
             break
 
 
+def try_query():
+    client = DBClient()
+    session = client.get_session()
+    result = session.query(StockDailyInfo).filter_by(StockDailyInfo.ts_code == '000001.SZ')
+    log.info(result)
+
+
 if __name__ == '__main__':
-    fetch_data_by_code('000001.SZ')
+    #fetch_data_by_code('000001.SZ')
+    try_query()
+

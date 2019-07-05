@@ -6,6 +6,7 @@ __author__ = 'Momojie'
 import moquant.log as log
 import json as json
 from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 
 class DBClient(object):
@@ -18,8 +19,10 @@ class DBClient(object):
     def __init__(self):
         info_file = open('./resources/db_info.json', encoding='utf-8')
         info_json = json.load(info_file)
-        log.info('数据库配置: %s' % json.dumps(info_json))
+        log.info('Database config: %s' % json.dumps(info_json))
         self._engine = create_engine('mysql://%s:%s@%s:%d/%s' % (info_json['user'], info_json['password'], info_json['host'], info_json['port'], info_json['database']))
+        Session = sessionmaker(bind=self._engine)
+        self._session = Session()
 
     def get_engine(self):
         return self._engine
@@ -30,3 +33,6 @@ class DBClient(object):
     def execute_sql(self, sql):
         con = self._engine.connect()
         return con.execute(sql)
+
+    def get_session(self):
+        return self._session
