@@ -7,6 +7,7 @@ import datetime
 import moquant.tsclient as ts
 import moquant.log as log
 from moquant.dbclient import DBClient
+from moquant.dbclient.mq_stock_mark import MqStockMark
 from moquant.dbclient.stock_daily_info import StockDailyInfo
 
 
@@ -23,6 +24,9 @@ def fetch_data_by_code(stock_code):
         to_date = datetime.datetime.strftime(datetime.datetime.strptime(from_date, '%Y%m%d') + datetime.timedelta(days=1000), "%Y%m%d")
         now_date = datetime.datetime.strftime(datetime.datetime.now(), "%Y%m%d")
 
+        if from_date > now_date:
+            break
+
         log.info('To fetch daily info of stock %s %s~%s' % (stock_code, from_date, to_date))
         stock_daily = ts.fetch_daily_bar(stock_code, to_date, from_date)
         #print(stock_daily)
@@ -35,14 +39,14 @@ def fetch_data_by_code(stock_code):
             break
 
 
-def try_query():
+def fetch_data():
     client = DBClient()
     session = client.get_session()
-    result = session.query(StockDailyInfo).filter_by(StockDailyInfo.ts_code == '000001.SZ')
-    log.info(result)
+    result = session.query(MqStockMark).filter(MqStockMark.fetch_data == 1)
+    for row in result:
+        fetch_data_by_code(row.ts_code)
 
 
 if __name__ == '__main__':
-    #fetch_data_by_code('000001.SZ')
-    try_query()
+    fetch_data()
 
