@@ -3,10 +3,13 @@
 ' DB Client '
 __author__ = 'Momojie'
 
-import moquant.log as log
 import json as json
+
+import sqlalchemy.engine.url as url
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
+import moquant.log as log
 
 
 class DBClient(object):
@@ -16,8 +19,17 @@ class DBClient(object):
             cls._inst = super(DBClient, cls).__new__(cls, *args, **kwargs)
             info_file = open('./resources/db_info.json', encoding='utf-8')
             info_json = json.load(info_file)
+            engine_url = url.URL(
+                drivername='mysql',
+                host=info_json['host'],
+                port=info_json['port'],
+                username=info_json['user'],
+                password=info_json['password'],
+                database=info_json['database'],
+                query={'charset': 'utf8'}
+            )
             log.info('Database config: %s' % json.dumps(info_json))
-            cls._inst._engine = create_engine('mysql://%s:%s@%s:%d/%s' % (info_json['user'], info_json['password'], info_json['host'], info_json['port'], info_json['database']))
+            cls._inst._engine = create_engine(engine_url, encoding='utf-8')
             session = sessionmaker(bind=cls._inst._engine)
             cls._inst._session = session()
         return cls._inst

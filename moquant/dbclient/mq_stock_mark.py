@@ -13,5 +13,6 @@ class MqStockMark(Base):
     ts_code = Column('ts_code', String(10), primary_key=True)
     fetch_data = Column('fetch_data', Boolean)
 
-    def __repr__(self):
-        return 'code: %s, fetch_data: %s' % (self.ts_code, self.fetch_data)
+
+def create(engine):
+    Base.metadata.create_all(engine)

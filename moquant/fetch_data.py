@@ -4,15 +4,14 @@
 __author__ = 'Momojie'
 
 import datetime
-import moquant.tsclient as ts
+
 import moquant.log as log
+import moquant.tsclient as ts
 from moquant.dbclient import DBClient
 from moquant.dbclient.mq_stock_mark import MqStockMark
-from moquant.dbclient.stock_daily_info import StockDailyInfo
 
 
-def fetch_data_by_code(stock_code):
-    ts.init_token()
+def fetch_daily_info(stock_code):
     client = DBClient()
 
     while True:
@@ -39,7 +38,17 @@ def fetch_data_by_code(stock_code):
             break
 
 
+def fetch_income(stock_code):
+    pass
+
+
+def fetch_data_by_code(stock_code):
+    fetch_daily_info(stock_code)
+    fetch_income(stock_code)
+
+
 def fetch_data():
+    ts.init_token()
     client = DBClient()
     session = client.get_session()
     result = session.query(MqStockMark).filter(MqStockMark.fetch_data == 1)
