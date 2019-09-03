@@ -5,6 +5,7 @@ __author__ = 'Momojie'
 
 import json as json
 
+import pymysql
 import sqlalchemy.engine.url as url
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -16,6 +17,7 @@ class DBClient(object):
 
     def __new__(cls, *args, **kwargs):
         if not hasattr(cls, '_inst'):
+            pymysql.install_as_MySQLdb()
             cls._inst = super(DBClient, cls).__new__(cls, *args, **kwargs)
             info_file = open('./resources/db_info.json', encoding='utf-8')
             info_json = json.load(info_file)
