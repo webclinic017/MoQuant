@@ -9,6 +9,7 @@ import moquant.log as log
 from moquant.dbclient import DBClient
 from moquant.dbclient.mq_stock_mark import MqStockMark
 from moquant.tsclient import TsClient
+from pandas import DataFrame
 
 
 basic_start_date = '19910101'
@@ -58,7 +59,7 @@ def fetch_income(stock_code):
             break
 
         log.info('To fetch income of stock %s %s~%s' % (stock_code, from_date, to_date))
-        stock_income = ts.fetch_income(stock_code, to_date, from_date)
+        stock_income = ts.fetch_income(stock_code, to_date, from_date)  # type: DataFrame
 
         if not stock_income.empty:
             client.store_dataframe(stock_income, 'tu_stock_income')

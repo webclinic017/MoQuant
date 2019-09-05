@@ -7,6 +7,7 @@ import json as json
 
 import pymysql
 import sqlalchemy.engine.url as url
+from pandas import DataFrame
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -39,10 +40,10 @@ class DBClient(object):
     def get_engine(self):
         return self._engine
 
-    def store_dataframe(self, df, table, exists='append'):
+    def store_dataframe(self, df: DataFrame, table: str, exists: str='append'):
         df.to_sql(table, self._engine, if_exists=exists, index=False)
 
-    def execute_sql(self, sql):
+    def execute_sql(self, sql: str):
         con = self._engine.connect()
         return con.execute(sql)
 
