@@ -1,18 +1,20 @@
 ' Declaration of table `tu_stock_income` '
 __author__ = 'Momojie'
 
-from sqlalchemy import Column, Integer, String, DECIMAL, Boolean
+from sqlalchemy import Column, Integer, String, DECIMAL, Boolean, BIGINT, Index
 from moquant.dbclient.base import Base
 
 
 class MqStockMark(Base):
     __tablename__ = 'tu_stock_income'
+    __table_args__ = (Index('code_date', 'ts_code', 'f_ann_date'), )
 
-    ts_code = Column('ts_code', String(10), primary_key=True, comment='TS代码')
+    id = Column('id', BIGINT, primary_key=True, comment='id', autoincrement=True)
+    ts_code = Column('ts_code', String(10), comment='TS代码')
     ann_date = Column('ann_date', String(10), comment='公告日期')
-    f_ann_date = Column('f_ann_date', String(10), primary_key=True, comment='实际公告日期')
-    end_date = Column('end_date', String(10), primary_key=True, comment='报告期')
-    report_type = Column('report_type', String(10), primary_key=True, comment='报告类型 1合并报表')
+    f_ann_date = Column('f_ann_date', String(10), comment='实际公告日期')
+    end_date = Column('end_date', String(10), comment='报告期')
+    report_type = Column('report_type', String(10), comment='报告类型 1合并报表')
     comp_type = Column('comp_type', String(10), comment='公司类型(1一般工商业2银行3保险4证券)')
     basic_eps = Column('basic_eps', DECIMAL(30, 10), comment='基本每股收益')
     diluted_eps = Column('diluted_eps', DECIMAL(30, 10), comment='稀释每股收益')

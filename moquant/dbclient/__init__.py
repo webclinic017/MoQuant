@@ -41,7 +41,7 @@ class DBClient(object):
         return self._engine
 
     def store_dataframe(self, df: DataFrame, table: str, exists: str='append'):
-        df.to_sql(table, self._engine, if_exists=exists, index=False)
+        df.to_sql(table, self._engine, if_exists=exists, index=False, method='multi')
 
     def execute_sql(self, sql: str):
         con = self._engine.connect()

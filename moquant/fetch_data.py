@@ -32,7 +32,11 @@ def fetch_daily_info(stock_code):
             break
 
         log.info('To fetch daily info of stock %s %s~%s' % (stock_code, from_date, to_date))
-        stock_daily = ts.fetch_daily_bar(stock_code, to_date, from_date)
+        try:
+            stock_daily = ts.fetch_daily_bar(stock_code, to_date, from_date)
+        except IOError:
+            log.info('No daily info of stock %s %s~%s' % (stock_code, from_date, to_date))
+            break
 
         if not stock_daily.empty:
             client.store_dataframe(stock_daily, 'tu_stock_daily_trade_info')
@@ -47,7 +51,7 @@ def fetch_income(stock_code):
     client = DBClient()
 
     while True:
-        max_date = client.execute_sql('select max(ann_date) as max_date from tu_stock_income where ts_code=\'%s\'' % stock_code).fetchone()['max_date']
+        max_date = client.execute_sql('select max(f_ann_date) as max_date from tu_stock_income where ts_code=\'%s\'' % stock_code).fetchone()['max_date']
         from_date = basic_start_date
         if not (max_date is None):
             max_date_time = datetime.datetime.strptime(max_date, '%Y%m%d') + datetime.timedelta(days=1)
