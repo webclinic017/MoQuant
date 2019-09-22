@@ -30,7 +30,7 @@ class TsClient(object):
 
     # 每分钟200次
     def fetch_daily_bar(self, ts_code: str, end_date: str, start_date: str = '19910101'):
-        return self.__ts.pro_bar(ts_code=ts_code, start_date=start_date, end_date=end_date, adj='qfq')
+        return self.__ts.pro_bar(ts_code=ts_code, start_date=start_date, end_date=end_date)
 
     def fetch_income(self, ts_code: str, end_date: str, start_date: str = '19910101'):
         return self.__pro.income(ts_code=ts_code, start_date=start_date, end_date=end_date)

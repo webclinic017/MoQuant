@@ -4,8 +4,9 @@
 __author__ = 'Momojie'
 
 import moquant.dbclient as client
-import moquant.dbclient.tu_stock_income as income
-import moquant.dbclient.tu_stock_daily_trade_info as daily
+import moquant.dbclient.ts_income as income
+import moquant.dbclient.ts_daily_trade_info as daily
+import moquant.dbclient.ts_adj_factor as adj_factory
 import moquant.dbclient.mq_stock_mark as mark
 
 
@@ -15,6 +16,7 @@ def create_table():
     # tushare
     daily.create(engine)
     income.create(engine)
+    adj_factory.create(engine)
 
     #moquant
     mark.create(engine)
