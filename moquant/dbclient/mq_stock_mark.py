@@ -1,7 +1,6 @@
 ' Declaration of table `mq_stock_mark` '
-__author__ = 'Momojie'
 
-from sqlalchemy import Column, Integer, String, DECIMAL, Boolean
+from sqlalchemy import Column, String, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()

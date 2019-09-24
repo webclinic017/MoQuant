@@ -1,32 +1,26 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 ' To fetch basic data from tushare '
-__author__ = 'Momojie'
 
-import datetime
+from pandas import DataFrame
 
 import moquant.log as log
 from moquant.dbclient import DBClient
 from moquant.dbclient.mq_stock_mark import MqStockMark
+from moquant.dbclient.ts_adj_factor import AdjFactor
+from moquant.dbclient.util import fetch_from_date
 from moquant.tsclient import TsClient
-from pandas import DataFrame
-
-
-basic_start_date = '19910101'
+from moquant.utils.datetime import format_delta, get_current_dt
 
 
 def fetch_daily_info(stock_code):
     ts = TsClient()
     client = DBClient()
 
+    now_date = get_current_dt()
+    from_date = fetch_from_date('ts_daily_trade_info', 'trade_date', stock_code)
     while True:
-        max_date = client.execute_sql('select max(trade_date) as max_date from tu_stock_daily_trade_info where ts_code=\'%s\'' % stock_code).fetchone()['max_date']
-        from_date = basic_start_date
-        if not (max_date is None):
-            max_date_time = datetime.datetime.strptime(max_date, '%Y%m%d') + datetime.timedelta(days=1)
-            from_date = datetime.datetime.strftime(max_date_time, "%Y%m%d")
-        to_date = datetime.datetime.strftime(datetime.datetime.strptime(from_date, '%Y%m%d') + datetime.timedelta(days=1000), "%Y%m%d")
-        now_date = datetime.datetime.strftime(datetime.datetime.now(), "%Y%m%d")
+        to_date = format_delta(from_date, day_num=1000)
 
         if from_date > now_date:
             break
@@ -39,26 +33,23 @@ def fetch_daily_info(stock_code):
             break
 
         if not stock_daily.empty:
-            client.store_dataframe(stock_daily, 'tu_stock_daily_trade_info')
+            client.store_dataframe(stock_daily, 'ts_daily_trade_info')
             print('Successfully save daily info of stock %s %s~%s' % (stock_code, from_date, to_date))
 
         if to_date >= now_date:
             break
+
+        from_date = format_delta(to_date, day_num=1)
 
 
 def fetch_income(stock_code):
     ts = TsClient()
     client = DBClient()
 
+    now_date = get_current_dt()
+    from_date = fetch_from_date('ts_income', 'f_ann_date', stock_code)
     while True:
-        max_date = client.execute_sql('select max(f_ann_date) as max_date from tu_stock_income where ts_code=\'%s\'' % stock_code).fetchone()['max_date']
-        from_date = basic_start_date
-        if not (max_date is None):
-            max_date_time = datetime.datetime.strptime(max_date, '%Y%m%d') + datetime.timedelta(days=1)
-            from_date = datetime.datetime.strftime(max_date_time, "%Y%m%d")
-        to_date = datetime.datetime.strftime(datetime.datetime.strptime(from_date, '%Y%m%d') + datetime.timedelta(days=1000), "%Y%m%d")
-        now_date = datetime.datetime.strftime(datetime.datetime.now(), "%Y%m%d")
-
+        to_date = format_delta(from_date, day_num=1000)
         if from_date > now_date:
             break
 
@@ -66,16 +57,43 @@ def fetch_income(stock_code):
         stock_income = ts.fetch_income(stock_code, to_date, from_date)  # type: DataFrame
 
         if not stock_income.empty:
-            client.store_dataframe(stock_income, 'tu_stock_income')
+            client.store_dataframe(stock_income, 'ts_income')
             print('Successfully save income of stock %s %s~%s' % (stock_code, from_date, to_date))
 
         if to_date >= now_date:
             break
 
+        from_date = format_delta(to_date, day_num=1)
+
+
+def fetch_adj_factor(ts_code):
+    ts = TsClient()
+    client = DBClient()
+
+    now_date = get_current_dt()
+    from_date = fetch_from_date(AdjFactor.__tablename__, 'ts_code', ts_code)
+    while True:
+        to_date = format_delta(from_date, day_num=1000)
+        if from_date > now_date:
+            break
+
+        log.info('To fetch adj factor of stock %s %s~%s' % (ts_code, from_date, to_date))
+        adj_factor = ts.fetch_adj_factor(ts_code, to_date, from_date)  # type: DataFrame
+
+        if not adj_factor.empty:
+            client.store_dataframe(adj_factor, AdjFactor.__tablename__)
+            print('Successfully save adj factor of stock %s %s~%s' % (ts_code, from_date, to_date))
+
+        if to_date >= now_date:
+            break
+
+        from_date = format_delta(to_date, day_num=1)
+
 
 def fetch_data_by_code(stock_code):
     fetch_daily_info(stock_code)
     fetch_income(stock_code)
+    fetch_adj_factor(stock_code)
 
 
 def fetch_data():
@@ -88,4 +106,3 @@ def fetch_data():
 
 if __name__ == '__main__':
     fetch_data()
-
