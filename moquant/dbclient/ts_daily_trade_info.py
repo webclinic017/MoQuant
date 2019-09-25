@@ -1,15 +1,19 @@
-' Declaration of table `ts_daily_trade_info` '
+""" Declaration of table `ts_daily_trade_info` """
 
-from sqlalchemy import Column, String, DECIMAL
+from sqlalchemy import Column, String, DECIMAL, Index, BIGINT
 
 from moquant.dbclient.base import Base
 
 
 class StockDailyInfo(Base):
     __tablename__ = 'ts_daily_trade_info'
+    __table_args__ = (
+        Index('code_date', 'ts_code', 'trade_date'),
+    )
 
-    ts_code = Column('ts_code', String(10), primary_key=True, comment='ts代码')
-    trade_date = Column('trade_date', String(10), primary_key=True, comment='交易日期')
+    id = Column('id', BIGINT, primary_key=True, comment='id', autoincrement=True)
+    ts_code = Column('ts_code', String(10), comment='ts代码')
+    trade_date = Column('trade_date', String(10), comment='交易日期')
     open = Column('open', DECIMAL(30, 10), comment='开盘价')
     high = Column('high', DECIMAL(30, 10), comment='最高价')
     low = Column('low', DECIMAL(30, 10), comment='最低价')

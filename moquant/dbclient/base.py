@@ -1,5 +1,4 @@
-' Common factory for declarative_base '
-__author__ = 'Momojie'
+""" Common factory for declarative_base """
 
 from sqlalchemy.ext.declarative import declarative_base
 

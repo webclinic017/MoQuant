@@ -1,4 +1,4 @@
-' Declaration of table `mq_stock_mark` '
+""" Declaration of table `mq_stock_mark` """
 
 from sqlalchemy import Column, String, Boolean
 from sqlalchemy.ext.declarative import declarative_base

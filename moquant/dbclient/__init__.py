@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-' DB Client '
+""" DB Client """
 import json as json
 
 import pymysql
@@ -51,3 +51,6 @@ class DBClient(object):
 
     def get_session(self):
         return self.__session
+
+
+db_client = DBClient()

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-' Interact with tushare '
+""" Interact with TuShare """
 import json as json
 
 import tushare as ts

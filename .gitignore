@@ -2,3 +2,4 @@
 db_info.json
 ts.json
 __pycache__/
+venv/
