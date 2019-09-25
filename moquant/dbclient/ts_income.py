@@ -1,11 +1,11 @@
 ' Declaration of table `ts_income` '
-__author__ = 'Momojie'
 
 from sqlalchemy import Column, String, DECIMAL, BIGINT, Index
+
 from moquant.dbclient.base import Base
 
 
-class MqStockMark(Base):
+class Income(Base):
     __tablename__ = 'ts_income'
     __table_args__ = (Index('code_date', 'ts_code', 'f_ann_date'), )
 

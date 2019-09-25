@@ -1,7 +1,7 @@
 ' Declaration of table `ts_daily_trade_info` '
-__author__ = 'Momojie'
 
-from sqlalchemy import Column, Integer, String, DECIMAL
+from sqlalchemy import Column, String, DECIMAL
+
 from moquant.dbclient.base import Base
 
 

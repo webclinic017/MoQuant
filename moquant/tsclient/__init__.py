@@ -1,19 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 ' Interact with tushare '
-__author__ = 'Momojie'
-
-
 import json as json
+
 import tushare as ts
+from pandas import DataFrame
+from tushare.pro.client import DataApi
 
 import moquant.log as log
 
-from tushare.pro.client import DataApi
-
 
 class TsClient(object):
-
     __ts: ts = None
     __pro: DataApi = None
 
@@ -29,8 +26,11 @@ class TsClient(object):
         return cls.__inst
 
     # 每分钟200次
-    def fetch_daily_bar(self, ts_code: str, end_date: str, start_date: str = '19910101'):
+    def fetch_daily_bar(self, ts_code: str, end_date: str, start_date: str = '19910101') -> DataFrame:
         return self.__ts.pro_bar(ts_code=ts_code, start_date=start_date, end_date=end_date)
 
-    def fetch_income(self, ts_code: str, end_date: str, start_date: str = '19910101'):
+    def fetch_income(self, ts_code: str, end_date: str, start_date: str = '19910101') -> DataFrame:
         return self.__pro.income(ts_code=ts_code, start_date=start_date, end_date=end_date)
+
+    def fetch_adj_factor(self, ts_code: str, end_date: str, start_date: str = '19910101') -> DataFrame:
+        return self.__pro.adj_factor(ts_code=ts_code, start_date=start_date, end_date=end_date)

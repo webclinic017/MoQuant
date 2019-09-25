@@ -1,25 +1,27 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 ' DB Client '
-__author__ = 'Momojie'
-
 import json as json
 
 import pymysql
 import sqlalchemy.engine.url as url
 from pandas import DataFrame
 from sqlalchemy import create_engine
+from sqlalchemy.engine import ResultProxy
+from sqlalchemy.engine.base import Engine, Connection
 from sqlalchemy.orm import sessionmaker
 
 import moquant.log as log
 
 
 class DBClient(object):
+    __engine: Engine = None
+    __session: sessionmaker = None
 
     def __new__(cls, *args, **kwargs):
-        if not hasattr(cls, '_inst'):
+        if not hasattr(cls, '__inst'):
             pymysql.install_as_MySQLdb()
-            cls._inst = super(DBClient, cls).__new__(cls, *args, **kwargs)
+            cls.__inst = super(DBClient, cls).__new__(cls, *args, **kwargs)
             info_file = open('./resources/db_info.json', encoding='utf-8')
             info_json = json.load(info_file)
             engine_url = url.URL(
@@ -32,20 +34,20 @@ class DBClient(object):
                 query={'charset': 'utf8'}
             )
             log.info('Database config: %s' % json.dumps(info_json))
-            cls._inst._engine = create_engine(engine_url, encoding='utf-8')
-            session = sessionmaker(bind=cls._inst._engine)
-            cls._inst._session = session()
-        return cls._inst
+            cls.__inst.__engine = create_engine(engine_url, encoding='utf-8')
+            session = sessionmaker(bind=cls.__inst.__engine)
+            cls.__inst.__session = session()
+        return cls.__inst
 
     def get_engine(self):
-        return self._engine
+        return self.__engine
 
-    def store_dataframe(self, df: DataFrame, table: str, exists: str='append'):
-        df.to_sql(table, self._engine, if_exists=exists, index=False, method='multi')
+    def store_dataframe(self, df: DataFrame, table: str, exists: str = 'append'):
+        df.to_sql(table, self.__engine, if_exists=exists, index=False, method='multi')
 
-    def execute_sql(self, sql: str):
-        con = self._engine.connect()
+    def execute_sql(self, sql: str) -> ResultProxy:
+        con: Connection = self.__engine.connect()
         return con.execute(sql)
 
     def get_session(self):
-        return self._session
+        return self.__session
