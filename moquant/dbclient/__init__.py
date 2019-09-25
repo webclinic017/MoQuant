@@ -12,6 +12,7 @@ from sqlalchemy.engine.base import Engine, Connection
 from sqlalchemy.orm import sessionmaker
 
 import moquant.log as log
+from moquant.utils import json_utils
 
 
 class DBClient(object):
@@ -22,8 +23,7 @@ class DBClient(object):
         if not hasattr(cls, '__inst'):
             pymysql.install_as_MySQLdb()
             cls.__inst = super(DBClient, cls).__new__(cls, *args, **kwargs)
-            info_file = open('./resources/db_info.json', encoding='utf-8')
-            info_json = json.load(info_file)
+            info_json = json_utils.from_file('/resources/db_info.json')
             engine_url = url.URL(
                 drivername='mysql',
                 host=info_json['host'],

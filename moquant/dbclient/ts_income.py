@@ -5,7 +5,7 @@ from sqlalchemy import Column, String, DECIMAL, BIGINT, Index
 from moquant.dbclient.base import Base
 
 
-class Income(Base):
+class StockIncome(Base):
     __tablename__ = 'ts_income'
     __table_args__ = (
         Index('code_date', 'ts_code', 'f_ann_date'),
