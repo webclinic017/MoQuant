@@ -1,10 +1,8 @@
 import os
 
-env_dist = os.environ
-
 
 def get_env_value(key: str) -> str:
-    return env_dist[key]
+    return os.getenv(key)
 
 
 def to_echo_sql() -> bool:

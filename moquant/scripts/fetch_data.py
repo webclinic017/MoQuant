@@ -57,8 +57,9 @@ def fetch_data():
         and_(MqStockMark.fetch_data == 1, MqStockMark.last_handle_date < get_current_dt())).all()
     log.info(len(result))
     for row in result:
-        # fetch_data_by_code(row.ts_code)
-        pass
+        fetch_data_by_code(row.ts_code)
+        row.last_handle_date = get_current_dt()
+        session.flush()
 
 
 def init_stock_basic():
