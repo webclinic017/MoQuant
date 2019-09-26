@@ -9,15 +9,17 @@ from pandas import DataFrame
 from sqlalchemy import create_engine
 from sqlalchemy.engine import ResultProxy
 from sqlalchemy.engine.base import Engine, Connection
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, Session
 
 import moquant.log as log
 from moquant.utils import json_utils
+from moquant.utils.env_utils import to_echo_sql
 
 
 class DBClient(object):
     __engine: Engine = None
-    __session: sessionmaker = None
+    __session_auto: Session = None
+    __session: Session = None
 
     def __new__(cls, *args, **kwargs):
         if not hasattr(cls, '__inst'):
@@ -34,9 +36,9 @@ class DBClient(object):
                 query={'charset': 'utf8'}
             )
             log.info('Database config: %s' % json.dumps(info_json))
-            cls.__inst.__engine = create_engine(engine_url, encoding='utf-8')
-            session = sessionmaker(bind=cls.__inst.__engine)
-            cls.__inst.__session = session()
+            cls.__inst.__engine = create_engine(engine_url, encoding='utf-8', echo=to_echo_sql())
+            cls.__inst.__session_auto = sessionmaker(bind=cls.__inst.__engine, autocommit=True)
+            cls.__inst.__session = sessionmaker(bind=cls.__inst.__engine, autocommit=False)
         return cls.__inst
 
     def get_engine(self):
@@ -49,8 +51,9 @@ class DBClient(object):
         con: Connection = self.__engine.connect()
         return con.execute(sql)
 
-    def get_session(self):
-        return self.__session
+    # session is not thread-safe, create a new session for every call
+    def get_session(self, is_auto_commit: bool = True) -> Session:
+        return self.__session_auto() if is_auto_commit else self.__session()
 
 
 db_client = DBClient()

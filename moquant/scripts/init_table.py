@@ -3,24 +3,14 @@
 """ To init table, will not create if table exists """
 
 import moquant.dbclient as client
-import moquant.dbclient.mq_stock_mark as mark
-import moquant.dbclient.ts_adj_factor as adj_factory
-import moquant.dbclient.ts_basic as basic
-import moquant.dbclient.ts_daily_trade_info as daily
-import moquant.dbclient.ts_income as income
+from moquant.dbclient.base import Base
 
 
 def create_table():
     engine = client.db_client.get_engine()
 
-    # tushare
-    daily.create(engine)
-    income.create(engine)
-    adj_factory.create(engine)
-    basic.create(engine)
-
-    #moquant
-    mark.create(engine)
+    Base.metadata.drop_all(engine)
+    Base.metadata.create_all(engine)
 
 
 if __name__ == '__main__':

@@ -9,6 +9,7 @@ class StockBasic(Base):
     __tablename__ = 'ts_basic'
     __table_args__ = (
         Index('code', 'ts_code'),
+        {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
     )
 
     id = Column('id', BIGINT, primary_key=True, comment='id', autoincrement=True)

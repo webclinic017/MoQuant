@@ -9,6 +9,7 @@ class StockIncome(Base):
     __tablename__ = 'ts_income'
     __table_args__ = (
         Index('code_date', 'ts_code', 'f_ann_date'),
+        {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
     )
 
     id = Column('id', BIGINT, primary_key=True, comment='id', autoincrement=True)
