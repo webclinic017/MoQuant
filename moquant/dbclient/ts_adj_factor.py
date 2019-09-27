@@ -5,7 +5,7 @@ from sqlalchemy import Column, String, DECIMAL, BIGINT, Index
 from moquant.dbclient.base import Base
 
 
-class AdjFactor(Base):
+class StockAdjFactor(Base):
     __tablename__ = 'ts_adj_factor'
     __table_args__ = (
         Index('code_date', 'ts_code', 'trade_date'),

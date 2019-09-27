@@ -5,3 +5,7 @@
 
 def info(message):
     print(message)
+
+
+def err(message):
+    print('Error: %s' % message)

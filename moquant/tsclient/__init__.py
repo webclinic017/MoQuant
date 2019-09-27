@@ -32,11 +32,23 @@ class TsClient(object):
     def fetch_daily_bar(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
         return self.__ts.pro_bar(ts_code=ts_code, start_date=start_date, end_date=end_date)
 
+    def fetch_adj_factor(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
+        return self.__pro.adj_factor(ts_code=ts_code, start_date=start_date, end_date=end_date)
+
     def fetch_income(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
         return self.__pro.income(ts_code=ts_code, start_date=start_date, end_date=end_date)
 
-    def fetch_adj_factor(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
-        return self.__pro.adj_factor(ts_code=ts_code, start_date=start_date, end_date=end_date)
+    def fetch_balance_sheet(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
+        return self.__pro.balancesheet(ts_code=ts_code, start_date=start_date, end_date=end_date)
+
+    def fetch_cash_flow(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
+        return self.__pro.cashflow(ts_code=ts_code, start_date=start_date, end_date=end_date)
+
+    def fetch_forecast(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
+        return self.__pro.forecast(ts_code=ts_code, start_date=start_date, end_date=end_date)
+
+    def fetch_express(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
+        return self.__pro.express(ts_code=ts_code, start_date=start_date, end_date=end_date)
 
     def fetch_data_frame(self, method_name: str, ts_code: str, end_date: str,
                          start_date: str = '19910101') -> DataFrame:
