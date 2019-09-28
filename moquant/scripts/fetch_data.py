@@ -35,28 +35,21 @@ def fetch_from_date(date_column: Column, code_column: Column, ts_code: str):
 
 
 def common_fetch_data(ts_code: str, api_name: str, table: Table, date_field, code_field):
-    now_date = get_current_dt()
+    to_date = get_current_dt()
     from_date = fetch_from_date(date_field, code_field, ts_code)
-    while True:
-        to_date = format_delta(from_date, day_num=1000)
 
-        if from_date > now_date:
+    for cnt in range(2):
+        log.info('To fetch %s of stock %s %s~%s' % (api_name, ts_code, from_date, to_date))
+        try:
+            stock_data = ts_client.fetch_data_frame(api_name, ts_code, to_date, from_date)
             break
+        except Exception as e:
+            log.err(e)
+            time.sleep(60)
 
-        for cnt in range(2):
-            log.info('To fetch %s of stock %s %s~%s' % (api_name, ts_code, from_date, to_date))
-            try:
-                stock_data = ts_client.fetch_data_frame(api_name, ts_code, to_date, from_date)
-                break
-            except Exception as e:
-                log.err(e)
-                time.sleep(60)
-
-        if not stock_data.empty:
-            db_client.store_dataframe(stock_data, table.__tablename__)
-            print('Successfully save %s of stock %s %s~%s' % (api_name, ts_code, from_date, to_date))
-
-        from_date = format_delta(to_date, day_num=1)
+    if not stock_data.empty:
+        db_client.store_dataframe(stock_data, table.__tablename__)
+        print('Successfully save %s of stock %s %s~%s' % (api_name, ts_code, from_date, to_date))
 
 
 def fetch_data_by_code(stock_code):
