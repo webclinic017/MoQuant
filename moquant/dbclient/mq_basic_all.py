@@ -11,8 +11,8 @@ class MqStockBasicAll(Base):
 
     ts_code = Column('ts_code', String(10), primary_key=True, comment='TS股票代码')
     date = Column('date', String(10), primary_key=True, comment='日期')
-    current_season = Column('current_season', String(10), comment='当前季度 yyyyMM')
-    report_season = Column('report_season', String(10), comment='财报、预报、快报所包含季度 yyyyMM')
+    report_season = Column('report_season', String(10), comment='最近一个已披露财报报告期 yyyyMMdd')
+    forecast_season = Column('forecast_season', String(10), comment='最近一个已披露预报、快报报告期 yyyyMMdd')
     total_share = Column('total_share', DECIMAL(30, 10), comment='期末总股本')
     close = Column('close', DECIMAL(30, 10), comment='当日收盘价')
     market_value = Column('market_value', DECIMAL(30, 10), comment='市值')

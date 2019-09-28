@@ -7,6 +7,7 @@ class StockExpress(Base):
     __tablename__ = 'ts_express'
     __table_args__ = (
         Index('code_date', 'ts_code', 'ann_date'),
+        Index('code_period', 'ts_code', 'end_date'),
         {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
     )
 
@@ -17,7 +18,7 @@ class StockExpress(Base):
     revenue = Column('revenue', DECIMAL(30, 10), comment='营业收入(元)')
     operate_profit = Column('operate_profit', DECIMAL(30, 10), comment='营业利润(元)')
     total_profit = Column('total_profit', DECIMAL(30, 10), comment='利润总额(元)')
-    n_income = Column('n_income', DECIMAL(30, 10), comment='净利润(元)')
+    n_income = Column('n_income', DECIMAL(30, 10), comment='归母净利润(元)')
     total_assets = Column('total_assets', DECIMAL(30, 10), comment='总资产(元)')
     total_hldr_eqy_exc_min_int = Column('total_hldr_eqy_exc_min_int', DECIMAL(30, 10), comment='股东权益合计(不含少数股东权益)(元)')
     diluted_eps = Column('diluted_eps', DECIMAL(30, 10), comment='每股收益(摊薄)(元)')

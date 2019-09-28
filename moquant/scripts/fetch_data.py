@@ -14,10 +14,12 @@ from moquant.dbclient.ts_adj_factor import StockAdjFactor
 from moquant.dbclient.ts_balance_sheet import StockBalanceSheet
 from moquant.dbclient.ts_basic import StockBasic
 from moquant.dbclient.ts_cashflow import StockCashFlow
+from moquant.dbclient.ts_daily_basic import TsStockDailyBasic
 from moquant.dbclient.ts_daily_trade_info import StockDailyTradeInfo
 from moquant.dbclient.ts_express import StockExpress
 from moquant.dbclient.ts_forecast import StockForecast
 from moquant.dbclient.ts_income import StockIncome
+from moquant.scripts import clear_after_fetch
 from moquant.tsclient import ts_client
 from moquant.utils.datetime import format_delta, get_current_dt
 from moquant.utils.env_utils import pass_fetch_basic
@@ -48,7 +50,7 @@ def common_fetch_data(ts_code: str, api_name: str, table: Table, date_field, cod
                 break
             except Exception as e:
                 log.err(e)
-                time.sleep(1)
+                time.sleep(60)
 
         if not stock_data.empty:
             db_client.store_dataframe(stock_data, table.__tablename__)
@@ -58,6 +60,8 @@ def common_fetch_data(ts_code: str, api_name: str, table: Table, date_field, cod
 
 
 def fetch_data_by_code(stock_code):
+    common_fetch_data(stock_code, 'fetch_daily_basic', TsStockDailyBasic, TsStockDailyBasic.trade_date,
+                      TsStockDailyBasic.ts_code)
     common_fetch_data(stock_code, 'fetch_daily_bar', StockDailyTradeInfo, StockDailyTradeInfo.trade_date,
                       StockDailyTradeInfo.ts_code)
     common_fetch_data(stock_code, 'fetch_adj_factor', StockAdjFactor, StockAdjFactor.trade_date, StockAdjFactor.ts_code)
@@ -107,3 +111,4 @@ def init_stock_basic():
 if __name__ == '__main__':
     init_stock_basic()
     fetch_data()
+    clear_after_fetch.clear()

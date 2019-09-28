@@ -8,6 +8,7 @@ class StockForecast(Base):
     __tablename__ = 'ts_forecast'
     __table_args__ = (
         Index('code_date', 'ts_code', 'ann_date'),
+        Index('code_period', 'ts_code', 'end_date'),
         {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
     )
 

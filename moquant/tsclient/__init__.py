@@ -32,6 +32,9 @@ class TsClient(object):
     def fetch_daily_bar(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
         return self.__ts.pro_bar(ts_code=ts_code, start_date=start_date, end_date=end_date)
 
+    def fetch_daily_basic(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
+        return self.__pro.daily_basic(ts_code=ts_code, start_date=start_date, end_date=end_date)
+
     def fetch_adj_factor(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
         return self.__pro.adj_factor(ts_code=ts_code, start_date=start_date, end_date=end_date)
 
