@@ -7,7 +7,7 @@ from sqlalchemy import and_, Column, func, Table
 from sqlalchemy.orm import Session
 
 import moquant.log as log
-from moquant.constants import basic_start_date
+from moquant.constants import fetch_data_start_date
 from moquant.dbclient import db_client
 from moquant.dbclient.mq_stock_mark import MqStockMark
 from moquant.dbclient.ts_adj_factor import StockAdjFactor
@@ -28,7 +28,7 @@ from moquant.utils.env_utils import pass_fetch_basic
 def fetch_from_date(date_column: Column, code_column: Column, ts_code: str):
     session: Session = db_client.get_session()
     result = session.query(func.max(date_column)).filter(code_column == ts_code).all()
-    from_date = basic_start_date
+    from_date = fetch_data_start_date
     if len(result) > 0 and not result[0][0] is None:
         from_date = format_delta(result[0][0], day_num=1)
     return from_date
@@ -94,7 +94,7 @@ def init_stock_basic():
     existed = [msm.ts_code for msm in msm_list]
     to_add_code = stock_data[~stock_data['ts_code'].isin(existed)]['ts_code'].array
 
-    to_add_obj = [MqStockMark(ts_code=code, fetch_data=True, last_handle_date=basic_start_date) for code in to_add_code]
+    to_add_obj = [MqStockMark(ts_code=code, fetch_data=True, last_handle_date=fetch_data_start_date) for code in to_add_code]
 
     if len(to_add_obj) > 0:
         session.add_all(to_add_obj)
@@ -104,4 +104,4 @@ def init_stock_basic():
 if __name__ == '__main__':
     init_stock_basic()
     fetch_data()
-    clear_after_fetch.clear()
+    #clear_after_fetch.clear()

@@ -38,5 +38,4 @@ def date_max(d_arr: list) -> str:
 
 
 def get_quarter_num(d_str: str) -> int:
-    month_part = d_str[4:6]
-    return (int(month_part) - 1) // 3 + 1
+    return (int(d_str[4:6]) - 1) // 3 + 1

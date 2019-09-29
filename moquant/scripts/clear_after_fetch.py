@@ -29,3 +29,7 @@ def clear():
     db_client.execute_sql(clear_duplicate_report_sql('ts_cash_flow'))
     db_client.execute_sql(clear_duplicate_report_sql('ts_forecast'))
     db_client.execute_sql(clear_duplicate_report_sql('ts_express'))
+
+
+if __name__ == '__main__':
+    clear()
