@@ -20,6 +20,7 @@ from moquant.dbclient.ts_express import StockExpress
 from moquant.dbclient.ts_forecast import StockForecast
 from moquant.dbclient.ts_income import StockIncome
 from moquant.scripts import clear_after_fetch
+from moquant.scripts.cal_mq_basic import calculate_all
 from moquant.tsclient import ts_client
 from moquant.utils.datetime import format_delta, get_current_dt
 from moquant.utils.env_utils import pass_fetch_basic
@@ -104,4 +105,5 @@ def init_stock_basic():
 if __name__ == '__main__':
     init_stock_basic()
     fetch_data()
-    #clear_after_fetch.clear()
+    clear_after_fetch.clear()
+    calculate_all()

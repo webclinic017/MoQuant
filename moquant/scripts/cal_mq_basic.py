@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import sys
 import time
 
 from sqlalchemy import and_
+from sqlalchemy.orm import Session
 
 from moquant import log
 from moquant.constants import mq_calculate_start_date
 from moquant.dbclient import db_client
 from moquant.dbclient.mq_basic_all import MqStockBasicAll
+from moquant.dbclient.mq_stock_mark import MqStockMark
 from moquant.dbclient.ts_balance_sheet import StockBalanceSheet
 from moquant.dbclient.ts_basic import StockBasic
 from moquant.dbclient.ts_daily_basic import TsStockDailyBasic
@@ -27,11 +30,21 @@ def get_start_index(arr, date_field: str, current_date: str) -> int:
     return i
 
 
-def can_use_next_date(arr: list, date_field: str, i: int, current_date: str) -> bool:
-    if i + 1 < len(arr) and getattr(arr[i + 1], date_field) <= current_date:
-        return True
+def get_next_index(arr, date_field: str, pos: str) -> int:
+    result = pos + 1
+    while result < len(arr) and getattr(arr[result], date_field) < getattr(arr[pos], date_field):
+        result += 1
+    if result >= len(arr):
+        return None
     else:
+        return result
+
+
+def can_use_next_date(arr: list, date_field: str, next_pos: int, current_date: str) -> bool:
+    if next_pos is None:
         return False
+    else:
+        return getattr(arr[next_pos], date_field) <= current_date
 
 
 def get_forecast_nprofit_ly(forecast: StockForecast, income_l4: StockIncome):
@@ -66,7 +79,7 @@ def find_previous_period(arr: list, pos: int, period: str, num: int):
             month = 12
     day = 30 if month == 6 or month == 9 else 31
     to_find_period = '%d%02d%02d' % (year, month, day)
-    while pos >= 0 and arr[pos].end_date > to_find_period:
+    while pos >= 0 and arr[pos].end_date != to_find_period and arr[pos].f_ann_date >= to_find_period:
         pos -= 1
     if pos >= 0 and arr[pos].end_date == to_find_period:
         return arr[pos]
@@ -122,6 +135,8 @@ def calculate(ts_code: str):
         .filter(
         and_(StockIncome.ts_code == ts_code, StockIncome.end_date >= from_period, StockIncome.report_type == 1)) \
         .order_by(StockIncome.f_ann_date.asc()).all()
+    if len(income_arr) > 0 and income_arr[0].f_ann_date > from_date:
+        from_date = income_arr[0].f_ann_date
 
     balance_arr = session.query(StockBalanceSheet) \
         .filter(and_(StockBalanceSheet.ts_code == ts_code, StockBalanceSheet.end_date >= from_period,
@@ -144,7 +159,12 @@ def calculate(ts_code: str):
     f_i = get_start_index(forecast_arr, 'ann_date', from_date)
     e_i = get_start_index(express_arr, 'ann_date', from_date)
 
-    time_start = time.time()
+    d_i_n = get_next_index(daily_arr, 'trade_date', d_i)
+    b_i_n = get_next_index(balance_arr, 'f_ann_date', b_i)
+    i_i_n = get_next_index(income_arr, 'f_ann_date', i_i)
+    f_i_n = get_next_index(forecast_arr, 'ann_date', f_i)
+    e_i_n = get_next_index(express_arr, 'ann_date', e_i)
+
     while from_date <= now_date:
         daily_basic: TsStockDailyBasic = daily_arr[d_i]
         is_trade_day: bool = (daily_basic.trade_date == from_date)
@@ -232,22 +252,22 @@ def calculate(ts_code: str):
 
         nprofit_ltm_pe = None
         eps_ltm = None
-        if nprofit_ltm is not None:
+        if nprofit_ltm is not None and nprofit_ltm != 0:
             nprofit_ltm_pe = market_value / nprofit_ltm
             eps_ltm = nprofit_ltm / total_share
 
         season_revenue_yoy = None
         revenue_peg = None
-        if season_revenue is not None and season_revenue_ly is not None:
+        if season_revenue is not None and season_revenue_ly is not None and season_revenue_ly != 0:
             season_revenue_yoy = (season_revenue - season_revenue_ly) / abs(season_revenue_ly)
-            if nprofit_ltm_pe is not None:
+            if nprofit_ltm_pe is not None and season_revenue_yoy != 0:
                 revenue_peg = nprofit_ltm_pe / season_revenue_yoy / 100
 
         season_nprofit_yoy = None
         nprofit_peg = None
-        if season_nprofit is not None and season_nprofit_ly is not None:
+        if season_nprofit is not None and season_nprofit_ly is not None and season_nprofit_ly != 0:
             season_nprofit_yoy = (season_nprofit - season_nprofit_ly) / abs(season_nprofit_ly)
-            if nprofit_ltm_pe is not None:
+            if nprofit_ltm_pe is not None and season_nprofit_yoy != 0:
                 nprofit_peg = nprofit_ltm_pe / season_nprofit_yoy / 100
 
         pb = None
@@ -265,20 +285,36 @@ def calculate(ts_code: str):
         session.add(to_insert)
 
         from_date = format_delta(from_date, day_num=1)
-        if can_use_next_date(daily_arr, 'trade_date', d_i, from_date):
-            d_i += 1
-        if can_use_next_date(balance_arr, 'f_ann_date', b_i, from_date):
-            b_i += 1
-        if can_use_next_date(income_arr, 'f_ann_date', i_i, from_date):
-            i_i += 1
-        if can_use_next_date(forecast_arr, 'ann_date', f_i, from_date):
-            f_i += 1
-        if can_use_next_date(express_arr, 'ann_date', e_i, from_date):
-            e_i += 1
+        if can_use_next_date(daily_arr, 'trade_date', d_i_n, from_date):
+            d_i = d_i_n
+            d_i_n = get_next_index(daily_arr, 'trade_date', d_i)
 
-    print('while cost', time.time() - time_start)
+        if can_use_next_date(balance_arr, 'f_ann_date', b_i_n, from_date):
+            b_i = b_i_n
+            b_i_n = get_next_index(balance_arr, 'f_ann_date', b_i)
+        if can_use_next_date(income_arr, 'f_ann_date', i_i_n, from_date):
+            i_i = i_i_n
+            i_i_n = get_next_index(income_arr, 'f_ann_date', i_i)
+        if can_use_next_date(forecast_arr, 'ann_date', f_i_n, from_date):
+            f_i = f_i_n
+            f_i_n = get_next_index(forecast_arr, 'ann_date', f_i)
+        if can_use_next_date(express_arr, 'ann_date', e_i_n, from_date):
+            e_i = e_i_n
+            e_i_n = get_next_index(express_arr, 'ann_date', e_i)
+
     session.flush()
 
 
+def calculate_all():
+    session: Session = db_client.get_session()
+    now_date = get_current_dt()
+    mq_list: MqStockMark = session.query(MqStockMark).filter(MqStockMark.last_handle_date == now_date).all()
+    for mq in mq_list:
+        calculate(mq.ts_code)
+
+
 if __name__ == '__main__':
-    calculate('002188.SZ')
+    if len(sys.argv) > 1:
+        calculate(sys.argv[1])
+    else:
+        calculate_all()
