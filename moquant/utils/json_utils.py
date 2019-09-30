@@ -7,3 +7,7 @@ def from_file(file_name: str) -> object:
     file_path_name = module_path + file_name
     info_file = open(file_path_name, encoding='utf-8')
     return json.load(info_file)
+
+
+def parse(s: str) -> dict:
+    return json.loads(s)

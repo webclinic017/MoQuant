@@ -11,9 +11,11 @@ from sqlalchemy.engine import ResultProxy
 from sqlalchemy.engine.base import Engine, Connection
 from sqlalchemy.orm import sessionmaker, Session
 
-import moquant.log as log
+from moquant.log import get_logger
 from moquant.utils import json_utils
 from moquant.utils.env_utils import to_echo_sql
+
+log = get_logger(__name__)
 
 
 class DBClient(object):

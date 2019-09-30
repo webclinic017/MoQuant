@@ -6,7 +6,6 @@ import time
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
-from moquant import log
 from moquant.constants import mq_calculate_start_date
 from moquant.dbclient import db_client
 from moquant.dbclient.mq_basic_all import MqStockBasicAll
@@ -17,7 +16,10 @@ from moquant.dbclient.ts_daily_basic import TsStockDailyBasic
 from moquant.dbclient.ts_express import StockExpress
 from moquant.dbclient.ts_forecast import StockForecast
 from moquant.dbclient.ts_income import StockIncome
+from moquant.log import get_logger
 from moquant.utils.datetime import format_delta, first_report_period, get_current_dt, date_max, get_quarter_num
+
+log = get_logger(__name__)
 
 
 def get_start_index(arr, date_field: str, current_date: str) -> int:
@@ -31,6 +33,8 @@ def get_start_index(arr, date_field: str, current_date: str) -> int:
 
 
 def get_next_index(arr, date_field: str, pos: str) -> int:
+    if pos == len(arr):
+        return None
     result = pos + 1
     while result < len(arr) and getattr(arr[result], date_field) < getattr(arr[pos], date_field):
         result += 1
@@ -70,6 +74,8 @@ def get_forecast_nprofit_ly(forecast: StockForecast, income_l4: StockIncome):
 
 
 def find_previous_period(arr: list, pos: int, period: str, num: int):
+    if num is None:
+        return None
     year = int(period[0:4])
     month = int(period[4:6])
     for i in range(num):
@@ -97,6 +103,7 @@ def cal_season_value(current, last, period: str):
 
 
 def calculate(ts_code: str):
+    start_time = time.time()
     now_date = get_current_dt()
     session = db_client.get_session()
     last_basic_arr = session.query(MqStockBasicAll).filter(MqStockBasicAll.ts_code == ts_code) \
@@ -151,6 +158,9 @@ def calculate(ts_code: str):
         .filter(and_(StockExpress.ts_code == ts_code, StockExpress.end_date >= from_period)) \
         .order_by(StockExpress.ann_date.asc()).all()
 
+    prepare_time = time.time()
+    log.info("Prepare data for %s: %s seconds" % (ts_code, prepare_time - start_time))
+
     d_i = get_start_index(daily_arr, 'trade_date', from_date)
     # index of balance
     b_i = get_start_index(balance_arr, 'f_ann_date', from_date)
@@ -164,6 +174,8 @@ def calculate(ts_code: str):
     i_i_n = get_next_index(income_arr, 'f_ann_date', i_i)
     f_i_n = get_next_index(forecast_arr, 'ann_date', f_i)
     e_i_n = get_next_index(express_arr, 'ann_date', e_i)
+    find_index_time = time.time()
+    log.info("Find index for %s: %s seconds" % (ts_code, find_index_time - prepare_time))
 
     while from_date <= now_date:
         daily_basic: TsStockDailyBasic = daily_arr[d_i]
@@ -194,61 +206,74 @@ def calculate(ts_code: str):
         season_revenue = None
         season_revenue_ly = None
         nassets = None
+
+        forecast_quarter = get_quarter_num(forecast_season)
+        report_quarter = get_quarter_num(report_season)
+        forecast_nprofit = None
+        forecast_revenue = None
+        forecast_nassets = None
+
         if forecast_season is not None and forecast_season > report_season:
-            quarter = get_quarter_num(forecast_season)
             if express is not None and forecast_season == express.end_date:
-                season_nprofit = cal_season_value(express.n_income, income.n_income_attr_p, express.end_date)
-                season_revenue = cal_season_value(express.revenue, income.revenue, express.end_date)
+                if express.n_income is not None:
+                    forecast_nprofit = express.n_income
+                if express.revenue is not None:
+                    forecast_revenue = express.revenue
+                if express.total_hldr_eqy_exc_min_int is not None:
+                    forecast_nassets = express.total_hldr_eqy_exc_min_int
+            if forecast is not None and forecast_season == forecast.end_date:
+                income_forecast_ly = find_previous_period(income_arr, i_i, forecast_season, 4)
+                forecast_min_nprofit = get_forecast_nprofit_ly(forecast, income_forecast_ly)
+                if forecast_nprofit is None and forecast_min_nprofit is not None:
+                    forecast_nprofit = forecast_min_nprofit
 
-                income_l4 = find_previous_period(income_arr, i_i, forecast_season, 4)
-                income_l5 = find_previous_period(income_arr, i_i, forecast_season, 5)
-                income_lyy = find_previous_period(income_arr, i_i, forecast_season, quarter)
-                if income_l4 is not None and income_l5 is not None:
-                    season_nprofit_ly = cal_season_value(income_l4.n_income_attr_p, income_l5.n_income_attr_p,
-                                                         income_l4.end_date)
-                    season_revenue_ly = cal_season_value(income_l4.revenue, income_l5.revenue, income_l4.end_date)
-                if income_l4 is not None and income_lyy is not None:
-                    nprofit_ltm = express.n_income + (income_lyy.n_income_attr_p - income_l4.n_income_attr_p)
-                nassets = express.total_hldr_eqy_exc_min_int
-            elif forecast is not None and forecast_season == forecast.end_date:
-                income_l2 = find_previous_period(income_arr, i_i, forecast_season, 2)
-                income_l4 = find_previous_period(income_arr, i_i, forecast_season, 4)
-                income_l5 = find_previous_period(income_arr, i_i, forecast_season, 5)
-                income_l6 = find_previous_period(income_arr, i_i, forecast_season, 6)
-                income_lyy = find_previous_period(income_arr, i_i, forecast_season, quarter)
+        income_l1 = find_previous_period(income_arr, i_i, report_season, 1)
+        # income_l2 = find_previous_period(income_arr, i_i, report_season, 2)
+        income_l3 = find_previous_period(income_arr, i_i, report_season, 3)
+        income_l4 = find_previous_period(income_arr, i_i, report_season, 4)
+        income_l5 = find_previous_period(income_arr, i_i, report_season, 5)
+        # income_l6 = find_previous_period(income_arr, i_i, report_season, 6)
+        income_lyy = find_previous_period(income_arr, i_i, report_season, report_quarter)
+        income_forecast_lyy = find_previous_period(income_arr, i_i, forecast_season, forecast_quarter)
 
-                forecast_nprofit = get_forecast_nprofit_ly(forecast, income_l4)
-                season_nprofit = None
-                if forecast_nprofit is not None:
-                    season_nprofit = cal_season_value(forecast_nprofit, income.n_income_attr_p, forecast.end_date)
-
-                if income_l4 is not None and income_l5 is not None:
-                    season_nprofit_ly = cal_season_value(income_l4.n_income_attr_p, income_l5.n_income_attr_p,
-                                                         income_l4.end_date)
-                if income_l2 is not None:
-                    season_revenue = cal_season_value(income.revenue, income_l2.revenue, income.end_date)
-                if income_l5 is not None and income_l6 is not None:
-                    season_revenue_ly = cal_season_value(income_l5.revenue, income_l6.revenue, income_l5.end_date)
-                if income_l4 is not None and income_lyy is not None:
-                    nprofit_ltm = forecast_nprofit + (income_lyy.n_income_attr_p - income_l4.n_income_attr_p)
-                nassets = balance.total_hldr_eqy_exc_min_int
-        elif report_season is not None:
-            quarter = get_quarter_num(report_season)
-            income_l1 = find_previous_period(income_arr, i_i, report_season, 1)
-            income_l4 = find_previous_period(income_arr, i_i, report_season, 4)
-            income_l5 = find_previous_period(income_arr, i_i, report_season, 5)
-            income_lyy = find_previous_period(income_arr, i_i, report_season, quarter)
-
-            if income_l1 is not None:
+        # Calculate nprofit
+        if forecast_nprofit is None:
+            # No forecast
+            if income is not None and income_l1 is not None:
                 season_nprofit = cal_season_value(income.n_income_attr_p, income_l1.n_income_attr_p, income.end_date)
-                season_revenue = cal_season_value(income.revenue, income_l1.revenue, income.end_date)
             if income_l4 is not None and income_l5 is not None:
                 season_nprofit_ly = cal_season_value(income_l4.n_income_attr_p, income_l5.n_income_attr_p,
                                                      income_l4.end_date)
-                season_revenue_ly = cal_season_value(income_l4.revenue, income_l5.revenue, income_l4.end_date)
             if income_l4 is not None and income_lyy is not None:
                 nprofit_ltm = income.n_income_attr_p + (income_lyy.n_income_attr_p - income_l4.n_income_attr_p)
+        else:
+            # forecast
+            if income is not None:
+                season_nprofit = cal_season_value(forecast_nprofit, income.n_income_attr_p, forecast_season)
+            if income_l3 is not None and income_l4 is not None:
+                season_nprofit_ly = cal_season_value(income_l3.n_income_attr_p, income_l4.n_income_attr_p,
+                                                     income_l3.end_date)
+            if income_l3 is not None and income_forecast_lyy is not None:
+                nprofit_ltm = forecast_nprofit + (income_forecast_lyy.n_income_attr_p - income_l3.n_income_attr_p)
+
+        # Calculate revenue
+        if forecast_revenue is None:
+            # No forecast
+            if income_l1 is not None:
+                season_revenue = cal_season_value(income.revenue, income_l1.revenue, income.end_date)
+            if income_l4 is not None and income_l5 is not None:
+                season_revenue_ly = cal_season_value(income_l4.revenue, income_l5.revenue, income_l4.end_date)
+        else:
+            # forecast
+            if income is not None:
+                season_revenue = cal_season_value(forecast_revenue, income.revenue, forecast_season)
+            if income_l3 is not None and income_l4 is not None:
+                season_revenue_ly = cal_season_value(income_l3.revenue, income_l4.revenue, income_l3.end_date)
+
+        if forecast_nassets is None:
             nassets = balance.total_hldr_eqy_exc_min_int
+        else:
+            nassets = forecast_nassets
 
         nprofit_ltm_pe = None
         eps_ltm = None
@@ -271,7 +296,7 @@ def calculate(ts_code: str):
                 nprofit_peg = nprofit_ltm_pe / season_nprofit_yoy / 100
 
         pb = None
-        if nassets is not None:
+        if nassets is not None and nassets != 0:
             pb = market_value / nassets
 
         to_insert = MqStockBasicAll(ts_code=ts_code, date=from_date, report_season=report_season,
@@ -302,7 +327,11 @@ def calculate(ts_code: str):
             e_i = e_i_n
             e_i_n = get_next_index(express_arr, 'ann_date', e_i)
 
+    calculate_time = time.time()
+    log.info("Calculate data for %s: %s seconds" % (ts_code, calculate_time - find_index_time))
     session.flush()
+    insert_time = time.time()
+    log.info("Insert data for %s: %s seconds" % (ts_code, insert_time - calculate_time))
 
 
 def calculate_all():

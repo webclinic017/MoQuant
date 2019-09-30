@@ -7,8 +7,10 @@ import tushare as ts
 from pandas import DataFrame
 from tushare.pro.client import DataApi
 
-import moquant.log as log
+from moquant.log import get_logger
 from moquant.utils import json_utils
+
+log = get_logger(__name__)
 
 
 class TsClient(object):

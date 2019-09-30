@@ -6,7 +6,6 @@ import time
 from sqlalchemy import and_, Column, func, Table
 from sqlalchemy.orm import Session
 
-import moquant.log as log
 from moquant.constants import fetch_data_start_date
 from moquant.dbclient import db_client
 from moquant.dbclient.mq_stock_mark import MqStockMark
@@ -19,11 +18,14 @@ from moquant.dbclient.ts_daily_trade_info import StockDailyTradeInfo
 from moquant.dbclient.ts_express import StockExpress
 from moquant.dbclient.ts_forecast import StockForecast
 from moquant.dbclient.ts_income import StockIncome
+from moquant.log import get_logger
 from moquant.scripts import clear_after_fetch
 from moquant.scripts.cal_mq_basic import calculate_all
 from moquant.tsclient import ts_client
 from moquant.utils.datetime import format_delta, get_current_dt
 from moquant.utils.env_utils import pass_fetch_basic
+
+log = get_logger(__name__)
 
 
 def fetch_from_date(date_column: Column, code_column: Column, ts_code: str):
@@ -95,7 +97,8 @@ def init_stock_basic():
     existed = [msm.ts_code for msm in msm_list]
     to_add_code = stock_data[~stock_data['ts_code'].isin(existed)]['ts_code'].array
 
-    to_add_obj = [MqStockMark(ts_code=code, fetch_data=True, last_handle_date=fetch_data_start_date) for code in to_add_code]
+    to_add_obj = [MqStockMark(ts_code=code, fetch_data=True, last_handle_date=fetch_data_start_date) for code in
+                  to_add_code]
 
     if len(to_add_obj) > 0:
         session.add_all(to_add_obj)
