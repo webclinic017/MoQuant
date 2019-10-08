@@ -38,4 +38,4 @@ def date_max(d_arr: list) -> str:
 
 
 def get_quarter_num(d_str: str) -> int:
-    return (int(d_str[4:6]) - 1) // 3 + 1 if d_str is not None else 0
+    return (int(d_str[4:6]) - 1) // 3 + 1 if d_str is not None else None

@@ -3,7 +3,7 @@ from sqlalchemy import Column, BIGINT, Index, String, DECIMAL, INT
 from moquant.dbclient.base import Base
 
 
-class StockExpress(Base):
+class TsExpress(Base):
     __tablename__ = 'ts_express'
     __table_args__ = (
         Index('code_date', 'ts_code', 'ann_date'),

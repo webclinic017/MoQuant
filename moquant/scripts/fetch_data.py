@@ -6,18 +6,19 @@ import time
 from sqlalchemy import and_, Column, func, Table
 from sqlalchemy.orm import Session
 
-from moquant.constants import fetch_data_start_date
+from moquant.constants import fetch_data_start_date, mq_calculate_start_date
 from moquant.dbclient import db_client
 from moquant.dbclient.mq_stock_mark import MqStockMark
 from moquant.dbclient.ts_adj_factor import StockAdjFactor
-from moquant.dbclient.ts_balance_sheet import StockBalanceSheet
-from moquant.dbclient.ts_basic import StockBasic
-from moquant.dbclient.ts_cashflow import StockCashFlow
-from moquant.dbclient.ts_daily_basic import TsStockDailyBasic
-from moquant.dbclient.ts_daily_trade_info import StockDailyTradeInfo
-from moquant.dbclient.ts_express import StockExpress
-from moquant.dbclient.ts_forecast import StockForecast
-from moquant.dbclient.ts_income import StockIncome
+from moquant.dbclient.ts_balance_sheet import TsBalanceSheet
+from moquant.dbclient.ts_basic import TsBasic
+from moquant.dbclient.ts_cashflow import TsCashFlow
+from moquant.dbclient.ts_daily_basic import TsDailyBasic
+from moquant.dbclient.ts_daily_trade_info import TsDailyTradeInfo
+from moquant.dbclient.ts_express import TsExpress
+from moquant.dbclient.ts_fina_indicator import TsFinaIndicator
+from moquant.dbclient.ts_forecast import TsForecast
+from moquant.dbclient.ts_income import TsIncome
 from moquant.log import get_logger
 from moquant.scripts import clear_after_fetch
 from moquant.scripts.cal_mq_basic import calculate_all
@@ -37,47 +38,66 @@ def fetch_from_date(date_column: Column, code_column: Column, ts_code: str):
     return from_date
 
 
-def common_fetch_data(ts_code: str, api_name: str, table: Table, date_field, code_field):
-    to_date = get_current_dt()
-    from_date = fetch_from_date(date_field, code_field, ts_code)
+def common_fetch_data(ts_code: str, api_name: str, table: Table, date_field, code_field, empty_to_end: bool = False):
+    while True:
+        to_date = get_current_dt()
+        from_date = fetch_from_date(date_field, code_field, ts_code)
 
-    for cnt in range(2):
-        log.info('To fetch %s of stock %s %s~%s' % (api_name, ts_code, from_date, to_date))
-        try:
-            stock_data = ts_client.fetch_data_frame(api_name, ts_code, to_date, from_date)
+        stock_data = None
+        for cnt in range(2):
+            log.info('To fetch %s of stock %s %s~%s' % (api_name, ts_code, from_date, to_date))
+            try:
+                stock_data = ts_client.fetch_data_frame(api_name, ts_code, to_date, from_date)
+                break
+            except Exception as e:
+                log.error(e)
+                time.sleep(60)
+
+        if stock_data is None:
+            return False
+        elif not stock_data.empty:
+            db_client.store_dataframe(stock_data, table.__tablename__)
+            print('Successfully save %s of stock %s %s~%s' % (api_name, ts_code, from_date, to_date))
+        if not empty_to_end:
             break
-        except Exception as e:
-            log.err(e)
-            time.sleep(60)
+        elif stock_data.empty:
+            break
 
-    if not stock_data.empty:
-        db_client.store_dataframe(stock_data, table.__tablename__)
-        print('Successfully save %s of stock %s %s~%s' % (api_name, ts_code, from_date, to_date))
+    return True
 
 
 def fetch_data_by_code(stock_code):
-    common_fetch_data(stock_code, 'fetch_daily_basic', TsStockDailyBasic, TsStockDailyBasic.trade_date,
-                      TsStockDailyBasic.ts_code)
-    common_fetch_data(stock_code, 'fetch_daily_bar', StockDailyTradeInfo, StockDailyTradeInfo.trade_date,
-                      StockDailyTradeInfo.ts_code)
-    common_fetch_data(stock_code, 'fetch_adj_factor', StockAdjFactor, StockAdjFactor.trade_date, StockAdjFactor.ts_code)
-    common_fetch_data(stock_code, 'fetch_income', StockIncome, StockIncome.f_ann_date, StockIncome.ts_code)
-    common_fetch_data(stock_code, 'fetch_balance_sheet', StockBalanceSheet, StockBalanceSheet.f_ann_date,
-                      StockBalanceSheet.ts_code)
-    common_fetch_data(stock_code, 'fetch_cash_flow', StockCashFlow, StockCashFlow.f_ann_date, StockCashFlow.ts_code)
-    common_fetch_data(stock_code, 'fetch_forecast', StockForecast, StockForecast.ann_date, StockForecast.ts_code)
-    common_fetch_data(stock_code, 'fetch_express', StockExpress, StockExpress.ann_date, StockExpress.ts_code)
+    result = True
+    result = result and common_fetch_data(stock_code, 'fetch_daily_basic', TsDailyBasic,
+                                          TsDailyBasic.trade_date, TsDailyBasic.ts_code)
+    result = result and common_fetch_data(stock_code, 'fetch_daily_bar', TsDailyTradeInfo,
+                                          TsDailyTradeInfo.trade_date, TsDailyTradeInfo.ts_code)
+    result = result and common_fetch_data(stock_code, 'fetch_adj_factor', StockAdjFactor,
+                                          StockAdjFactor.trade_date, StockAdjFactor.ts_code)
+    result = result and common_fetch_data(stock_code, 'fetch_income', TsIncome,
+                                          TsIncome.ann_date, TsIncome.ts_code)
+    result = result and common_fetch_data(stock_code, 'fetch_balance_sheet', TsBalanceSheet,
+                                          TsBalanceSheet.ann_date, TsBalanceSheet.ts_code)
+    result = result and common_fetch_data(stock_code, 'fetch_cash_flow', TsCashFlow,
+                                          TsCashFlow.ann_date, TsCashFlow.ts_code)
+    result = result and common_fetch_data(stock_code, 'fetch_forecast', TsForecast,
+                                          TsForecast.ann_date, TsForecast.ts_code)
+    result = result and common_fetch_data(stock_code, 'fetch_express', TsExpress,
+                                          TsExpress.ann_date, TsExpress.ts_code)
+    result = result and common_fetch_data(stock_code, 'fetch_fina_indicator', TsFinaIndicator,
+                                          TsFinaIndicator.ann_date, TsFinaIndicator.ts_code)
+    return result
 
 
 def fetch_data():
     session: Session = db_client.get_session()
     result = session.query(MqStockMark).filter(
-        and_(MqStockMark.fetch_data == 1, MqStockMark.last_handle_date < get_current_dt())).all()
+        and_(MqStockMark.fetch_data == 1, MqStockMark.last_fetch_date < get_current_dt())).all()
     log.info(len(result))
-    for row in result:
-        fetch_data_by_code(row.ts_code)
-        row.last_handle_date = get_current_dt()
-        session.flush()
+    for row in result:  # type: MqStockMark
+        if fetch_data_by_code(row.ts_code):
+            row.last_fetch_date = get_current_dt()
+            session.flush()
 
 
 def init_stock_basic():
@@ -86,19 +106,21 @@ def init_stock_basic():
 
     # refresh stock basic every day, to update info and insert new stock
     session: Session = db_client.get_session()
-    session.query(StockBasic).delete()
+    session.query(TsBasic).delete()
 
     stock_data = ts_client.fetch_all_stock()
 
     if not stock_data.empty:
-        db_client.store_dataframe(stock_data, StockBasic.__tablename__)
+        db_client.store_dataframe(stock_data, TsBasic.__tablename__)
 
     msm_list = session.query(MqStockMark).all()
     existed = [msm.ts_code for msm in msm_list]
-    to_add_code = stock_data[~stock_data['ts_code'].isin(existed)]['ts_code'].array
 
-    to_add_obj = [MqStockMark(ts_code=code, fetch_data=True, last_handle_date=fetch_data_start_date) for code in
-                  to_add_code]
+    filter_df = stock_data[~stock_data['ts_code'].isin(existed)].rename(columns={"name":"stock_name"})
+
+    to_add_obj = [MqStockMark(ts_code=stock.ts_code, share_name=stock.stock_name, last_daily_cal=mq_calculate_start_date,
+                              fetch_data=True, last_fetch_date=fetch_data_start_date
+                              ) for index, stock in filter_df.iterrows()]
 
     if len(to_add_obj) > 0:
         session.add_all(to_add_obj)

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cn.momojie.moquant.api.dao.MqDailyBasicDao">
+  <resultMap id="BaseResultMap" type="com.cn.momojie.moquant.api.dto.MqDailyBasic">
+    <id column="ts_code" jdbcType="VARCHAR" property="tsCode" />
+    <id column="date" jdbcType="VARCHAR" property="date" />
+    <result column="share_name" jdbcType="VARCHAR" property="shareName" />
+    <result column="report_season" jdbcType="VARCHAR" property="reportSeason" />
+    <result column="forecast_season" jdbcType="VARCHAR" property="forecastSeason" />
+    <result column="total_share" jdbcType="DECIMAL" property="totalShare" />
+    <result column="close" jdbcType="DECIMAL" property="close" />
+    <result column="market_value" jdbcType="DECIMAL" property="marketValue" />
+    <result column="season_revenue" jdbcType="DECIMAL" property="seasonRevenue" />
+    <result column="season_revenue_ly" jdbcType="DECIMAL" property="seasonRevenueLy" />
+    <result column="season_revenue_yoy" jdbcType="DECIMAL" property="seasonRevenueYoy" />
+    <result column="season_nprofit" jdbcType="DECIMAL" property="seasonNprofit" />
+    <result column="season_nprofit_ly" jdbcType="DECIMAL" property="seasonNprofitLy" />
+    <result column="season_nprofit_yoy" jdbcType="DECIMAL" property="seasonNprofitYoy" />
+    <result column="nprofit_ltm" jdbcType="DECIMAL" property="nprofitLtm" />
+    <result column="nprofit_eps" jdbcType="DECIMAL" property="nprofitEps" />
+    <result column="nprofit_pe" jdbcType="DECIMAL" property="nprofitPe" />
+    <result column="nprofit_peg" jdbcType="DECIMAL" property="nprofitPeg" />
+    <result column="season_dprofit" jdbcType="DECIMAL" property="seasonDprofit" />
+    <result column="season_dprofit_ly" jdbcType="DECIMAL" property="seasonDprofitLy" />
+    <result column="season_dprofit_yoy" jdbcType="DECIMAL" property="seasonDprofitYoy" />
+    <result column="dprofit_ltm" jdbcType="DECIMAL" property="dprofitLtm" />
+    <result column="dprofit_eps" jdbcType="DECIMAL" property="dprofitEps" />
+    <result column="dprofit_pe" jdbcType="DECIMAL" property="dprofitPe" />
+    <result column="dprofit_peg" jdbcType="DECIMAL" property="dprofitPeg" />
+    <result column="nassets" jdbcType="DECIMAL" property="nassets" />
+    <result column="pb" jdbcType="DECIMAL" property="pb" />
+    <result column="is_trade_day" jdbcType="BIT" property="isTradeDay" />
+  </resultMap>
+
+  <select id="selectByParam" parameterType="com.cn.momojie.moquant.api.param.MqDailyBasicParam"
+          resultMap="BaseResultMap">
+    SELECT *
+    FROM mq_daily_basic
+    WHERE 1=1
+    AND date=#{dt}
+    ORDER BY
+    <choose>
+      <when test="g">
+        season_nprofit_yoy DESC
+      </when>
+      <when test="peg">
+        sign(nprofit_peg) DESC, sign(season_nprofit_yoy) DESC, nprofit_peg ASC
+      </when>
+      <otherwise>
+        ts_code ASC
+      </otherwise>
+    </choose>
+
+  </select>
+</mapper>

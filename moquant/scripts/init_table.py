@@ -4,24 +4,27 @@
 
 import moquant.dbclient as client
 from moquant.dbclient.base import Base
-from moquant.dbclient.mq_basic_all import MqStockBasicAll
+from moquant.dbclient.mq_daily_basic import MqDailyBasic
 from moquant.dbclient.mq_stock_mark import MqStockMark
+from moquant.dbclient.mq_sys_param import MqSysParam
 from moquant.dbclient.ts_adj_factor import StockAdjFactor
-from moquant.dbclient.ts_balance_sheet import StockBalanceSheet
-from moquant.dbclient.ts_basic import StockBasic
-from moquant.dbclient.ts_cashflow import StockCashFlow
-from moquant.dbclient.ts_daily_basic import TsStockDailyBasic
-from moquant.dbclient.ts_daily_trade_info import StockDailyTradeInfo
-from moquant.dbclient.ts_express import StockExpress
-from moquant.dbclient.ts_forecast import StockForecast
-from moquant.dbclient.ts_income import StockIncome
+from moquant.dbclient.ts_balance_sheet import TsBalanceSheet
+from moquant.dbclient.ts_basic import TsBasic
+from moquant.dbclient.ts_cashflow import TsCashFlow
+from moquant.dbclient.ts_daily_basic import TsDailyBasic
+from moquant.dbclient.ts_daily_trade_info import TsDailyTradeInfo
+from moquant.dbclient.ts_express import TsExpress
+from moquant.dbclient.ts_fina_indicator import TsFinaIndicator
+from moquant.dbclient.ts_forecast import TsForecast
+from moquant.dbclient.ts_income import TsIncome
 
 
 def create_table():
     engine = client.db_client.get_engine()
-    all_table = [MqStockMark, MqStockBasicAll,
-                 StockBasic, TsStockDailyBasic, StockDailyTradeInfo, StockAdjFactor,
-                 StockIncome, StockBalanceSheet, StockCashFlow, StockForecast, StockExpress]
+    all_table = [MqSysParam, MqStockMark, MqDailyBasic,
+                 TsBasic, TsDailyBasic, TsDailyTradeInfo, StockAdjFactor,
+                 TsIncome, TsBalanceSheet, TsCashFlow, TsForecast, TsExpress,
+                 TsFinaIndicator]
 
     # Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)

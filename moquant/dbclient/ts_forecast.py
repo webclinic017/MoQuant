@@ -4,7 +4,7 @@ from sqlalchemy import Column, BIGINT, Index, String, DECIMAL
 from moquant.dbclient.base import Base
 
 
-class StockForecast(Base):
+class TsForecast(Base):
     __tablename__ = 'ts_forecast'
     __table_args__ = (
         Index('code_date', 'ts_code', 'ann_date'),

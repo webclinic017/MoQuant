@@ -3,10 +3,11 @@ from sqlalchemy import Column, String, DECIMAL, BIGINT, Index
 from moquant.dbclient.base import Base
 
 
-class StockBalanceSheet(Base):
+class TsBalanceSheet(Base):
     __tablename__ = 'ts_balance_sheet'
     __table_args__ = (
         Index('code_date', 'ts_code', 'f_ann_date'),
+        Index('code_date2', 'ts_code', 'ann_date', 'end_date'),
         Index('code_period', 'ts_code', 'end_date'),
         {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
     )

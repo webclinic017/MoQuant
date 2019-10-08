@@ -5,7 +5,7 @@ from sqlalchemy import Column, String, BIGINT, Index
 from moquant.dbclient.base import Base
 
 
-class StockBasic(Base):
+class TsBasic(Base):
     __tablename__ = 'ts_basic'
     __table_args__ = (
         Index('code', 'ts_code'),

@@ -55,6 +55,9 @@ class TsClient(object):
     def fetch_express(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
         return self.__pro.express(ts_code=ts_code, start_date=start_date, end_date=end_date)
 
+    def fetch_fina_indicator(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
+        return self.__pro.fina_indicator(ts_code=ts_code, start_date=start_date, end_date=end_date)
+
     def fetch_data_frame(self, method_name: str, ts_code: str, end_date: str,
                          start_date: str = '19910101') -> DataFrame:
         func = methodcaller(method_name, ts_code=ts_code, start_date=start_date, end_date=end_date)
@@ -62,3 +65,8 @@ class TsClient(object):
 
 
 ts_client = TsClient()
+
+if __name__ == '__main__':
+    result = ts_client.fetch_express('600248.SH', start_date='20190601', end_date='20191010')
+    for index, stock in result.iterrows():
+        print(stock.yoy_net_profit)
