@@ -41,7 +41,9 @@ class TsClient(object):
         return self.__pro.adj_factor(ts_code=ts_code, start_date=start_date, end_date=end_date)
 
     def fetch_income(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
-        return self.__pro.income(ts_code=ts_code, start_date=start_date, end_date=end_date)
+        df1: DataFrame = self.__pro.income(ts_code=ts_code, start_date=start_date, end_date=end_date, report_type=1)
+        df2: DataFrame = self.__pro.income(ts_code=ts_code, start_date=start_date, end_date=end_date, report_type=4)
+        return df1.append(df2)
 
     def fetch_balance_sheet(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
         return self.__pro.balancesheet(ts_code=ts_code, start_date=start_date, end_date=end_date)
@@ -59,8 +61,8 @@ class TsClient(object):
         return self.__pro.fina_indicator(ts_code=ts_code, start_date=start_date, end_date=end_date)
 
     def fetch_data_frame(self, method_name: str, ts_code: str, end_date: str,
-                         start_date: str = '19910101') -> DataFrame:
-        func = methodcaller(method_name, ts_code=ts_code, start_date=start_date, end_date=end_date)
+                         start_date: str = '19910101', **kwargs) -> DataFrame:
+        func = methodcaller(method_name, ts_code=ts_code, start_date=start_date, end_date=end_date, **kwargs)
         return func(self)
 
 

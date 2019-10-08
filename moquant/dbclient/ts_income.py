@@ -10,6 +10,7 @@ class TsIncome(Base):
     __table_args__ = (
         Index('code_date', 'ts_code', 'ann_date', 'end_date'),
         Index('code_period', 'ts_code', 'end_date'),
+        Index('code_type_date', 'ts_code', 'report_type', 'ann_date', 'end_date'),
         {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
     )
 

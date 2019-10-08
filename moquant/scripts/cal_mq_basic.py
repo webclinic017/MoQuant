@@ -111,7 +111,7 @@ def cal_season_value(current, last, period: str):
         return None
 
 
-def cal_last_year(current, yoy):
+def cal_last_year(current, yoy, adjust):
     """
     (current - x) / abs(x) = yoy
     if x < 0:
@@ -119,16 +119,19 @@ def cal_last_year(current, yoy):
     if x >= 0
     current / x - 1 = yoy -> x = current / (yoy + 1)
     """
+    if adjust == 0:
+        # No adjust, can find in previous fina
+        return None
     if current is None or yoy is None:
         return None
     yoy = yoy / 100
     ans1 = current / (1 - yoy) if 1 - yoy != 0 else None
     ans2 = current / (1 + yoy) if 1 + yoy != 0 else None
 
-    if yoy >= 0:
-        return ans1 if ans1 is not None and current >= ans1 else ans2
+    if adjust >= 0:
+        return ans1 if ans1 is not None and ans1 >= ans2 else ans2
     else:
-        return ans1 if ans1 is not None and current < ans1 else ans2
+        return ans1 if ans1 is not None and ans1 < ans2 else ans2
 
 
 def cal_ltm(current, last_year, last_year_q4, adjust, period):
@@ -140,6 +143,13 @@ def cal_ltm(current, last_year, last_year_q4, adjust, period):
         return None
     else:
         return current + last_year_q4 - last_year + adjust
+
+
+def get_first_not_none(arr, field_name):
+    for item in arr:
+        if item is not None and getattr(item, field_name) is not None:
+            return getattr(item, field_name)
+    return None
 
 
 def calculate(ts_code: str, share_name: str):
@@ -181,27 +191,32 @@ def calculate(ts_code: str, share_name: str):
     income_arr = session.query(TsIncome) \
         .filter(
         and_(TsIncome.ts_code == ts_code, TsIncome.end_date >= from_period, TsIncome.report_type == 1)) \
-        .order_by(TsIncome.ann_date.asc()).all()
+        .order_by(TsIncome.ann_date.asc(), TsIncome.end_date.asc()).all()
     if len(income_arr) > 0 and income_arr[0].ann_date > from_date:
         from_date = income_arr[0].ann_date
+
+    adjust_income_arr = session.query(TsIncome) \
+        .filter(
+        and_(TsIncome.ts_code == ts_code, TsIncome.end_date >= from_period, TsIncome.report_type == 4)) \
+        .order_by(TsIncome.ann_date.asc(), TsIncome.end_date.asc()).all()
 
     balance_arr = session.query(TsBalanceSheet) \
         .filter(and_(TsBalanceSheet.ts_code == ts_code, TsBalanceSheet.end_date >= from_period,
                      TsBalanceSheet.report_type == 1)) \
-        .order_by(TsBalanceSheet.ann_date.asc()).all()
+        .order_by(TsBalanceSheet.ann_date.asc(), TsBalanceSheet.end_date.asc()).all()
 
     fina_arr = session.query(TsFinaIndicator) \
         .filter(and_(TsFinaIndicator.ts_code == ts_code, TsFinaIndicator.end_date >= from_period,
                      TsFinaIndicator.ann_date != None)) \
-        .order_by(TsFinaIndicator.ann_date.asc()).all()
+        .order_by(TsFinaIndicator.ann_date.asc(), TsFinaIndicator.end_date.asc()).all()
 
     forecast_arr = session.query(TsForecast) \
         .filter(and_(TsForecast.ts_code == ts_code, TsForecast.end_date >= from_period)) \
-        .order_by(TsForecast.ann_date.asc()).all()
+        .order_by(TsForecast.ann_date.asc(), TsForecast.end_date.asc()).all()
 
     express_arr = session.query(TsExpress) \
         .filter(and_(TsExpress.ts_code == ts_code, TsExpress.end_date >= from_period)) \
-        .order_by(TsExpress.ann_date.asc()).all()
+        .order_by(TsExpress.ann_date.asc(), TsExpress.end_date.asc()).all()
 
     prepare_time = time.time()
     log.info("Prepare data for %s: %s seconds" % (ts_code, prepare_time - start_time))
@@ -211,6 +226,7 @@ def calculate(ts_code: str, share_name: str):
     b_i = get_start_index(balance_arr, 'ann_date', from_date)
     # index of income
     i_i = get_start_index(income_arr, 'ann_date', from_date)
+    ai_i = get_start_index(adjust_income_arr, 'ann_date', from_date)
     fi_i = get_start_index(fina_arr, 'ann_date', from_date)
     f_i = get_start_index(forecast_arr, 'ann_date', from_date)
     e_i = get_start_index(express_arr, 'ann_date', from_date)
@@ -218,6 +234,7 @@ def calculate(ts_code: str, share_name: str):
     d_i_n = get_next_index(daily_arr, 'trade_date', d_i)
     b_i_n = get_next_index(balance_arr, 'ann_date', b_i)
     i_i_n = get_next_index(income_arr, 'ann_date', i_i)
+    ai_i_n = get_next_index(adjust_income_arr, 'ann_date', ai_i)
     fi_i_n = get_next_index(fina_arr, 'ann_date', fi_i)
     f_i_n = get_next_index(forecast_arr, 'ann_date', f_i)
     e_i_n = get_next_index(express_arr, 'ann_date', e_i)
@@ -288,44 +305,39 @@ def calculate(ts_code: str, share_name: str):
                     forecast_nprofit_ly = forecast.last_parent_net * 10000
 
         income_l1: TsIncome = find_previous_period(income_arr, i_i, report_season, 1)
-        # income_l2 = find_previous_period(income_arr, i_i, report_season, 2)
         income_l3: TsIncome = find_previous_period(income_arr, i_i, report_season, 3)
         income_l4: TsIncome = find_previous_period(income_arr, i_i, report_season, 4)
         income_l5: TsIncome = find_previous_period(income_arr, i_i, report_season, 5)
-        # income_l6 = find_previous_period(income_arr, i_i, report_season, 6)
         income_lyy: TsIncome = find_previous_period(income_arr, i_i, report_season, report_quarter)
         income_forecast_lyy: TsIncome = find_previous_period(income_arr, i_i, forecast_season, forecast_quarter)
+
+        adjust_income_l3: TsIncome = find_previous_period(adjust_income_arr, ai_i, report_season, 3)
+        adjust_income_l4: TsIncome = find_previous_period(adjust_income_arr, ai_i, report_season, 4)
+        adjust_income_l5: TsIncome = find_previous_period(adjust_income_arr, ai_i, report_season, 5)
 
         fina_l1: TsFinaIndicator = find_previous_period(fina_arr, fi_i, report_season, 1)
         fina_l4: TsFinaIndicator = find_previous_period(fina_arr, fi_i, report_season, 4)
         fina_l5: TsFinaIndicator = find_previous_period(fina_arr, fi_i, report_season, 5)
         fina_lyy: TsFinaIndicator = find_previous_period(fina_arr, fi_i, report_season, report_quarter)
 
+        nprofit_adjust = 0
         # Calculate nprofit
         if forecast_nprofit is None:
-            nprofit_ly = None
-            nprofit_ly_l1 = None
             # No forecast
             if income is not None and income_l1 is not None:
                 season_nprofit = cal_season_value(income.n_income_attr_p, income_l1.n_income_attr_p, report_season)
-                if fina is not None and fina_l1 is not None:
-                    nprofit_ly = cal_last_year(income.n_income_attr_p, fina.netprofit_yoy)
-                    nprofit_ly_l1 = cal_last_year(income_l1.n_income_attr_p, fina_l1.netprofit_yoy)
-            if nprofit_ly is None and income_l4 is not None:
-                nprofit_ly = income_l4.n_income_attr_p
 
-            if nprofit_ly_l1 is None and income_l5 is not None:
-                nprofit_ly_l1 = income_l5.n_income_attr_p
+            nprofit_ly = get_first_not_none([adjust_income_l4, income_l4], 'n_income_attr_p')
+            nprofit_ly_l1 = get_first_not_none([adjust_income_l5, income_l5], 'n_income_attr_p')
 
             if nprofit_ly is not None and nprofit_ly_l1 is not None:
                 season_nprofit_ly = cal_season_value(nprofit_ly, nprofit_ly_l1, report_season)
 
-            adjust = 0
             if income_l4 is not None and income_l4.n_income_attr_p is not None:
-                adjust = nprofit_ly - income_l4.n_income_attr_p
+                nprofit_adjust = nprofit_ly - income_l4.n_income_attr_p
 
             if income is not None and income_lyy is not None:
-                nprofit_ltm = cal_ltm(income.n_income_attr_p, nprofit_ly, income_lyy.n_income_attr_p, adjust,
+                nprofit_ltm = cal_ltm(income.n_income_attr_p, nprofit_ly, income_lyy.n_income_attr_p, nprofit_adjust,
                                       report_season)
         else:
             # forecast
@@ -333,22 +345,19 @@ def calculate(ts_code: str, share_name: str):
             nprofit_ly_l1 = None
             if income is not None:
                 season_nprofit = cal_season_value(forecast_nprofit, income.n_income_attr_p, forecast_season)
-                if fina is not None:
-                    nprofit_ly_l1 = cal_last_year(income.n_income_attr_p, fina.netprofit_yoy)
-            if nprofit_ly is None and income_l3 is not None:
-                nprofit_ly = income_l3.n_income_attr_p
-            if nprofit_ly_l1 is None and income_l4 is not None:
-                nprofit_ly_l1 = income_l4.n_income_attr_p
+            if nprofit_ly is None:
+                nprofit_ly = get_first_not_none([adjust_income_l3, income_l3], 'n_income_attr_p')
+            if nprofit_ly_l1 is None:
+                nprofit_ly_l1 = get_first_not_none([adjust_income_l4, income_l4], 'n_income_attr_p')
 
             if nprofit_ly is not None and nprofit_ly_l1 is not None:
                 season_nprofit_ly = cal_season_value(nprofit_ly, nprofit_ly_l1, forecast_season)
 
-            adjust = 0
             if income_l3 is not None and income_l3.n_income_attr_p is not None:
-                adjust = nprofit_ly - income_l3.n_income_attr_p
+                nprofit_adjust = nprofit_ly - income_l3.n_income_attr_p
 
             if income_forecast_lyy is not None:
-                nprofit_ltm = cal_ltm(forecast_nprofit, nprofit_ly, income_forecast_lyy.n_income_attr_p, adjust,
+                nprofit_ltm = cal_ltm(forecast_nprofit, nprofit_ly, income_forecast_lyy.n_income_attr_p, nprofit_adjust,
                                       forecast_season)
 
         # Calculate dprofit
@@ -359,8 +368,8 @@ def calculate(ts_code: str, share_name: str):
             if fina is not None and fina_l1 is not None:
                 season_dprofit = cal_season_value(fina.profit_dedt, fina_l1.profit_dedt, report_season)
                 if fina is not None and fina_l1 is not None:
-                    dprofit_ly = cal_last_year(fina.profit_dedt, fina.dt_netprofit_yoy)
-                    dprofit_ly_l1 = cal_last_year(fina_l1.profit_dedt, fina_l1.dt_netprofit_yoy)
+                    dprofit_ly = cal_last_year(fina.profit_dedt, fina.dt_netprofit_yoy, nprofit_adjust)
+                    dprofit_ly_l1 = cal_last_year(fina_l1.profit_dedt, fina_l1.dt_netprofit_yoy, nprofit_adjust)
             if dprofit_ly is None and fina_l4 is not None:
                 dprofit_ly = fina_l4.profit_dedt
 
@@ -380,19 +389,12 @@ def calculate(ts_code: str, share_name: str):
 
         # Calculate revenue
         if forecast_revenue is None:
-            revenue_ly = None
-            revenue_ly_l1 = None
             # No forecast
             if income is not None and income_l1 is not None:
                 season_revenue = cal_season_value(income.revenue, income_l1.revenue, income.end_date)
-                if fina is not None and fina_l1 is not None:
-                    revenue_ly = cal_last_year(income.revenue, fina.or_yoy)
-                    revenue_ly_l1 = cal_last_year(income_l1.revenue, fina_l1.or_yoy)
 
-            if revenue_ly is None and income_l4 is not None:
-                revenue_ly = income_l4.revenue
-            if revenue_ly_l1 is None and income_l5 is not None:
-                revenue_ly_l1 = income_l5.revenue
+            revenue_ly = get_first_not_none([adjust_income_l4, income_l4], 'revenue')
+            revenue_ly_l1 = get_first_not_none([adjust_income_l5, income_l5], 'revenue')
 
             if revenue_ly and revenue_ly_l1 is not None:
                 season_revenue_ly = cal_season_value(revenue_ly, revenue_ly_l1, report_season)
@@ -402,13 +404,11 @@ def calculate(ts_code: str, share_name: str):
             revenue_ly_l1 = None
             if income is not None:
                 season_revenue = cal_season_value(forecast_revenue, income.revenue, forecast_season)
-                if fina is not None:
-                    revenue_ly_l1 = cal_last_year(income.revenue, fina.or_yoy)
 
-            if revenue_ly is None and income_l3 is not None:
-                revenue_ly = income_l3.revenue
-            if revenue_ly_l1 is None and income_l4 is not None:
-                revenue_ly_l1 = income_l4.revenue
+            if revenue_ly is None:
+                revenue_ly = get_first_not_none([adjust_income_l3, income_l3], 'revenue')
+            if revenue_ly_l1 is None:
+                revenue_ly_l1 = get_first_not_none([adjust_income_l4, income_l4], 'revenue')
 
             if revenue_ly and revenue_ly_l1 is not None:
                 season_revenue_ly = cal_season_value(revenue_ly, revenue_ly_l1, forecast_season)
@@ -478,6 +478,10 @@ def calculate(ts_code: str, share_name: str):
         if can_use_next_date(income_arr, 'ann_date', i_i_n, from_date):
             i_i = i_i_n
             i_i_n = get_next_index(income_arr, 'ann_date', i_i)
+
+        if can_use_next_date(adjust_income_arr, 'ann_date', ai_i_n, from_date):
+            ai_i = ai_i_n
+            ai_i_n = get_next_index(adjust_income_arr, 'ann_date', ai_i)
 
         if can_use_next_date(fina_arr, 'ann_date', fi_i_n, from_date):
             fi_i = fi_i_n
