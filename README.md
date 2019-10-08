@@ -1,18 +1,12 @@
 # MoQuant
 小打小闹的玩意，希望能整理出一套时候自己的交易模型
 
-## Dependencies
-package|version
-|:----:|:----:|
-|python|3.7|
-|pip|19.2.3|
-|pymysql|0.9.3|
-|pandas|0.25.1|
-|tushare|1.2.45|
-|SQLAlchemy|1.3.8|
-|lxml|4.4.1|
-|requests|2.22.0|
-|bs4|0.0.1|
+## Sys Envs
+Key|Value|Desc
+|:----:|:----:|:----:|
+|ECHO_SQL|1|输出Sql
+|PASS_FETCH_BASIC|1|跳过获取股票基本信息
+|LOG_FILE_NAME|/your-log-path/xx.log|日志保存路径|
 
 
 ## Database - MySql
