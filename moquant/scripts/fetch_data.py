@@ -131,7 +131,7 @@ def init_stock_basic():
 
 
 def run(ts_code):
-    if ts_code is not None:
+    if ts_code is not None and ts_code != '':
         session: Session = db_client.get_session()
         mq_list: MqStockMark = session.query(MqStockMark).filter(MqStockMark.ts_code == sys.argv[1]).all()
         for mq in mq_list:

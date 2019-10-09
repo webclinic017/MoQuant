@@ -13,12 +13,12 @@ def usage():
 
 if __name__ == '__main__':
     opts, args = getopt.getopt(sys.argv[1:], "hj:c:")
-    job_name = ""
-    ts_code = ""
+    job_name = None
+    ts_code = None
     for op, value in opts:
         if op == "-j":
             job_name = value
-        elif op == "-o":
+        elif op == "-c":
             ts_code = value
         elif op == "-h":
             usage()
