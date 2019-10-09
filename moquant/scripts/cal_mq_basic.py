@@ -516,11 +516,15 @@ def calculate_all():
     session.flush()
 
 
-if __name__ == '__main__':
-    if len(sys.argv) > 1:
+def run(ts_code: str):
+    if ts_code is not None:
         session: Session = db_client.get_session()
-        mq_list: MqStockMark = session.query(MqStockMark).filter(MqStockMark.ts_code == sys.argv[1]).all()
+        mq_list: MqStockMark = session.query(MqStockMark).filter(MqStockMark.ts_code == ts_code).all()
         for mq in mq_list:
             calculate(mq.ts_code, mq.share_name)
     else:
         calculate_all()
+
+
+if __name__ == '__main__':
+    run(sys.argv[1] if len(sys.argv) > 1 else None)

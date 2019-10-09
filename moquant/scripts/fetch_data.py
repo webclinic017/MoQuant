@@ -39,7 +39,8 @@ def fetch_from_date(date_column: Column, code_column: Column, ts_code: str):
     return from_date
 
 
-def common_fetch_data(ts_code: str, api_name: str, table: Table, date_field, code_field, empty_to_end: bool = False, **kwargs):
+def common_fetch_data(ts_code: str, api_name: str, table: Table, date_field, code_field, empty_to_end: bool = False,
+                      **kwargs):
     while True:
         to_date = get_current_dt()
         from_date = fetch_from_date(date_field, code_field, ts_code)
@@ -117,27 +118,32 @@ def init_stock_basic():
     msm_list = session.query(MqStockMark).all()
     existed = [msm.ts_code for msm in msm_list]
 
-    filter_df = stock_data[~stock_data['ts_code'].isin(existed)].rename(columns={"name":"stock_name"})
+    filter_df = stock_data[~stock_data['ts_code'].isin(existed)].rename(columns={"name": "stock_name"})
 
-    to_add_obj = [MqStockMark(ts_code=stock.ts_code, share_name=stock.stock_name, last_daily_cal=mq_calculate_start_date,
-                              fetch_data=True, last_fetch_date=fetch_data_start_date
-                              ) for index, stock in filter_df.iterrows()]
+    to_add_obj = [
+        MqStockMark(ts_code=stock.ts_code, share_name=stock.stock_name, last_daily_cal=mq_calculate_start_date,
+                    fetch_data=True, last_fetch_date=fetch_data_start_date
+                    ) for index, stock in filter_df.iterrows()]
 
     if len(to_add_obj) > 0:
         session.add_all(to_add_obj)
         session.flush()
 
 
-if __name__ == '__main__':
-    if len(sys.argv) > 1:
+def run(ts_code):
+    if ts_code is not None:
         session: Session = db_client.get_session()
         mq_list: MqStockMark = session.query(MqStockMark).filter(MqStockMark.ts_code == sys.argv[1]).all()
         for mq in mq_list:
             fetch_data_by_code(mq.ts_code)
             mq.last_fetch_date = get_current_dt()
-        session.flush();
+            session.flush()
     else:
         init_stock_basic()
         fetch_data()
         clear_after_fetch.clear()
         calculate_all()
+
+
+if __name__ == '__main__':
+    run(sys.argv[1] if len(sys.argv) > 1 else None)

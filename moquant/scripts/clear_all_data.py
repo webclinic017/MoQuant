@@ -40,5 +40,9 @@ def clear(ts_code: str):
         session.flush()
 
 
+def run(ts_code):
+    clear(ts_code)
+
+
 if __name__ == '__main__':
-    clear(sys.argv[1])
+    run(sys.argv[1])
