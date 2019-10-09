@@ -7,3 +7,4 @@ venv/
 secretConfig.xml
 generatorConfig.xml
 mbg/
+mq.log*
