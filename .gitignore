@@ -8,3 +8,4 @@ secretConfig.xml
 generatorConfig.xml
 mbg/
 mq.log*
+nohup.out
