@@ -128,10 +128,14 @@ def cal_last_year(current, yoy, adjust):
     ans1 = current / (1 - yoy) if 1 - yoy != 0 else None
     ans2 = current / (1 + yoy) if 1 + yoy != 0 else None
 
-    if adjust >= 0:
-        return ans1 if ans1 is not None and ans1 >= ans2 else ans2
+    if ans1 is None:
+        return ans2
+    elif ans2 is None:
+        return ans1
+    elif adjust >= 0:
+        return ans1 if ans1 >= ans2 else ans2
     else:
-        return ans1 if ans1 is not None and ans1 < ans2 else ans2
+        return ans1 if ans1 < ans2 else ans2
 
 
 def cal_ltm(current, last_year, last_year_q4, adjust, period):
