@@ -1,5 +1,5 @@
 server:
-  port: 9871
+  port: 9874
   servlet:
     context-path: /mq_api
 spring:

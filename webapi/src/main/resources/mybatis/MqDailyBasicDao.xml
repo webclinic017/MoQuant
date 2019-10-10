@@ -52,4 +52,13 @@
     </choose>
 
   </select>
+
+  <select id="selectLatestByCode"
+          resultMap="BaseResultMap">
+    SELECT *
+    FROM mq_daily_basic
+    WHERE ts_code = #{tsCode}
+    AND date = #{dt}
+
+  </select>
 </mapper>
