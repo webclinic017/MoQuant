@@ -7,7 +7,7 @@ from moquant.scripts import clear_all_data, init_table, fetch_data, cal_mq_basic
 
 
 def usage():
-    print("-j job名称 init_table, clear_all_data, fetch_data, cal_mq_basic")
+    print("-j job init_table, clear_all_data, fetch_data, cal_mq_basic")
     print("-c ts_code Eg. 000001.SZ")
 
 
@@ -32,4 +32,4 @@ if __name__ == '__main__':
     elif job_name == 'cal_mq_basic':
         cal_mq_basic.run(ts_code)
     else:
-        print("不支持的job")
+        print("unsupported job")
