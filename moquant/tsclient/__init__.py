@@ -8,7 +8,7 @@ from pandas import DataFrame
 from tushare.pro.client import DataApi
 
 from moquant.log import get_logger
-from moquant.utils import json_utils
+from moquant.utils.env_utils import get_env_value
 
 log = get_logger(__name__)
 
@@ -21,8 +21,7 @@ class TsClient(object):
         if not hasattr(cls, '__inst'):
             cls.__inst = super(TsClient, cls).__new__(cls, *args, **kwargs)
             cls.__inst.__ts = ts
-            info_json = json_utils.from_file('/resources/ts.json')
-            cls.__inst.__ts.set_token(info_json['token'])
+            cls.__inst.__ts.set_token(get_env_value('TS_TOKEN'))
             log.info('Init tushare token successfully')
             cls.__inst.__pro = cls.__inst.__ts.pro_api()
         return cls.__inst

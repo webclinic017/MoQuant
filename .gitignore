@@ -4,8 +4,8 @@ ts.json
 __pycache__/
 venv/
 *.iml
-secretConfig.xml
 generatorConfig.xml
 mbg/
 mq.log*
 nohup.out
+webapi/target/

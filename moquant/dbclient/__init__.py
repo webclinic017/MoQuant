@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """ DB Client """
-import json as json
 
 import pymysql
 import sqlalchemy.engine.url as url
@@ -12,8 +11,7 @@ from sqlalchemy.engine.base import Engine, Connection
 from sqlalchemy.orm import sessionmaker, Session
 
 from moquant.log import get_logger
-from moquant.utils import json_utils
-from moquant.utils.env_utils import to_echo_sql
+from moquant.utils.env_utils import to_echo_sql, get_env_value
 
 log = get_logger(__name__)
 
@@ -27,17 +25,15 @@ class DBClient(object):
         if not hasattr(cls, '__inst'):
             pymysql.install_as_MySQLdb()
             cls.__inst = super(DBClient, cls).__new__(cls, *args, **kwargs)
-            info_json = json_utils.from_file('/resources/db_info.json')
             engine_url = url.URL(
                 drivername='mysql',
-                host=info_json['host'],
-                port=info_json['port'],
-                username=info_json['user'],
-                password=info_json['password'],
-                database=info_json['database'],
+                host=get_env_value('DB_HOST'),
+                port=get_env_value('DB_PORT'),
+                username=get_env_value('DB_USER'),
+                password=get_env_value('DB_PWD'),
+                database=get_env_value('MQ_DB_SCHEMA'),
                 query={'charset': 'utf8'}
             )
-            log.info('Database config: %s' % json.dumps(info_json))
             cls.__inst.__engine = create_engine(engine_url, encoding='utf-8', echo=to_echo_sql())
             cls.__inst.__session_auto = sessionmaker(bind=cls.__inst.__engine, autocommit=True)
             cls.__inst.__session = sessionmaker(bind=cls.__inst.__engine, autocommit=False)
