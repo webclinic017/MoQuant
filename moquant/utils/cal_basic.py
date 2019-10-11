@@ -1,11 +1,7 @@
-from moquant.utils.datetime import format_delta
-
-
-def get_index_by_ann_date(arr, current_date: str) -> int:
-    ann_date_to_find = format_delta(current_date, 1)
-    i = -1
+def get_index_by_ann_date(arr, current_date: str, from_index: int = -1) -> int:
+    i = from_index
     while i + 1 < len(arr):
-        if arr[i + 1].ann_date > ann_date_to_find:
+        if arr[i + 1].f_ann_date > current_date:
             break
         else:
             i += 1

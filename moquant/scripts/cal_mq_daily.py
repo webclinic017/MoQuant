@@ -29,24 +29,7 @@ from moquant.utils.datetime import format_delta, first_report_period, get_curren
 log = get_logger(__name__)
 
 
-def find_previous_period(arr: list, pos: int, period: str, num: int):
-    if num is None:
-        return None
-    year = int(period[0:4])
-    month = int(period[4:6])
-    for i in range(num):
-        month -= 3
-        if month == 0:
-            year -= 1
-            month = 12
-    day = 30 if month == 6 or month == 9 else 31
-    to_find_period = '%d%02d%02d' % (year, month, day)
-    while pos >= 0 and arr[pos].end_date != to_find_period and arr[pos].ann_date >= to_find_period:
-        pos -= 1
-    if pos >= 0 and arr[pos].end_date == to_find_period:
-        return arr[pos]
-    else:
-        return None
+
 
 
 def calculate(ts_code: str, share_name: str):
