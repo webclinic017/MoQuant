@@ -68,6 +68,6 @@ class TsClient(object):
 ts_client = TsClient()
 
 if __name__ == '__main__':
-    result = ts_client.fetch_express('600248.SH', start_date='20190601', end_date='20191010')
+    result = ts_client.fetch_forecast('000048.SZ', start_date='20181031', end_date='20181031')
     for index, stock in result.iterrows():
-        print(stock.yoy_net_profit)
+        print('%s %s' % (stock.end_date, stock.report_type))

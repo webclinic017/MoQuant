@@ -29,57 +29,6 @@ from moquant.utils.datetime import format_delta, first_report_period, get_curren
 log = get_logger(__name__)
 
 
-def get_start_index(arr, date_field: str, current_date: str) -> int:
-    i = -1
-    while i + 1 < len(arr):
-        if getattr(arr[i + 1], date_field) > current_date:
-            break
-        else:
-            i += 1
-    return i
-
-
-def get_next_index(arr, date_field: str, pos: str) -> int:
-    if pos == len(arr):
-        return None
-    result = pos + 1
-    while result < len(arr) and getattr(arr[result], date_field) < getattr(arr[pos], date_field):
-        result += 1
-    if result >= len(arr):
-        return None
-    else:
-        return result
-
-
-def can_use_next_date(arr: list, date_field: str, next_pos: int, current_date: str) -> bool:
-    if next_pos is None:
-        return False
-    else:
-        return getattr(arr[next_pos], date_field) <= current_date
-
-
-def get_forecast_nprofit_ly(forecast: TsForecast, income_l4: TsIncome):
-    forecast_nprofit = None
-    if forecast.net_profit_min is not None:
-        forecast_nprofit = forecast.net_profit_min * 10000
-    elif forecast.net_profit_max is not None:
-        forecast_nprofit = forecast.net_profit_max * 10000
-    else:
-        percent = None
-        # choose minimum percent.
-        if forecast.p_change_min is not None:
-            percent = forecast.p_change_min
-        if forecast.p_change_max is not None:
-            if percent is None or forecast.p_change_max < percent:
-                percent = forecast.p_change_max
-        percent = (percent / 100) + 1
-        if income_l4 is not None:
-            forecast_nprofit = percent * income_l4.n_income_attr_p
-        elif forecast.last_parent_net is not None:
-            forecast_nprofit = percent * forecast.last_parent_net * 10000
-    return forecast_nprofit
-
-
 def find_previous_period(arr: list, pos: int, period: str, num: int):
     if num is None:
         return None
@@ -98,62 +47,6 @@ def find_previous_period(arr: list, pos: int, period: str, num: int):
         return arr[pos]
     else:
         return None
-
-
-def cal_season_value(current, last, period: str):
-    if period is None:
-        return None
-    elif int(period[4:6]) == 3:
-        return current
-    elif current is not None and last is not None:
-        return current - last
-    else:
-        return None
-
-
-def cal_last_year(current, yoy, adjust):
-    """
-    (current - x) / abs(x) = yoy
-    if x < 0:
-    -current/x + 1 = yoy -> x = current / (1- yoy)
-    if x >= 0
-    current / x - 1 = yoy -> x = current / (yoy + 1)
-    """
-    if adjust == 0:
-        # No adjust, can find in previous fina
-        return None
-    if current is None or yoy is None:
-        return None
-    yoy = yoy / 100
-    ans1 = current / (1 - yoy) if 1 - yoy != 0 else None
-    ans2 = current / (1 + yoy) if 1 + yoy != 0 else None
-
-    if ans1 is None:
-        return ans2
-    elif ans2 is None:
-        return ans1
-    elif adjust >= 0:
-        return ans1 if ans1 >= ans2 else ans2
-    else:
-        return ans1 if ans1 < ans2 else ans2
-
-
-def cal_ltm(current, last_year, last_year_q4, adjust, period):
-    if period is None:
-        return None
-    elif int(period[4:6]) == 12:
-        return current
-    elif current is None or last_year is None or last_year_q4 is None or adjust is None:
-        return None
-    else:
-        return current + last_year_q4 - last_year + adjust
-
-
-def get_first_not_none(arr, field_name):
-    for item in arr:
-        if item is not None and getattr(item, field_name) is not None:
-            return getattr(item, field_name)
-    return None
 
 
 def calculate(ts_code: str, share_name: str):
