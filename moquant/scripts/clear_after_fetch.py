@@ -1,4 +1,7 @@
 from moquant.dbclient import db_client
+from moquant.log import get_logger
+
+log = get_logger(__name__)
 
 
 def clear_duplicate_report_sql(table: str, ts_code: str) -> str:
@@ -26,7 +29,7 @@ def clear_duplicate_report_sql(table: str, ts_code: str) -> str:
     """ % (table, table if ts_code is None else table + ' where ts_code = \'%s\'' % ts_code, table)
 
 
-def clear_duplicate_forecast(table: str, ts_code:str) -> str:
+def clear_duplicate_forecast(table: str, ts_code: str) -> str:
     return """
     delete from %s
     where id in
