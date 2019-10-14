@@ -39,3 +39,38 @@ def date_max(d_arr: list) -> str:
 
 def get_quarter_num(d_str: str) -> int:
     return (int(d_str[4:6]) - 1) // 3 + 1 if d_str is not None else None
+
+def get_period(year: int, month: int) -> str:
+    day = 30 if month == 6 or month == 9 else 31
+    return '%d%02d%02d' % (year, month, day)
+
+def next_period(d_str: str) -> str:
+    year = int(d_str[0:4])
+    month = int(d_str[4:6])
+    if month == 12:
+        year = year + 1
+        month = 3
+    else:
+        month = month + 3
+    return get_period(year, month)
+
+
+def period_delta(d_str: str, delta: int) -> str:
+    if delta == 0:
+        return d_str
+    year = int(d_str[0:4])
+    month = int(d_str[4:6])
+    step = 3
+    if delta < 0:
+        step = -3
+        delta = abs(delta)
+    for x in range(delta):
+        month = month + step
+        if month == 0:
+            month = 12
+            year = year - 1
+        elif month == 15:
+            month = 3
+            year = year + 1
+    return get_period(year, month)
+
