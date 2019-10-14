@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """ To fetch basic data from TuShare """
+import _thread
 import sys
 import time
 
@@ -21,14 +22,13 @@ from moquant.dbclient.ts_fina_indicator import TsFinaIndicator
 from moquant.dbclient.ts_forecast import TsForecast
 from moquant.dbclient.ts_income import TsIncome
 from moquant.log import get_logger
-from moquant.scripts import clear_after_fetch
-from moquant.scripts.cal_mq_basic import calculate_all
+from moquant.scripts import clear_after_fetch, cal_mq_quarter, cal_mq_daily
 from moquant.tsclient import ts_client
 from moquant.utils.datetime import format_delta, get_current_dt
 from moquant.utils.env_utils import pass_fetch_basic
 
 log = get_logger(__name__)
-
+threads = []
 
 def fetch_from_date(date_column: Column, code_column: Column, ts_code: str):
     session: Session = db_client.get_session()
@@ -42,7 +42,7 @@ def fetch_from_date(date_column: Column, code_column: Column, ts_code: str):
 def common_fetch_data(ts_code: str, api_name: str, table: Table, date_field, code_field, empty_to_end: bool = False,
                       **kwargs):
     while True:
-        to_date = get_current_dt()
+        to_date = format_delta(get_current_dt(), 1)
         from_date = fetch_from_date(date_field, code_field, ts_code)
 
         stock_data = None
@@ -100,6 +100,14 @@ def fetch_data():
         if fetch_data_by_code(row.ts_code):
             row.last_fetch_date = get_current_dt()
             session.flush()
+            do_after_fetch(row.ts_code)
+            # _thread.start_new_thread(do_after_fetch, (row.ts_code,))
+
+
+def do_after_fetch(ts_code:str) :
+    clear_after_fetch.clear(ts_code)
+    cal_mq_quarter.run(ts_code)
+    cal_mq_daily.run(ts_code)
 
 
 def init_stock_basic():
@@ -141,8 +149,9 @@ def run(ts_code):
     else:
         init_stock_basic()
         fetch_data()
-        clear_after_fetch.clear()
-        calculate_all()
+        clear_after_fetch.clear(None)
+        cal_mq_quarter.calculate_all()
+        cal_mq_daily.calculate_all()
 
 
 if __name__ == '__main__':

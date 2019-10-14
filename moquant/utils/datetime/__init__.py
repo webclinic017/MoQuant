@@ -18,15 +18,6 @@ def parse_str(d_str: str, d_format: str = '%Y%m%d') -> datetime:
     return datetime.datetime.strptime(d_str, d_format)
 
 
-def first_report_period(d_str: str, delta_year: int = 0) -> str:
-    year_part = d_str[0:4]
-    if delta_year != 0:
-        year_int = int(year_part) + delta_year
-        return '%d0331' % year_int
-    else:
-        return '%s0331' % year_part
-
-
 def date_max(d_arr: list) -> str:
     ans = None
     for d_str in d_arr:
@@ -40,19 +31,14 @@ def date_max(d_arr: list) -> str:
 def get_quarter_num(d_str: str) -> int:
     return (int(d_str[4:6]) - 1) // 3 + 1 if d_str is not None else None
 
+
 def get_period(year: int, month: int) -> str:
     day = 30 if month == 6 or month == 9 else 31
     return '%d%02d%02d' % (year, month, day)
 
+
 def next_period(d_str: str) -> str:
-    year = int(d_str[0:4])
-    month = int(d_str[4:6])
-    if month == 12:
-        year = year + 1
-        month = 3
-    else:
-        month = month + 3
-    return get_period(year, month)
+    return period_delta(d_str, 1)
 
 
 def period_delta(d_str: str, delta: int) -> str:
@@ -73,4 +59,3 @@ def period_delta(d_str: str, delta: int) -> str:
             month = 3
             year = year + 1
     return get_period(year, month)
-

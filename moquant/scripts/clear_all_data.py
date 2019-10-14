@@ -5,6 +5,7 @@ import sys
 from moquant.constants import fetch_data_start_date
 from moquant.dbclient import db_client
 from moquant.dbclient.mq_daily_basic import MqDailyBasic
+from moquant.dbclient.mq_quarter_basic import MqQuarterBasic
 from moquant.dbclient.mq_stock_mark import MqStockMark
 from moquant.dbclient.ts_adj_factor import StockAdjFactor
 from moquant.dbclient.ts_balance_sheet import TsBalanceSheet
@@ -22,6 +23,7 @@ def clear(ts_code: str):
         return
     session = db_client.get_session()
     session.query(MqDailyBasic).filter(MqDailyBasic.ts_code == ts_code).delete()
+    session.query(MqQuarterBasic).filter(MqQuarterBasic.ts_code == ts_code).delete()
     session.query(StockAdjFactor).filter(StockAdjFactor.ts_code == ts_code).delete()
     session.query(TsBalanceSheet).filter(TsBalanceSheet.ts_code == ts_code).delete()
     session.query(TsCashFlow).filter(TsCashFlow.ts_code == ts_code).delete()

@@ -4,7 +4,7 @@ from operator import and_
 
 from sqlalchemy.orm import Session
 
-from moquant.constants import mq_calculate_start_date, mq_calculate_start_period
+from moquant.constants import mq_calculate_start_period
 from moquant.dbclient import db_client
 from moquant.dbclient.mq_quarter_basic import MqQuarterBasic
 from moquant.dbclient.mq_stock_mark import MqStockMark
@@ -14,11 +14,20 @@ from moquant.dbclient.ts_fina_indicator import TsFinaIndicator
 from moquant.dbclient.ts_forecast import TsForecast
 from moquant.dbclient.ts_income import TsIncome
 from moquant.log import get_logger
-from moquant.utils.cal_basic import get_next_index, can_use_next_date, get_index_by_end_date, cal_quarter_value
-from moquant.utils.datetime import get_current_dt, format_delta, first_report_period, date_max, get_quarter_num, \
-    next_period, period_delta
+from moquant.utils.datetime import get_current_dt, format_delta, get_quarter_num, \
+    next_period, period_delta, get_period
 
 log = get_logger(__name__)
+
+
+def get_index_by_end_date(arr, current_date: str, from_index: int = 0) -> int:
+    i = from_index
+    while i + 1 < len(arr):
+        if arr[i + 1].end_date > current_date:
+            break
+        else:
+            i += 1
+    return i
 
 
 def get_forecast_nprofit_ly(forecast: TsForecast, income_l4: TsIncome):
@@ -35,11 +44,12 @@ def get_forecast_nprofit_ly(forecast: TsForecast, income_l4: TsIncome):
         if forecast.p_change_max is not None:
             if percent is None or forecast.p_change_max < percent:
                 percent = forecast.p_change_max
-        percent = (percent / 100) + 1
-        if income_l4 is not None:
-            forecast_nprofit = percent * income_l4.n_income_attr_p
-        elif forecast.last_parent_net is not None:
-            forecast_nprofit = percent * forecast.last_parent_net * 10000
+        if percent is not None:
+            percent = (percent / 100) + 1
+            if income_l4 is not None:
+                forecast_nprofit = percent * income_l4.n_income_attr_p
+            elif forecast.last_parent_net is not None:
+                forecast_nprofit = percent * forecast.last_parent_net * 10000
     return forecast_nprofit
 
 
@@ -120,17 +130,18 @@ def find_previous_period(arr: list, pos: int, period: str, num: int):
     else:
         return None
 
+
 def same_period(arr, i: int, period: str) -> bool:
-    return i >= 0 and i < len(arr) and arr[i].end_date == period
+    return 0 <= i < len(arr) and arr[i].end_date == period
 
 
 def calculate_period(ts_code, share_name,
-        income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr,
-        i_i, ai_i, b_i, ab_i, fi_i,
-        report_period, forecast_period,
-        forecast_nprofit, forecast_nprofit_ly, forecast_revenue, forecast_revenue_ly, forecast_nassets,
-        f_ann_date
-):
+                     income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr,
+                     i_i, ai_i, b_i, ab_i, fi_i,
+                     report_period, forecast_period,
+                     forecast_nprofit, forecast_nprofit_ly, forecast_revenue, forecast_revenue_ly, forecast_nassets,
+                     f_ann_date
+                     ):
     report_quarter = get_quarter_num(report_period)
     forecast_quarter = get_quarter_num(forecast_period)
 
@@ -150,6 +161,7 @@ def calculate_period(ts_code, share_name,
 
     fina: TsFinaIndicator = find_previous_period(fina_arr, fi_i, report_period, 0)
     fina_l1: TsFinaIndicator = find_previous_period(fina_arr, fi_i, report_period, 1)
+    fina_l3: TsFinaIndicator = find_previous_period(fina_arr, fi_i, report_period, 3)
     fina_l4: TsFinaIndicator = find_previous_period(fina_arr, fi_i, report_period, 4)
     fina_l5: TsFinaIndicator = find_previous_period(fina_arr, fi_i, report_period, 5)
     fina_lyy: TsFinaIndicator = find_previous_period(fina_arr, fi_i, report_period, report_quarter)
@@ -160,6 +172,7 @@ def calculate_period(ts_code, share_name,
     quarter_nprofit = None
     quarter_nprofit_ly = None
     nprofit_adjust = 0
+    nprofit_ltm = None
     # Calculate nprofit
     if forecast_nprofit is None:
         # No forecast
@@ -208,8 +221,9 @@ def calculate_period(ts_code, share_name,
     dprofit_ly = None
     quarter_dprofit = None
     quarter_dprofit_ly = None
+    dprofit_ltm = None
     # Calculate dprofit
-    if True:
+    if forecast_nprofit is None:
         # No forecast
         dprofit_period = report_period
         if fina is not None:
@@ -239,6 +253,27 @@ def calculate_period(ts_code, share_name,
         if fina is not None and fina_lyy is not None:
             dprofit_ltm = cal_ltm(fina.profit_dedt, dprofit_ly, fina_lyy.profit_dedt, adjust,
                                   report_period)
+    else:
+        # Forecast dprofit
+        dprofit_period = forecast_period
+        dprofit = forecast_nprofit
+        if fina is not None and income is not None\
+                and income.n_income_attr_p is not None and fina.profit_dedt is not None:
+            dprofit = dprofit - (income.n_income_attr_p - fina.profit_dedt)
+        dprofit_ly_l1 = None
+        if fina is not None:
+            quarter_dprofit = cal_quarter_value(dprofit, fina.profit_dedt, forecast_period)
+        if dprofit_ly is None:
+            dprofit_ly = get_first_not_none([fina_l3], 'profit_dedt')
+        if dprofit_ly_l1 is None:
+            dprofit_ly_l1 = get_first_not_none([fina_l4], 'profit_dedt')
+
+        if dprofit_ly_l1 is not None and dprofit_ly_l1 is not None:
+            quarter_dprofit_ly = cal_quarter_value(dprofit_ly, dprofit_ly_l1, forecast_period)
+
+        if fina_lyy is not None and dprofit_ly is not None:
+            dprofit_ltm = cal_ltm(dprofit, dprofit_ly, fina_lyy.profit_dedt, 0, forecast_period)
+
 
     # Calculate revenue
     revenue_period = None
@@ -276,6 +311,7 @@ def calculate_period(ts_code, share_name,
         if revenue_ly is not None and revenue_ly_l1 is not None:
             quarter_revenue_ly = cal_quarter_value(revenue_ly, revenue_ly_l1, forecast_period)
 
+    nassets = None
     if forecast_nassets is None:
         if balance is not None:
             nassets = balance.total_hldr_eqy_exc_min_int
@@ -307,59 +343,65 @@ def calculate_period(ts_code, share_name,
         quarter_dprofit_yoy = (quarter_dprofit - quarter_dprofit_ly) / abs(quarter_dprofit_ly)
 
     return MqQuarterBasic(ts_code=ts_code, share_name=share_name, update_date=format_delta(f_ann_date, -1),
-                                      report_period=report_period, forecast_period=forecast_period,
-                                      revenue_period=revenue_period, revenue=revenue, revenue_ly=revenue_ly,
-                                      revenue_yoy=revenue_yoy, quarter_revenue=quarter_revenue,
-                                      quarter_revenue_ly=quarter_revenue_ly, quarter_revenue_yoy=quarter_revenue_yoy,
-                                      nprofit_period=nprofit_period, nprofit=nprofit, nprofit_ly=nprofit_ly,
-                                      nprofit_yoy=nprofit_yoy, quarter_nprofit=quarter_nprofit,
-                                      quarter_nprofit_ly=quarter_nprofit_ly, quarter_nprofit_yoy=quarter_nprofit_yoy,
-                                      nprofit_ltm=nprofit_ltm, dprofit_period=dprofit_period, dprofit=dprofit,
-                                      dprofit_ly=dprofit_ly, dprofit_yoy=dprofit_yoy, quarter_dprofit=quarter_dprofit,
-                                      quarter_dprofit_ly=quarter_dprofit_ly, quarter_dprofit_yoy=quarter_dprofit_yoy,
-                                      dprofit_ltm=dprofit_ltm, nassets=nassets)
+                          report_period=report_period, forecast_period=forecast_period,
+                          revenue_period=revenue_period, revenue=revenue, revenue_ly=revenue_ly,
+                          revenue_yoy=revenue_yoy, quarter_revenue=quarter_revenue,
+                          quarter_revenue_ly=quarter_revenue_ly, quarter_revenue_yoy=quarter_revenue_yoy,
+                          nprofit_period=nprofit_period, nprofit=nprofit, nprofit_ly=nprofit_ly,
+                          nprofit_yoy=nprofit_yoy, quarter_nprofit=quarter_nprofit,
+                          quarter_nprofit_ly=quarter_nprofit_ly, quarter_nprofit_yoy=quarter_nprofit_yoy,
+                          nprofit_ltm=nprofit_ltm, dprofit_period=dprofit_period, dprofit=dprofit,
+                          dprofit_ly=dprofit_ly, dprofit_yoy=dprofit_yoy, quarter_dprofit=quarter_dprofit,
+                          quarter_dprofit_ly=quarter_dprofit_ly, quarter_dprofit_yoy=quarter_dprofit_yoy,
+                          dprofit_ltm=dprofit_ltm, nassets=nassets)
 
 
 def calculate(ts_code, share_name):
     start_time = time.time()
     now_date = get_current_dt()
+    max_period = get_period(int(now_date[0:4]), 12)
+    forcast_update_date = '20010101'
+
     session = db_client.get_session()
     last_basic_arr = session.query(MqQuarterBasic).filter(MqQuarterBasic.ts_code == ts_code) \
         .order_by(MqQuarterBasic.update_date.desc()).limit(1).all()
-    last_basic = None
+    last_basic: MqQuarterBasic = None
     if len(last_basic_arr) > 0:
         last_basic = last_basic_arr[0]
 
     from_period = mq_calculate_start_period
     if last_basic is not None:
-        from_period = next_period(last_basic.end_date)
+        from_period = next_period(last_basic.report_period)
+        if last_basic.report_period < last_basic.forecast_period:
+            forcast_update_date = format_delta(last_basic.update_date, 1)
+
 
     # Get all reports including last two year, to calculate ttm
-    period_to_get = first_report_period(from_period, -2)
+    period_to_get = period_delta(from_period, -12)
 
     income_arr = session.query(TsIncome) \
         .filter(
-        and_(TsIncome.ts_code == ts_code, TsIncome.end_date >= period_to_get, TsIncome.report_type == 1)) \
+        TsIncome.ts_code == ts_code, TsIncome.end_date >= period_to_get, TsIncome.report_type == 1) \
         .order_by(TsIncome.f_ann_date.asc(), TsIncome.end_date.asc()).all()
 
     adjust_income_arr = session.query(TsIncome) \
         .filter(
-        and_(TsIncome.ts_code == ts_code, TsIncome.end_date >= period_to_get, TsIncome.report_type == 4)) \
+        TsIncome.ts_code == ts_code, TsIncome.end_date >= period_to_get, TsIncome.report_type == 4) \
         .order_by(TsIncome.f_ann_date.asc(), TsIncome.end_date.asc()).all()
 
     balance_arr = session.query(TsBalanceSheet) \
-        .filter(and_(TsBalanceSheet.ts_code == ts_code, TsBalanceSheet.end_date >= period_to_get,
-                     TsBalanceSheet.report_type == 1)) \
+        .filter(TsBalanceSheet.ts_code == ts_code, TsBalanceSheet.end_date >= period_to_get,
+                     TsBalanceSheet.report_type == 1) \
         .order_by(TsBalanceSheet.f_ann_date.asc(), TsBalanceSheet.end_date.asc()).all()
 
     adjust_balance_arr = session.query(TsBalanceSheet) \
-        .filter(and_(TsBalanceSheet.ts_code == ts_code, TsBalanceSheet.end_date >= period_to_get,
-                     TsBalanceSheet.report_type == 4)) \
+        .filter(TsBalanceSheet.ts_code == ts_code, TsBalanceSheet.end_date >= period_to_get,
+                     TsBalanceSheet.report_type == 4) \
         .order_by(TsBalanceSheet.f_ann_date.asc(), TsBalanceSheet.end_date.asc()).all()
 
     fina_arr = session.query(TsFinaIndicator) \
-        .filter(and_(TsFinaIndicator.ts_code == ts_code, TsFinaIndicator.end_date >= period_to_get,
-                     TsFinaIndicator.ann_date != None)) \
+        .filter(TsFinaIndicator.ts_code == ts_code, TsFinaIndicator.end_date >= period_to_get,
+                     TsFinaIndicator.ann_date != None) \
         .order_by(TsFinaIndicator.ann_date.asc(), TsFinaIndicator.end_date.asc()).all()
 
     forecast_arr = session.query(TsForecast) \
@@ -374,9 +416,9 @@ def calculate(ts_code, share_name):
     log.info("Prepare data for %s: %s seconds" % (ts_code, prepare_time - start_time))
 
     b_i = get_index_by_end_date(balance_arr, from_period)
-    ab_i = get_index_by_end_date(adjust_balance_arr, from_period)
+    ab_i = get_index_by_end_date(adjust_balance_arr, period_delta(from_period, -4))
     i_i = get_index_by_end_date(income_arr, from_period)
-    ai_i = get_index_by_end_date(adjust_income_arr, from_period)
+    ai_i = get_index_by_end_date(adjust_income_arr, period_delta(from_period, -4))
     fi_i = get_index_by_end_date(fina_arr, from_period)
     f_i = get_index_by_end_date(forecast_arr, from_period)
     e_i = get_index_by_end_date(express_arr, from_period)
@@ -384,7 +426,7 @@ def calculate(ts_code, share_name):
     find_index_time = time.time()
     log.info("Find index for %s: %s seconds" % (ts_code, find_index_time - prepare_time))
 
-    while from_period <= now_date:
+    while from_period <= max_period:
         report_period = None
         forecast_period = None
         forecast_nprofit = None
@@ -394,72 +436,93 @@ def calculate(ts_code, share_name):
         forecast_revenue_ly = None
 
         if same_period(forecast_arr, f_i, from_period):
-            report_period = period_delta(from_period, -1)
-            forecast_period = from_period
             forecast: TsForecast = forecast_arr[f_i]
-            income_forecast_ly = find_previous_period(income_arr, i_i, forecast_period, 4)
-            forecast_min_nprofit = get_forecast_nprofit_ly(forecast, income_forecast_ly)
-            if forecast_nprofit is None and forecast_min_nprofit is not None:
-                forecast_nprofit = forecast_min_nprofit
-            if forecast_nprofit_ly is None and forecast.last_parent_net is not None:
-                forecast_nprofit_ly = forecast.last_parent_net * 10000
-            session.add(
-                calculate_period(income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr,
-                                 i_i, ai_i, b_i, ab_i, fi_i,
-                                 report_period, forecast_period,
-                                 forecast_nprofit, forecast_nprofit_ly, forecast_revenue, forecast_revenue_ly,
-                                 forecast_nassets,
-                                 forecast.ann_date)
-            )
+            if forcast_update_date != forecast.ann_date:
+                report_period = period_delta(from_period, -1)
+                forecast_period = from_period
+                income_forecast_ly = find_previous_period(income_arr, i_i, forecast_period, 4)
+                forecast_min_nprofit = get_forecast_nprofit_ly(forecast, income_forecast_ly)
+                if forecast_nprofit is None and forecast_min_nprofit is not None:
+                    forecast_nprofit = forecast_min_nprofit
+                if forecast_nprofit_ly is None and forecast.last_parent_net is not None:
+                    forecast_nprofit_ly = forecast.last_parent_net * 10000
+                session.add(
+                    calculate_period(ts_code, share_name,
+                                     income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr,
+                                     i_i, ai_i, b_i, ab_i, fi_i,
+                                     report_period, forecast_period,
+                                     forecast_nprofit, forecast_nprofit_ly, forecast_revenue, forecast_revenue_ly,
+                                     forecast_nassets,
+                                     forecast.ann_date)
+                )
+            f_i = f_i + 1
         elif same_period(express_arr, e_i, from_period):
-            report_period = period_delta(from_period, -1)
-            forecast_period = from_period
             express: TsExpress = express_arr[e_i]
-            forecast_nprofit = express.n_income
-            forecast_revenue = express.revenue
-            forecast_nassets = express.total_hldr_eqy_exc_min_int
-            forecast_nprofit_ly = express.yoy_net_profit
-            forecast_revenue_ly = express.or_last_year
+            if forcast_update_date != express.ann_date:
+                report_period = period_delta(from_period, -1)
+                forecast_period = from_period
+                forecast_nprofit = express.n_income
+                forecast_revenue = express.revenue
+                forecast_nassets = express.total_hldr_eqy_exc_min_int
+                forecast_nprofit_ly = express.yoy_net_profit
+                forecast_revenue_ly = express.or_last_year
+                session.add(
+                    calculate_period(ts_code, share_name,
+                                     income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr,
+                                     i_i, ai_i, b_i, ab_i, fi_i,
+                                     report_period, forecast_period,
+                                     forecast_nprofit, forecast_nprofit_ly, forecast_revenue, forecast_revenue_ly,
+                                     forecast_nassets,
+                                     express.ann_date)
+                )
+            e_i = e_i + 1
+        elif same_period(adjust_balance_arr, ab_i, period_delta(from_period, -4)):
+            report_period = adjust_balance_arr[ab_i].end_date
+            forecast_period = report_period
             session.add(
-                calculate_period(income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr,
+                calculate_period(ts_code, share_name,
+                                 adjust_income_arr, adjust_income_arr, adjust_balance_arr, adjust_balance_arr, fina_arr,
+                                 ai_i, ai_i, ab_i, ab_i, fi_i,
+                                 report_period, forecast_period,
+                                 forecast_nprofit, forecast_nprofit_ly, forecast_revenue, forecast_revenue_ly,
+                                 forecast_nassets,
+                                 adjust_balance_arr[ab_i].f_ann_date)
+            )
+            ab_i = ab_i + 1
+            if same_period(adjust_balance_arr, ab_i, period_delta(from_period, -4)):
+                ai_i = ai_i + 1
+            else:
+                ai_i = get_index_by_end_date(adjust_income_arr, period_delta(from_period, -3))
+        elif same_period(balance_arr, b_i, from_period):
+            report_period = balance_arr[b_i].end_date
+            forecast_period = report_period
+            session.add(
+                calculate_period(ts_code, share_name,
+                                 income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr,
                                  i_i, ai_i, b_i, ab_i, fi_i,
                                  report_period, forecast_period,
                                  forecast_nprofit, forecast_nprofit_ly, forecast_revenue, forecast_revenue_ly,
                                  forecast_nassets,
-                                 express_arr.ann_date)
+                                 balance_arr[b_i].f_ann_date)
             )
-        elif same_period(express_arr, e_i, from_period):
-
-
-
-
-
-
-        from_date = format_delta(from_date, day_num=1)
-
-        if can_use_next_date(balance_arr, 'ann_date', b_i_n, from_date):
-            b_i = b_i_n
-            b_i_n = get_next_index(balance_arr, 'ann_date', b_i)
-
-        if can_use_next_date(income_arr, 'ann_date', i_i_n, from_date):
-            i_i = i_i_n
-            i_i_n = get_next_index(income_arr, 'ann_date', i_i)
-
-        if can_use_next_date(adjust_income_arr, 'ann_date', ai_i_n, from_date):
-            ai_i = ai_i_n
-            ai_i_n = get_next_index(adjust_income_arr, 'ann_date', ai_i)
-
-        if can_use_next_date(fina_arr, 'ann_date', fi_i_n, from_date):
-            fi_i = fi_i_n
-            fi_i_n = get_next_index(fina_arr, 'ann_date', fi_i)
-
-        if can_use_next_date(forecast_arr, 'ann_date', f_i_n, from_date):
-            f_i = f_i_n
-            f_i_n = get_next_index(forecast_arr, 'ann_date', f_i)
-
-        if can_use_next_date(express_arr, 'ann_date', e_i_n, from_date):
-            e_i = e_i_n
-            e_i_n = get_next_index(express_arr, 'ann_date', e_i)
+            b_i = b_i + 1
+            if same_period(income_arr, i_i, from_period):
+                i_i = i_i + 1
+            else:
+                i_i = get_index_by_end_date(income_arr, period_delta(from_period, 1))
+            if same_period(fina_arr, fi_i, from_period):
+                fi_i = fi_i + 1
+            else:
+                fi_i = get_index_by_end_date(fina_arr, period_delta(from_period, 1))
+        else:
+            from_period = next_period(from_period)
+            b_i = get_index_by_end_date(balance_arr, from_period, b_i)
+            ab_i = get_index_by_end_date(adjust_balance_arr, period_delta(from_period, -4), ab_i)
+            i_i = get_index_by_end_date(income_arr, from_period, i_i)
+            ai_i = get_index_by_end_date(adjust_income_arr, period_delta(from_period, -4), ai_i)
+            fi_i = get_index_by_end_date(fina_arr, from_period, fi_i)
+            f_i = get_index_by_end_date(forecast_arr, from_period, f_i)
+            e_i = get_index_by_end_date(express_arr, from_period, e_i)
 
     calculate_time = time.time()
     log.info("Calculate data for %s: %s seconds" % (ts_code, calculate_time - find_index_time))
