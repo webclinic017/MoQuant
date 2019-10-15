@@ -31,15 +31,12 @@ def calculate(ts_code: str, share_name: str):
     start_time = time.time()
     now_date = get_current_dt()
     session = db_client.get_session()
-    last_basic_arr = session.query(MqDailyBasic).filter(MqDailyBasic.ts_code == ts_code) \
+    last_mq_daily = session.query(MqDailyBasic).filter(MqDailyBasic.ts_code == ts_code) \
         .order_by(MqDailyBasic.date.desc()).limit(1).all()
-    last_basic = None
-    if len(last_basic_arr) > 0:
-        last_basic = last_basic_arr[0]
 
     from_date = mq_calculate_start_date
-    if last_basic is not None:
-        from_date = format_delta(last_basic.date, 1)
+    if len(last_mq_daily) > 0:
+        from_date = format_delta(last_mq_daily[0].date, 1)
     else:
         ts_basic_arr = session.query(TsBasic).filter(TsBasic.ts_code == ts_code).all()
         if len(ts_basic_arr) > 0 and ts_basic_arr[0].list_date > from_date:
@@ -48,12 +45,12 @@ def calculate(ts_code: str, share_name: str):
         return
 
     # Get all daily basic from a date
-    last_daily_basic = session.query(TsDailyBasic) \
+    last_ts_daily = session.query(TsDailyBasic) \
         .filter(and_(TsDailyBasic.ts_code == ts_code, TsDailyBasic.trade_date < from_date)) \
         .order_by(TsDailyBasic.trade_date.desc()) \
         .limit(1) \
         .all()
-    daily_start_date = last_daily_basic[0].trade_date if len(last_daily_basic) > 0 else from_date
+    daily_start_date = last_ts_daily[0].trade_date if len(last_ts_daily) > 0 else from_date
     daily_arr = session.query(TsDailyBasic) \
         .filter(and_(TsDailyBasic.ts_code == ts_code, TsDailyBasic.trade_date >= daily_start_date)) \
         .order_by(TsDailyBasic.trade_date.asc()).all()
@@ -61,7 +58,7 @@ def calculate(ts_code: str, share_name: str):
         from_date = daily_arr[0].trade_date
 
     quarter_arr = session.query(MqQuarterBasic) \
-        .filter(and_(MqQuarterBasic.ts_code == ts_code, MqQuarterBasic.update_date >= from_date)) \
+        .filter(and_(MqQuarterBasic.ts_code == ts_code, MqQuarterBasic.update_date >= format_delta(from_date, -720))) \
         .order_by(MqQuarterBasic.update_date.asc(), MqQuarterBasic.report_period.asc(),
                   MqQuarterBasic.forecast_period.asc()) \
         .all()
