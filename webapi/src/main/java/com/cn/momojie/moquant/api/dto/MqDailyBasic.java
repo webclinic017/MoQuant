@@ -32,6 +32,4 @@ public class MqDailyBasic {
     private BigDecimal dprofitPe;
 
     private BigDecimal dprofitPeg;
-
-
 }

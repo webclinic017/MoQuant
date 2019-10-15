@@ -12,5 +12,5 @@ public interface MqDailyBasicDao {
 
     List<MqDailyBasic> selectByParam(MqDailyBasicParam param);
 
-    MqDailyBasic selectLatestByCode(@Param("tsCode") String tsCode, @Param("dt") String dt);
+    MqDailyBasic selectLatestByCode(String tsCode);
 }

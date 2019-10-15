@@ -44,6 +44,7 @@
     SELECT *
     FROM mq_daily_basic
     WHERE ts_code = #{tsCode}
-    AND date = #{dt}
+    ORDER BY date DESC
+    LIMIT 1
   </select>
 </mapper>

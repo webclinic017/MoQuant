@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """ To fetch basic data from TuShare """
-import _thread
 import sys
 import time
 
@@ -101,7 +100,6 @@ def fetch_data():
         if fetch_data_by_code(row.ts_code):
             row.last_fetch_date = get_current_dt()
             session.flush()
-            #do_after_fetch(row.ts_code)
             threadpool.submit(do_after_fetch, ts_code=row.ts_code)
 
 
