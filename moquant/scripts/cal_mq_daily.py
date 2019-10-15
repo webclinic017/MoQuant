@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
+import time
 
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
@@ -27,6 +28,7 @@ def get_next_index(arr, field, current, i: int = -1):
 
 
 def calculate(ts_code: str, share_name: str):
+    start_time = time.time()
     now_date = get_current_dt()
     session = db_client.get_session()
     last_basic_arr = session.query(MqDailyBasic).filter(MqDailyBasic.ts_code == ts_code) \
@@ -65,6 +67,9 @@ def calculate(ts_code: str, share_name: str):
         .all()
     if len(quarter_arr) > 0 and quarter_arr[0].update_date > from_date:
         from_date = quarter_arr[0].update_date
+
+    prepare_time = time.time()
+    log.info("Prepare data for %s: %s seconds" % (ts_code, prepare_time - start_time))
 
     d_i = get_next_index(daily_arr, 'trade_date', from_date)
     q_i = get_next_index(quarter_arr, 'update_date', from_date)
@@ -111,6 +116,9 @@ def calculate(ts_code: str, share_name: str):
         from_date = format_delta(from_date, 1)
         d_i = get_next_index(daily_arr, 'trade_date', from_date, d_i)
         q_i = get_next_index(quarter_arr, 'update_date', from_date)
+
+    calculate_time = time.time()
+    log.info("Calculate data for %s: %s seconds" % (ts_code, calculate_time - prepare_time))
 
     session.flush()
 

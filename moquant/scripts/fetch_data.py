@@ -24,6 +24,7 @@ from moquant.dbclient.ts_income import TsIncome
 from moquant.log import get_logger
 from moquant.scripts import clear_after_fetch, cal_mq_quarter, cal_mq_daily
 from moquant.tsclient import ts_client
+from moquant.utils import threadpool
 from moquant.utils.datetime import format_delta, get_current_dt
 from moquant.utils.env_utils import pass_fetch_basic
 
@@ -100,11 +101,11 @@ def fetch_data():
         if fetch_data_by_code(row.ts_code):
             row.last_fetch_date = get_current_dt()
             session.flush()
-            do_after_fetch(row.ts_code)
-            # _thread.start_new_thread(do_after_fetch, (row.ts_code,))
+            #do_after_fetch(row.ts_code)
+            threadpool.submit(do_after_fetch, ts_code=row.ts_code)
 
 
-def do_after_fetch(ts_code:str) :
+def do_after_fetch(ts_code: str) :
     clear_after_fetch.clear(ts_code)
     cal_mq_quarter.run(ts_code)
     cal_mq_daily.run(ts_code)
@@ -146,12 +147,14 @@ def run(ts_code):
             fetch_data_by_code(mq.ts_code)
             mq.last_fetch_date = get_current_dt()
             session.flush()
+            threadpool.submit(do_after_fetch, ts_code=mq.ts_code)
     else:
         init_stock_basic()
         fetch_data()
         clear_after_fetch.clear(None)
         cal_mq_quarter.calculate_all()
         cal_mq_daily.calculate_all()
+    threadpool.join()
 
 
 if __name__ == '__main__':
