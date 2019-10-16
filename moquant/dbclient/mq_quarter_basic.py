@@ -25,6 +25,7 @@ class MqQuarterBasic(Base):
     quarter_revenue = Column('quarter_revenue', DECIMAL(30, 10), comment='单季营业收入')
     quarter_revenue_ly = Column('quarter_revenue_ly', DECIMAL(30, 10), comment='去年同季营业收入')
     quarter_revenue_yoy = Column('quarter_revenue_yoy', DECIMAL(30, 10), comment='单季营业收入增速-同比')
+    revenue_ltm = Column('revenue_ltm', DECIMAL(30, 10), comment='营业收入-LTM')
     nprofit_period = Column('nprofit_period', String(10), comment='归母净利润所属报告期 yyyyMMdd')
     nprofit = Column('nprofit', DECIMAL(30, 10), comment='累计归母净利润')
     nprofit_ly = Column('nprofit_ly', DECIMAL(30, 10), comment='去年累计归母净利润')

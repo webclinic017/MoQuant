@@ -9,6 +9,7 @@ import com.cn.momojie.moquant.api.dto.MqDailyBasic;
 import com.cn.momojie.moquant.api.dto.MqQuarterBasic;
 import com.cn.momojie.moquant.api.dto.TsBasic;
 import com.cn.momojie.moquant.api.param.MqDailyBasicParam;
+import com.cn.momojie.moquant.api.util.BigDecimalUtils;
 import com.cn.momojie.moquant.api.util.DateTimeUtils;
 import com.cn.momojie.moquant.api.vo.MqShareDetail;
 import com.cn.momojie.moquant.api.vo.MqShareTrend;
@@ -106,6 +107,7 @@ public class MqInfoQueryService {
 			}
 
 			List<String> periodList = quarterMap.keySet().stream().sorted().collect(Collectors.toList());
+			MqQuarterBasic last = null;
 			for (String period: periodList) {
 				MqQuarterBasic quarter = quarterMap.get(period);
 				if (quarter == null) {
@@ -122,9 +124,55 @@ public class MqInfoQueryService {
 					quarterStr = quarterStr + " (含预告)";
 				}
 				if (TrendType.REVENUE.equals(trendType)) {
-					addToTrend(trend, quarterStr, quarter.getRevenue(), quarter.getRevenueYoy());
+					BigDecimal y1 = quarter.getRevenue();
+					BigDecimal y2 = quarter.getRevenueYoy();
+					if (!isQ4(quarterStr)) {
+						y1 = quarter.getRevenueLtm();
+						y2 = BigDecimalUtils.yoy(quarter.getRevenueLtm(), last.getRevenue());
+					}
+					addToTrend(trend, quarterStr, y1, y2);
 				} else if (TrendType.DPROFIT.equals(trendType)) {
-					addToTrend(trend, quarterStr, quarter.getDprofit(), quarter.getDprofitYoy());
+					BigDecimal y1 = quarter.getDprofit();
+					BigDecimal y2 = quarter.getDprofitYoy();
+					if (!isQ4(quarterStr)) {
+						y1 = quarter.getDprofitLtm();
+						y2 = BigDecimalUtils.yoy(quarter.getDprofitLtm(), last.getDprofit());
+					}
+					addToTrend(trend, quarterStr, y1, y2);
+				}
+				last = quarter;
+			}
+		} else if (TrendType.REVENUE_QUARTER.equals(trendType) || TrendType.DPROFIT_QUARTER.equals(trendType)) {
+			List<MqQuarterBasic> quarterList = quarterBasicDao.selectTrendByCode(tsCode);
+			Map<String, MqQuarterBasic> quarterMap = new HashMap<>();
+			for (MqQuarterBasic quarter: quarterList) {
+				if (TrendType.REVENUE.equals(trendType) && quarter.getRevenuePeriod() != null) {
+					quarterMap.put(quarter.getRevenuePeriod(), quarter);
+				} else if (TrendType.DPROFIT.equals(trendType) && quarter.getDprofitPeriod() != null) {
+					quarterMap.put(quarter.getDprofitPeriod(), quarter);
+				}
+			}
+			List<String> periodList = quarterMap.keySet().stream().sorted().collect(Collectors.toList());
+			for (String period: periodList) {
+				MqQuarterBasic quarter = quarterMap.get(period);
+				if (quarter == null) {
+					continue;
+				}
+				String quarterStr = DateTimeUtils.convertToQuarter(period);
+				if (quarterStr == null) {
+					continue;
+				}
+				if (!quarter.getReportPeriod().equals(quarter.getForecastPeriod()) && period.equals(quarter.getForecastPeriod())) {
+					quarterStr = quarterStr + " (含预告)";
+				}
+				if (TrendType.REVENUE.equals(trendType)) {
+					BigDecimal y1 = quarter.getQuarterRevenue();
+					BigDecimal y2 = quarter.getQuarterRevenueYoy();
+					addToTrend(trend, quarterStr, y1, y2);
+				} else if (TrendType.DPROFIT.equals(trendType)) {
+					BigDecimal y1 = quarter.getQuarterDprofit();
+					BigDecimal y2 = quarter.getQuarterDprofitYoy();
+					addToTrend(trend, quarterStr, y1, y2);
 				}
 			}
 		}

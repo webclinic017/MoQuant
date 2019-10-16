@@ -31,6 +31,8 @@ public class MqQuarterBasic {
 
 	private BigDecimal quarterRevenueYoy;
 
+	private BigDecimal revenueLtm;
+
 	private String nprofitPeriod;
 
 	private BigDecimal nprofit;

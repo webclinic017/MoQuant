@@ -1,10 +1,8 @@
 package com.cn.momojie.moquant.api.controller;
 
+import com.cn.momojie.moquant.api.vo.MqShareTrend;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.cn.momojie.moquant.api.param.MqDailyBasicParam;
 import com.cn.momojie.moquant.api.service.MqInfoQueryService;
@@ -25,5 +23,10 @@ public class MqStockController {
     @RequestMapping(path = "getLatestByCode", method = RequestMethod.POST)
     public MqShareDetail getLatestByCode(@RequestBody String tsCode) {
         return mqInfoQueryService.getLatestByCode(tsCode);
+    }
+
+    @RequestMapping(path = "getTrendByCode", method = RequestMethod.POST)
+    public MqShareTrend getTrendByCode(@RequestParam String tsCode, @RequestParam String t) {
+        return mqInfoQueryService.getTrend(tsCode, t);
     }
 }

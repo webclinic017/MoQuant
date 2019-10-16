@@ -281,6 +281,8 @@ def calculate_period(ts_code, share_name,
     revenue_ly = None
     quarter_revenue = None
     quarter_revenue_ly = None
+    revenue_adjust = 0
+    revenue_ltm = None
     if forecast_revenue is None:
         # No forecast
         revenue_period = report_period
@@ -294,6 +296,12 @@ def calculate_period(ts_code, share_name,
 
         if revenue_ly is not None and revenue_ly_l1 is not None:
             quarter_revenue_ly = cal_quarter_value(revenue_ly, revenue_ly_l1, report_period)
+
+        if income_l4 is not None and income_l4.revenue is not None:
+            revenue_adjust = revenue_ly - income_l4.revenue
+
+        if revenue is not None and income_lyy is not None:
+            revenue_ltm = cal_ltm(revenue, revenue_ly, income_lyy.revenue, revenue_adjust, report_period)
     else:
         # forecast
         revenue_period = forecast_period
@@ -310,6 +318,13 @@ def calculate_period(ts_code, share_name,
 
         if revenue_ly is not None and revenue_ly_l1 is not None:
             quarter_revenue_ly = cal_quarter_value(revenue_ly, revenue_ly_l1, forecast_period)
+
+        if income_l3 is not None and income_l3.revenue is not None:
+            revenue_adjust = revenue_ly - income_l3.revenue
+
+        if income_forecast_lyy is not None:
+            nprofit_ltm = cal_ltm(forecast_revenue, revenue_ly, income_forecast_lyy.revenue, revenue_adjust,
+                                  forecast_period)
 
     nassets = None
     if forecast_nassets is None:
@@ -352,7 +367,7 @@ def calculate_period(ts_code, share_name,
     return MqQuarterBasic(ts_code=ts_code, share_name=share_name, update_date=format_delta(f_ann_date, -1),
                           report_period=report_period, forecast_period=forecast_period,
                           revenue_period=revenue_period, revenue=revenue, revenue_ly=revenue_ly,
-                          revenue_yoy=revenue_yoy, quarter_revenue=quarter_revenue,
+                          revenue_yoy=revenue_yoy, quarter_revenue=quarter_revenue, revenue_ltm=revenue_ltm,
                           quarter_revenue_ly=quarter_revenue_ly, quarter_revenue_yoy=quarter_revenue_yoy,
                           nprofit_period=nprofit_period, nprofit=nprofit, nprofit_ly=nprofit_ly,
                           nprofit_yoy=nprofit_yoy, quarter_nprofit=quarter_nprofit,
