@@ -2,7 +2,7 @@ from concurrent.futures import Future
 from concurrent.futures.thread import ThreadPoolExecutor
 from multiprocessing import cpu_count
 
-pool: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=cpu_count() - 1)
+pool: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=cpu_count() * 3)
 
 
 def submit(func, *args, **kwargs) -> Future:

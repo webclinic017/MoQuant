@@ -9,6 +9,7 @@ import com.cn.momojie.moquant.api.dto.MqDailyBasic;
 import com.cn.momojie.moquant.api.dto.MqQuarterBasic;
 import com.cn.momojie.moquant.api.dto.TsBasic;
 import com.cn.momojie.moquant.api.param.MqDailyBasicParam;
+import com.cn.momojie.moquant.api.param.MqTrendParam;
 import com.cn.momojie.moquant.api.util.BigDecimalUtils;
 import com.cn.momojie.moquant.api.util.DateTimeUtils;
 import com.cn.momojie.moquant.api.vo.MqShareDetail;
@@ -70,8 +71,13 @@ public class MqInfoQueryService {
 		return detail;
     }
 
-    public MqShareTrend getTrend(String tsCode, String trendType) {
+    public MqShareTrend getTrend(MqTrendParam input) {
+		String tsCode = input.getTsCode();
+		String trendType = input.getTrendType();
 		MqShareTrend trend = new MqShareTrend();
+		if (tsCode == null || trendType == null) {
+			return trend;
+		}
     	TsBasic basic = tsBasicDao.selectByCode(tsCode);
     	if (basic == null) {
     		log.error("Can't find share basic of {}", tsCode);

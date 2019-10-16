@@ -28,7 +28,7 @@
           AND date=#{dt}
       </if>
       <if test="tsCode != null">
-          AND ts_code = {tsCode}
+          AND ts_code = #{tsCode}
       </if>
     ORDER BY
     <choose>

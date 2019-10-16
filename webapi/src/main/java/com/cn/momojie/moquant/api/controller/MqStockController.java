@@ -1,5 +1,6 @@
 package com.cn.momojie.moquant.api.controller;
 
+import com.cn.momojie.moquant.api.param.MqTrendParam;
 import com.cn.momojie.moquant.api.vo.MqShareTrend;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -26,7 +27,7 @@ public class MqStockController {
     }
 
     @RequestMapping(path = "getTrendByCode", method = RequestMethod.POST)
-    public MqShareTrend getTrendByCode(@RequestParam String tsCode, @RequestParam String t) {
-        return mqInfoQueryService.getTrend(tsCode, t);
+    public MqShareTrend getTrendByCode(@RequestBody MqTrendParam param) {
+        return mqInfoQueryService.getTrend(param);
     }
 }
