@@ -22,8 +22,14 @@
           resultMap="BaseResultMap">
     SELECT *
     FROM mq_daily_basic
-    WHERE 1=1
-    AND date=#{dt}
+    WHERE
+      1=1
+      <if test="dt != null">
+          AND date=#{dt}
+      </if>
+      <if test="tsCode != null">
+          AND ts_code = {tsCode}
+      </if>
     ORDER BY
     <choose>
       <when test="g">
@@ -31,6 +37,9 @@
       </when>
       <when test="peg">
         sign(dprofit_peg) DESC, sign(quarter_dprofit_yoy) DESC, dprofit_peg ASC
+      </when>
+      <when test="orderByDate">
+          date ASC
       </when>
       <otherwise>
         ts_code ASC

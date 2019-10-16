@@ -40,4 +40,11 @@
         ORDER BY update_date DESC, forecast_period DESC, report_period DESC
         LIMIT 1
     </select>
+
+    <select id="selectTrendByCode" resultMap="BaseResultMap">
+        SELECT *
+        FROM mq_quarter_basic
+        WHERE ts_code=#{code}
+        ORDER BY update_date ASC
+    </select>
 </mapper>

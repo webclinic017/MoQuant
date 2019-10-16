@@ -342,6 +342,13 @@ def calculate_period(ts_code, share_name,
     if quarter_dprofit is not None and quarter_dprofit_ly is not None and quarter_dprofit_ly != 0:
         quarter_dprofit_yoy = (quarter_dprofit - quarter_dprofit_ly) / abs(quarter_dprofit_ly)
 
+    if revenue is None:
+        revenue_period = None
+    if nprofit is None:
+        nprofit_period = None
+    if dprofit is None:
+        dprofit_period = None
+
     return MqQuarterBasic(ts_code=ts_code, share_name=share_name, update_date=format_delta(f_ann_date, -1),
                           report_period=report_period, forecast_period=forecast_period,
                           revenue_period=revenue_period, revenue=revenue, revenue_ly=revenue_ly,
