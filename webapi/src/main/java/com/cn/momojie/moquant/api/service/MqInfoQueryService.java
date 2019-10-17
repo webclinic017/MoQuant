@@ -1,5 +1,16 @@
 package com.cn.momojie.moquant.api.service;
 
+import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
 import com.cn.momojie.moquant.api.constant.SysParamKey;
 import com.cn.momojie.moquant.api.constant.TrendType;
 import com.cn.momojie.moquant.api.dao.MqDailyBasicDao;
@@ -9,6 +20,7 @@ import com.cn.momojie.moquant.api.dto.MqDailyBasic;
 import com.cn.momojie.moquant.api.dto.MqQuarterBasic;
 import com.cn.momojie.moquant.api.dto.TsBasic;
 import com.cn.momojie.moquant.api.param.MqDailyBasicParam;
+import com.cn.momojie.moquant.api.param.MqQuarterBasicParam;
 import com.cn.momojie.moquant.api.param.MqTrendParam;
 import com.cn.momojie.moquant.api.util.BigDecimalUtils;
 import com.cn.momojie.moquant.api.util.DateTimeUtils;
@@ -16,19 +28,6 @@ import com.cn.momojie.moquant.api.vo.MqShareDetail;
 import com.cn.momojie.moquant.api.vo.MqShareTrend;
 import com.cn.momojie.moquant.api.vo.PageResult;
 import com.github.pagehelper.PageHelper;
-
-import org.apache.commons.lang3.tuple.Pair;
-import org.springframework.beans.BeanUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
-import java.math.BigDecimal;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -86,6 +85,7 @@ public class MqInfoQueryService {
     	if (TrendType.PE.equals(trendType) || TrendType.PB.equals(trendType)) {
 			MqDailyBasicParam param = new MqDailyBasicParam();
 			param.setTsCode(tsCode);
+			param.setOnlyIndicator(true);
 			List<MqDailyBasic> dailyList = dailyBasicDao.selectByParam(param);
 
 			for (MqDailyBasic daily: dailyList) {
@@ -99,16 +99,25 @@ public class MqInfoQueryService {
 					addToTrend(trend, daily.getDate(),  daily.getPb(), null);
 				}
 			}
-		} else if (TrendType.REVENUE.equals(trendType) || TrendType.DPROFIT.equals(trendType)) {
-    		List<MqQuarterBasic> quarterList = quarterBasicDao.selectTrendByCode(tsCode);
+		} else if (TrendType.REVENUE.equals(trendType) || TrendType.DPROFIT.equals(trendType)
+				|| TrendType.NPROFIT.equals(trendType)) {
+			MqQuarterBasicParam param = new MqQuarterBasicParam();
+			param.setTsCode(tsCode);
+			param.setTrendType(trendType);
+    		List<MqQuarterBasic> quarterList = quarterBasicDao.selectTrendByParam(param);
     		Map<String, MqQuarterBasic> quarterMap = new HashMap<>();
 			Iterator<MqQuarterBasic> quarterIt = quarterList.iterator();
 			while (quarterIt.hasNext()) {
 				MqQuarterBasic quarter = quarterIt.next();
-				if (TrendType.REVENUE.equals(trendType) && quarter.getRevenuePeriod() != null && (isQ4(quarter.getRevenuePeriod()) || !quarterIt.hasNext())) {
+				if (TrendType.REVENUE.equals(trendType) && quarter.getRevenuePeriod() != null
+						&& (isQ4(quarter.getRevenuePeriod()) || !quarterIt.hasNext())) {
 					quarterMap.put(quarter.getRevenuePeriod(), quarter);
-				} else if (TrendType.DPROFIT.equals(trendType) && quarter.getDprofitPeriod() != null && (isQ4(quarter.getDprofitPeriod()) || !quarterIt.hasNext())) {
+				} else if (TrendType.DPROFIT.equals(trendType) && quarter.getDprofitPeriod() != null
+						&& (isQ4(quarter.getDprofitPeriod()) || !quarterIt.hasNext())) {
 					quarterMap.put(quarter.getDprofitPeriod(), quarter);
+				} else if (TrendType.NPROFIT.equals(trendType) && quarter.getNprofitPeriod() != null
+						&& (isQ4(quarter.getNprofitPeriod()) || !quarterIt.hasNext())) {
+					quarterMap.put(quarter.getNprofitPeriod(), quarter);
 				}
 			}
 
@@ -126,7 +135,8 @@ public class MqInfoQueryService {
 				if (!isQ4(quarterStr)) {
 					quarterStr = quarterStr + " LTM";
 				}
-				if (!quarter.getReportPeriod().equals(quarter.getForecastPeriod()) && period.equals(quarter.getForecastPeriod())) {
+				if (!quarter.getReportPeriod().equals(quarter.getForecastPeriod())
+						&& period.equals(quarter.getForecastPeriod())) {
 					quarterStr = quarterStr + " (含预告)";
 				}
 				if (TrendType.REVENUE.equals(trendType)) {
@@ -145,17 +155,31 @@ public class MqInfoQueryService {
 						y2 = BigDecimalUtils.yoy(quarter.getDprofitLtm(), last.getDprofit());
 					}
 					addToTrend(trend, quarterStr, y1, y2);
+				} else if (TrendType.NPROFIT.equals(trendType)) {
+					BigDecimal y1 = quarter.getNprofit();
+					BigDecimal y2 = quarter.getNprofitYoy();
+					if (!isQ4(quarterStr)) {
+						y1 = quarter.getNprofitLtm();
+						y2 = BigDecimalUtils.yoy(quarter.getNprofitLtm(), last.getNprofit());
+					}
+					addToTrend(trend, quarterStr, y1, y2);
 				}
 				last = quarter;
 			}
-		} else if (TrendType.REVENUE_QUARTER.equals(trendType) || TrendType.DPROFIT_QUARTER.equals(trendType)) {
-			List<MqQuarterBasic> quarterList = quarterBasicDao.selectTrendByCode(tsCode);
+		} else if (TrendType.REVENUE_QUARTER.equals(trendType) || TrendType.DPROFIT_QUARTER.equals(trendType)
+				|| TrendType.NPROFIT_QUARTER.equals(trendType)) {
+			MqQuarterBasicParam param = new MqQuarterBasicParam();
+			param.setTsCode(tsCode);
+			param.setTrendType(trendType);
+			List<MqQuarterBasic> quarterList = quarterBasicDao.selectTrendByParam(param);
 			Map<String, MqQuarterBasic> quarterMap = new HashMap<>();
 			for (MqQuarterBasic quarter: quarterList) {
-				if (TrendType.REVENUE.equals(trendType) && quarter.getRevenuePeriod() != null) {
+				if (TrendType.REVENUE_QUARTER.equals(trendType) && quarter.getRevenuePeriod() != null) {
 					quarterMap.put(quarter.getRevenuePeriod(), quarter);
-				} else if (TrendType.DPROFIT.equals(trendType) && quarter.getDprofitPeriod() != null) {
+				} else if (TrendType.DPROFIT_QUARTER.equals(trendType) && quarter.getDprofitPeriod() != null) {
 					quarterMap.put(quarter.getDprofitPeriod(), quarter);
+				} else if (TrendType.NPROFIT_QUARTER.equals(trendType) && quarter.getNprofitPeriod() != null) {
+					quarterMap.put(quarter.getNprofitPeriod(), quarter);
 				}
 			}
 			List<String> periodList = quarterMap.keySet().stream().sorted().collect(Collectors.toList());
@@ -178,6 +202,10 @@ public class MqInfoQueryService {
 				} else if (TrendType.DPROFIT.equals(trendType)) {
 					BigDecimal y1 = quarter.getQuarterDprofit();
 					BigDecimal y2 = quarter.getQuarterDprofitYoy();
+					addToTrend(trend, quarterStr, y1, y2);
+				} else if (TrendType.NPROFIT.equals(trendType)) {
+					BigDecimal y1 = quarter.getQuarterNprofit();
+					BigDecimal y2 = quarter.getQuarterNprofitYoy();
 					addToTrend(trend, quarterStr, y1, y2);
 				}
 			}

@@ -11,6 +11,8 @@ public class MqDailyBasicParam {
 
     private Boolean orderByDate = false;
 
+    private Boolean onlyIndicator = false;
+
     private String dt;
 
     private String tsCode;

@@ -13,4 +13,8 @@ public class TrendType {
 	public static final String DPROFIT = "DPROFIT";
 
 	public static final String DPROFIT_QUARTER = "DPROFIT_QUARTER";
+
+	public static final String NPROFIT = "NPROFIT";
+
+	public static final String NPROFIT_QUARTER = "NPROFIT_QUARTER";
 }

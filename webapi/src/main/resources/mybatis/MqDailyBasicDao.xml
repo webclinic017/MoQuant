@@ -20,7 +20,13 @@
 
   <select id="selectByParam" parameterType="com.cn.momojie.moquant.api.param.MqDailyBasicParam"
           resultMap="BaseResultMap">
-    SELECT *
+    SELECT
+      <choose>
+      <when test="onlyIndicator">
+          date, pe, pb
+      </when>
+      <otherwise>*</otherwise>
+      </choose>
     FROM mq_daily_basic
     WHERE
       1=1
@@ -45,7 +51,6 @@
         ts_code ASC
       </otherwise>
     </choose>
-
   </select>
 
   <select id="selectLatestByCode"

@@ -11,6 +11,7 @@
     <result column="revenue" jdbcType="DECIMAL" property="revenue" />
     <result column="revenue_ly" jdbcType="DECIMAL" property="revenueLy" />
     <result column="revenue_yoy" jdbcType="DECIMAL" property="revenueYoy" />
+    <result column="revenue_ltm" jdbcType="DECIMAL" property="revenueLtm" />
     <result column="quarter_revenue" jdbcType="DECIMAL" property="quarterRevenue" />
     <result column="quarter_revenue_ly" jdbcType="DECIMAL" property="quarterRevenueLy" />
     <result column="quarter_revenue_yoy" jdbcType="DECIMAL" property="quarterRevenueYoy" />
@@ -41,8 +42,38 @@
         LIMIT 1
     </select>
 
-    <select id="selectTrendByCode" resultMap="BaseResultMap">
-        SELECT *
+    <select id="selectTrendByParam" parameterType="com.cn.momojie.moquant.api.param.MqQuarterBasicParam" resultMap="BaseResultMap">
+        SELECT
+            ts_code,
+            update_date,
+            report_period,
+            forecast_period,
+            <choose>
+                <when test="trendType == 'REVENUE' or trendType == 'REVENUE_QUARTER'">
+                    revenue_period,
+                    revenue,
+                    revenue_yoy,
+                    revenue_ltm,
+                    quarter_revenue,
+                    quarter_revenue_yoy,
+                </when>
+                <when test="trendType == 'NPROFIT' or trendType == 'NPROFIT_QUARTER' ">
+                    nprofit_period,
+                    nprofit,
+                    nprofit_yoy,
+                    nprofit_ltm,
+                    quarter_nprofit,
+                    quarter_nprofit_yoy,
+                </when>
+                <when test="trendType == 'DRPFOTI' or trendType == 'DRPFOTI_QUARTER'">
+                    dprofit_period,
+                    dprofit,
+                    dprofit_yoy,
+                    dprofit_ltm,
+                    quarter_dprofit,
+                    quarter_dprofit_yoy,
+                </when>
+            </choose>
         FROM mq_quarter_basic
         WHERE ts_code=#{code}
         ORDER BY update_date ASC
