@@ -75,7 +75,7 @@
                 </when>
             </choose>
         FROM mq_quarter_basic
-        WHERE ts_code=#{code}
+        WHERE ts_code=#{tsCode}
         ORDER BY update_date ASC
     </select>
 </mapper>

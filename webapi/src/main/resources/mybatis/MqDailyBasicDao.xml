@@ -23,7 +23,7 @@
     SELECT
       <choose>
       <when test="onlyIndicator">
-          date, pe, pb
+          date, dprofit_pe, pb
       </when>
       <otherwise>*</otherwise>
       </choose>

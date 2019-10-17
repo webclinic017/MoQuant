@@ -93,9 +93,9 @@ public class MqInfoQueryService {
 					// Filter info before list. Impossible case
 					continue;
 				}
-				if (TrendType.PE.equals(trendType)) {
+				if (TrendType.PE.equals(trendType) && daily.getDprofitPe() != null) {
 					addToTrend(trend, daily.getDate(),  daily.getDprofitPe(), null);
-				} if (TrendType.PB.equals(trendType)) {
+				} if (TrendType.PB.equals(trendType) && daily.getPb() != null) {
 					addToTrend(trend, daily.getDate(),  daily.getPb(), null);
 				}
 			}
@@ -221,6 +221,9 @@ public class MqInfoQueryService {
 	private void addToTrend(MqShareTrend trend, String x, BigDecimal y1, BigDecimal y2) {
     	if (trend == null || x == null) {
     		return ;
+		}
+    	if (x.length() == 8) {
+    		x = x.substring(0, 4) + '-' + x.substring(4, 6) + '-' + x.substring(6, 8);
 		}
     	trend.getX().add(x);
     	trend.getVl1().add(y1);
