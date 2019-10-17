@@ -1,5 +1,6 @@
 package com.cn.momojie.moquant.api.controller;
 
+import com.cn.momojie.moquant.api.dto.TsBasic;
 import com.cn.momojie.moquant.api.param.MqTrendParam;
 import com.cn.momojie.moquant.api.vo.MqShareTrend;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +10,8 @@ import com.cn.momojie.moquant.api.param.MqDailyBasicParam;
 import com.cn.momojie.moquant.api.service.MqInfoQueryService;
 import com.cn.momojie.moquant.api.vo.MqShareDetail;
 import com.cn.momojie.moquant.api.vo.PageResult;
+
+import java.util.List;
 
 @RestController
 public class MqStockController {
@@ -29,5 +32,10 @@ public class MqStockController {
     @RequestMapping(path = "getTrendByCode", method = RequestMethod.POST)
     public MqShareTrend getTrendByCode(@RequestBody MqTrendParam param) {
         return mqInfoQueryService.getTrend(param);
+    }
+
+    @RequestMapping(path = "getAllShareForSearch", method = RequestMethod.POST)
+    public List<TsBasic> getAllShareForSearch() {
+        return mqInfoQueryService.getAllShare();
     }
 }

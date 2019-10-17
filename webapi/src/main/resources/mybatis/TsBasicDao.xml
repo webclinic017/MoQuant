@@ -24,4 +24,12 @@
         FROM ts_basic
         WHERE ts_code=#{code}
     </select>
+
+    <select id="getAllForSearchList" resultMap="BaseResultMap">
+      SELECT
+        ts_code,
+        name
+      FROM ts_basic
+      ORDER BY ts_code ASC
+    </select>
 </mapper>

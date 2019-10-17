@@ -44,12 +44,8 @@
 
     <select id="selectTrendByParam" parameterType="com.cn.momojie.moquant.api.param.MqQuarterBasicParam" resultMap="BaseResultMap">
         SELECT
-            ts_code,
-            update_date,
-            report_period,
-            forecast_period,
             <choose>
-                <when test="trendType == 'REVENUE' or trendType == 'REVENUE_QUARTER'">
+                <when test="trendType == 'REVENUE_YEAR' or trendType == 'REVENUE_QUARTER'">
                     revenue_period,
                     revenue,
                     revenue_yoy,
@@ -57,7 +53,7 @@
                     quarter_revenue,
                     quarter_revenue_yoy,
                 </when>
-                <when test="trendType == 'NPROFIT' or trendType == 'NPROFIT_QUARTER' ">
+                <when test="trendType == 'NPROFIT_YEAR' or trendType == 'NPROFIT_QUARTER' ">
                     nprofit_period,
                     nprofit,
                     nprofit_yoy,
@@ -65,7 +61,7 @@
                     quarter_nprofit,
                     quarter_nprofit_yoy,
                 </when>
-                <when test="trendType == 'DRPFOTI' or trendType == 'DRPFOTI_QUARTER'">
+                <when test="trendType == 'DPROFIT_YEAR' or trendType == 'DPROFIT_QUARTER'">
                     dprofit_period,
                     dprofit,
                     dprofit_yoy,
@@ -74,6 +70,10 @@
                     quarter_dprofit_yoy,
                 </when>
             </choose>
+        ts_code,
+        update_date,
+        report_period,
+        forecast_period
         FROM mq_quarter_basic
         WHERE ts_code=#{tsCode}
         ORDER BY update_date ASC

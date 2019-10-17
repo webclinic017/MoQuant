@@ -99,8 +99,8 @@ public class MqInfoQueryService {
 					addToTrend(trend, daily.getDate(),  daily.getPb(), null);
 				}
 			}
-		} else if (TrendType.REVENUE.equals(trendType) || TrendType.DPROFIT.equals(trendType)
-				|| TrendType.NPROFIT.equals(trendType)) {
+		} else if (TrendType.REVENUE_YEAR.equals(trendType) || TrendType.DPROFIT_YEAR.equals(trendType)
+				|| TrendType.NPROFIT_YEAR.equals(trendType)) {
 			MqQuarterBasicParam param = new MqQuarterBasicParam();
 			param.setTsCode(tsCode);
 			param.setTrendType(trendType);
@@ -109,13 +109,13 @@ public class MqInfoQueryService {
 			Iterator<MqQuarterBasic> quarterIt = quarterList.iterator();
 			while (quarterIt.hasNext()) {
 				MqQuarterBasic quarter = quarterIt.next();
-				if (TrendType.REVENUE.equals(trendType) && quarter.getRevenuePeriod() != null
+				if (TrendType.REVENUE_YEAR.equals(trendType) && quarter.getRevenuePeriod() != null
 						&& (isQ4(quarter.getRevenuePeriod()) || !quarterIt.hasNext())) {
 					quarterMap.put(quarter.getRevenuePeriod(), quarter);
-				} else if (TrendType.DPROFIT.equals(trendType) && quarter.getDprofitPeriod() != null
+				} else if (TrendType.DPROFIT_YEAR.equals(trendType) && quarter.getDprofitPeriod() != null
 						&& (isQ4(quarter.getDprofitPeriod()) || !quarterIt.hasNext())) {
 					quarterMap.put(quarter.getDprofitPeriod(), quarter);
-				} else if (TrendType.NPROFIT.equals(trendType) && quarter.getNprofitPeriod() != null
+				} else if (TrendType.NPROFIT_YEAR.equals(trendType) && quarter.getNprofitPeriod() != null
 						&& (isQ4(quarter.getNprofitPeriod()) || !quarterIt.hasNext())) {
 					quarterMap.put(quarter.getNprofitPeriod(), quarter);
 				}
@@ -139,7 +139,7 @@ public class MqInfoQueryService {
 						&& period.equals(quarter.getForecastPeriod())) {
 					quarterStr = quarterStr + " (含预告)";
 				}
-				if (TrendType.REVENUE.equals(trendType)) {
+				if (TrendType.REVENUE_YEAR.equals(trendType)) {
 					BigDecimal y1 = quarter.getRevenue();
 					BigDecimal y2 = quarter.getRevenueYoy();
 					if (!isQ4(quarterStr)) {
@@ -147,7 +147,7 @@ public class MqInfoQueryService {
 						y2 = BigDecimalUtils.yoy(quarter.getRevenueLtm(), last.getRevenue());
 					}
 					addToTrend(trend, quarterStr, y1, y2);
-				} else if (TrendType.DPROFIT.equals(trendType)) {
+				} else if (TrendType.DPROFIT_YEAR.equals(trendType)) {
 					BigDecimal y1 = quarter.getDprofit();
 					BigDecimal y2 = quarter.getDprofitYoy();
 					if (!isQ4(quarterStr)) {
@@ -155,7 +155,7 @@ public class MqInfoQueryService {
 						y2 = BigDecimalUtils.yoy(quarter.getDprofitLtm(), last.getDprofit());
 					}
 					addToTrend(trend, quarterStr, y1, y2);
-				} else if (TrendType.NPROFIT.equals(trendType)) {
+				} else if (TrendType.NPROFIT_YEAR.equals(trendType)) {
 					BigDecimal y1 = quarter.getNprofit();
 					BigDecimal y2 = quarter.getNprofitYoy();
 					if (!isQ4(quarterStr)) {
@@ -195,15 +195,15 @@ public class MqInfoQueryService {
 				if (!quarter.getReportPeriod().equals(quarter.getForecastPeriod()) && period.equals(quarter.getForecastPeriod())) {
 					quarterStr = quarterStr + " (含预告)";
 				}
-				if (TrendType.REVENUE.equals(trendType)) {
+				if (TrendType.REVENUE_QUARTER.equals(trendType)) {
 					BigDecimal y1 = quarter.getQuarterRevenue();
 					BigDecimal y2 = quarter.getQuarterRevenueYoy();
 					addToTrend(trend, quarterStr, y1, y2);
-				} else if (TrendType.DPROFIT.equals(trendType)) {
+				} else if (TrendType.DPROFIT_QUARTER.equals(trendType)) {
 					BigDecimal y1 = quarter.getQuarterDprofit();
 					BigDecimal y2 = quarter.getQuarterDprofitYoy();
 					addToTrend(trend, quarterStr, y1, y2);
-				} else if (TrendType.NPROFIT.equals(trendType)) {
+				} else if (TrendType.NPROFIT_QUARTER.equals(trendType)) {
 					BigDecimal y1 = quarter.getQuarterNprofit();
 					BigDecimal y2 = quarter.getQuarterNprofitYoy();
 					addToTrend(trend, quarterStr, y1, y2);
@@ -222,11 +222,18 @@ public class MqInfoQueryService {
     	if (trend == null || x == null) {
     		return ;
 		}
+    	if (y1 == null && y2 == null) {
+    		return ;
+		}
     	if (x.length() == 8) {
     		x = x.substring(0, 4) + '-' + x.substring(4, 6) + '-' + x.substring(6, 8);
 		}
     	trend.getX().add(x);
     	trend.getVl1().add(y1);
     	trend.getVl2().add(y2);
+	}
+
+	public List<TsBasic> getAllShare() {
+		return tsBasicDao.getAllForSearchList();
 	}
 }

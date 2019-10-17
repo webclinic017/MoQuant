@@ -22,7 +22,7 @@ public class DateTimeUtils {
 				quarter = month / 3;
 			}
 			if (quarter != 0) {
-				return String.format("%04d Q%d", year, quarter);
+				return String.format("%04d-Q%d", year, quarter);
 			}
 		} catch (Exception e) {
     		log.error("Fail to convert period to xxxxQx. {}", period);
