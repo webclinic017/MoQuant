@@ -10,6 +10,7 @@ import com.cn.momojie.moquant.api.param.MqDailyBasicParam;
 import com.cn.momojie.moquant.api.service.MqInfoQueryService;
 import com.cn.momojie.moquant.api.vo.MqShareDetail;
 import com.cn.momojie.moquant.api.vo.PageResult;
+import com.cn.momojie.moquant.api.vo.ShareListItem;
 
 import java.util.List;
 
@@ -35,7 +36,7 @@ public class MqStockController {
     }
 
     @RequestMapping(path = "getAllShareForSearch", method = RequestMethod.POST)
-    public List<TsBasic> getAllShareForSearch() {
+    public List<ShareListItem> getAllShareForSearch() {
         return mqInfoQueryService.getAllShare();
     }
 }

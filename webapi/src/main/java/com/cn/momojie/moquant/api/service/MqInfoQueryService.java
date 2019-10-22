@@ -24,9 +24,11 @@ import com.cn.momojie.moquant.api.param.MqQuarterBasicParam;
 import com.cn.momojie.moquant.api.param.MqTrendParam;
 import com.cn.momojie.moquant.api.util.BigDecimalUtils;
 import com.cn.momojie.moquant.api.util.DateTimeUtils;
+import com.cn.momojie.moquant.api.util.PinYinUtil;
 import com.cn.momojie.moquant.api.vo.MqShareDetail;
 import com.cn.momojie.moquant.api.vo.MqShareTrend;
 import com.cn.momojie.moquant.api.vo.PageResult;
+import com.cn.momojie.moquant.api.vo.ShareListItem;
 import com.github.pagehelper.PageHelper;
 
 import lombok.extern.slf4j.Slf4j;
@@ -233,7 +235,14 @@ public class MqInfoQueryService {
     	trend.getVl2().add(y2);
 	}
 
-	public List<TsBasic> getAllShare() {
-		return tsBasicDao.getAllForSearchList();
+	public List<ShareListItem> getAllShare() {
+		List<TsBasic> list = tsBasicDao.getAllForSearchList();
+		return list.stream().map(i -> {
+			ShareListItem ret = new ShareListItem();
+			ret.setTsCode(i.getTsCode());
+			ret.setName(i.getName());
+			ret.setPy(PinYinUtil.convertToPyFirst(i.getName()));
+			return ret;
+		}).collect(Collectors.toList());
 	}
 }
