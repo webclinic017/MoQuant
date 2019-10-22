@@ -27,9 +27,10 @@ def get_next_index(arr, field, current, i: int = -1):
     return i
 
 
-def calculate(ts_code: str, share_name: str):
+def calculate(ts_code: str, share_name: str, to_date: str):
+    if to_date is None:
+        to_date = get_current_dt()
     start_time = time.time()
-    now_date = get_current_dt()
     session = db_client.get_session()
     last_mq_daily = session.query(MqDailyBasic).filter(MqDailyBasic.ts_code == ts_code) \
         .order_by(MqDailyBasic.date.desc()).limit(1).all()
@@ -41,7 +42,7 @@ def calculate(ts_code: str, share_name: str):
         ts_basic_arr = session.query(TsBasic).filter(TsBasic.ts_code == ts_code).all()
         if len(ts_basic_arr) > 0 and ts_basic_arr[0].list_date > from_date:
             from_date = ts_basic_arr[0].list_date
-    if from_date > now_date:
+    if from_date > to_date:
         return
 
     # Get all daily basic from a date
@@ -71,7 +72,7 @@ def calculate(ts_code: str, share_name: str):
     d_i = get_next_index(daily_arr, 'trade_date', from_date)
     q_i = get_next_index(quarter_arr, 'update_date', from_date)
 
-    while from_date <= now_date:
+    while from_date <= to_date:
         daily_basic: TsDailyBasic = daily_arr[d_i] if 0 <= d_i < len(daily_arr) else None
         is_trade_day: bool = (daily_basic is not None and daily_basic.trade_date == from_date)
         quarter: MqQuarterBasic = quarter_arr[q_i] if 0 <= q_i < len(quarter_arr) else None
@@ -123,9 +124,9 @@ def calculate(ts_code: str, share_name: str):
 def calculate_all():
     session: Session = db_client.get_session()
     now_date = get_current_dt()
-    mq_list: MqStockMark = session.query(MqStockMark).filter(MqStockMark.last_fetch_date == now_date).all()
+    mq_list = session.query(MqStockMark).filter(MqStockMark.last_fetch_date == now_date).all()
     for mq in mq_list:
-        calculate(mq.ts_code, mq.share_name)
+        calculate(mq.ts_code, mq.share_name, mq.last_fetch_date)
     param = session.query(MqSysParam).filter(MqSysParam.param_key == 'CAL_DAILY_DONE').all()
     if len(param) > 0:
         param[0].value = now_date
@@ -139,7 +140,7 @@ def run(ts_code: str):
         session: Session = db_client.get_session()
         mq_list: MqStockMark = session.query(MqStockMark).filter(MqStockMark.ts_code == ts_code).all()
         for mq in mq_list:
-            calculate(mq.ts_code, mq.share_name)
+            calculate(mq.ts_code, mq.share_name, mq.last_fetch_date)
     else:
         calculate_all()
 

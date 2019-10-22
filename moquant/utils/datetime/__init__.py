@@ -11,7 +11,9 @@ def format_delta(d_str: str, day_num: int = 0, d_format: str = '%Y%m%d') -> str:
 
 
 def get_current_dt() -> str:
-    return format_date(datetime.datetime.now())
+    nowd = datetime.datetime.now()
+    dt = format_date(nowd)
+    return dt
 
 
 def parse_str(d_str: str, d_format: str = '%Y%m%d') -> datetime:

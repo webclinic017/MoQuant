@@ -30,6 +30,7 @@ from moquant.utils.env_utils import pass_fetch_basic
 log = get_logger(__name__)
 threads = []
 
+
 def fetch_from_date(date_column: Column, code_column: Column, ts_code: str):
     session: Session = db_client.get_session()
     result = session.query(func.max(date_column)).filter(code_column == ts_code).all()
@@ -40,9 +41,10 @@ def fetch_from_date(date_column: Column, code_column: Column, ts_code: str):
 
 
 def common_fetch_data(ts_code: str, api_name: str, table: Table, date_field, code_field, empty_to_end: bool = False,
+                      to_date: str = get_current_dt(),
                       **kwargs):
+    to_date = format_delta(to_date, 1)
     while True:
-        to_date = format_delta(get_current_dt(), 1)
         from_date = fetch_from_date(date_field, code_field, ts_code)
 
         stock_data = None
@@ -68,42 +70,55 @@ def common_fetch_data(ts_code: str, api_name: str, table: Table, date_field, cod
     return True
 
 
-def fetch_data_by_code(stock_code):
+def fetch_data_by_code(stock_code, to_date: str = get_current_dt()):
+    if to_date is None:
+        to_date = get_current_dt()
     result = True
     result = result and common_fetch_data(stock_code, 'fetch_daily_basic', TsDailyBasic,
-                                          TsDailyBasic.trade_date, TsDailyBasic.ts_code)
+                                          TsDailyBasic.trade_date, TsDailyBasic.ts_code,
+                                          to_date=to_date)
     result = result and common_fetch_data(stock_code, 'fetch_daily_bar', TsDailyTradeInfo,
-                                          TsDailyTradeInfo.trade_date, TsDailyTradeInfo.ts_code)
+                                          TsDailyTradeInfo.trade_date, TsDailyTradeInfo.ts_code,
+                                          to_date=to_date)
     result = result and common_fetch_data(stock_code, 'fetch_adj_factor', StockAdjFactor,
-                                          StockAdjFactor.trade_date, StockAdjFactor.ts_code)
+                                          StockAdjFactor.trade_date, StockAdjFactor.ts_code,
+                                          to_date=to_date)
     result = result and common_fetch_data(stock_code, 'fetch_income', TsIncome,
-                                          TsIncome.ann_date, TsIncome.ts_code)
+                                          TsIncome.ann_date, TsIncome.ts_code,
+                                          to_date=to_date)
     result = result and common_fetch_data(stock_code, 'fetch_balance_sheet', TsBalanceSheet,
-                                          TsBalanceSheet.ann_date, TsBalanceSheet.ts_code)
+                                          TsBalanceSheet.ann_date, TsBalanceSheet.ts_code,
+                                          to_date=to_date)
     result = result and common_fetch_data(stock_code, 'fetch_cash_flow', TsCashFlow,
-                                          TsCashFlow.ann_date, TsCashFlow.ts_code)
+                                          TsCashFlow.ann_date, TsCashFlow.ts_code,
+                                          to_date=to_date)
     result = result and common_fetch_data(stock_code, 'fetch_forecast', TsForecast,
-                                          TsForecast.ann_date, TsForecast.ts_code)
+                                          TsForecast.ann_date, TsForecast.ts_code,
+                                          to_date=to_date)
     result = result and common_fetch_data(stock_code, 'fetch_express', TsExpress,
-                                          TsExpress.ann_date, TsExpress.ts_code)
+                                          TsExpress.ann_date, TsExpress.ts_code,
+                                          to_date=to_date)
     result = result and common_fetch_data(stock_code, 'fetch_fina_indicator', TsFinaIndicator,
-                                          TsFinaIndicator.ann_date, TsFinaIndicator.ts_code)
+                                          TsFinaIndicator.ann_date, TsFinaIndicator.ts_code,
+                                          to_date=to_date)
     return result
 
 
-def fetch_data():
+def fetch_data(to_date: str = get_current_dt()):
+    if to_date is None:
+        to_date = get_current_dt()
     session: Session = db_client.get_session()
     result = session.query(MqStockMark).filter(
         and_(MqStockMark.fetch_data == 1, MqStockMark.last_fetch_date < get_current_dt())).all()
     log.info(len(result))
     for row in result:  # type: MqStockMark
-        if fetch_data_by_code(row.ts_code):
+        if fetch_data_by_code(row.ts_code, to_date):
             row.last_fetch_date = get_current_dt()
             session.flush()
             threadpool.submit(do_after_fetch, ts_code=row.ts_code)
 
 
-def do_after_fetch(ts_code: str) :
+def do_after_fetch(ts_code: str):
     clear_after_fetch.clear(ts_code)
     cal_mq_quarter.run(ts_code)
     cal_mq_daily.run(ts_code)
@@ -137,18 +152,20 @@ def init_stock_basic():
         session.flush()
 
 
-def run(ts_code):
+def run(ts_code, to_date: str = get_current_dt()):
+    if to_date is None:
+        to_date = get_current_dt()
     if ts_code is not None and ts_code != '':
         session: Session = db_client.get_session()
-        mq_list: MqStockMark = session.query(MqStockMark).filter(MqStockMark.ts_code == sys.argv[1]).all()
+        mq_list: MqStockMark = session.query(MqStockMark).filter(MqStockMark.ts_code == ts_code).all()
         for mq in mq_list:
-            fetch_data_by_code(mq.ts_code)
-            mq.last_fetch_date = get_current_dt()
+            fetch_data_by_code(mq.ts_code, to_date)
+            mq.last_fetch_date = to_date
             session.flush()
             threadpool.submit(do_after_fetch, ts_code=mq.ts_code)
     else:
         init_stock_basic()
-        fetch_data()
+        fetch_data(to_date)
         clear_after_fetch.clear(None)
         cal_mq_quarter.calculate_all()
         cal_mq_daily.calculate_all()
@@ -156,4 +173,4 @@ def run(ts_code):
 
 
 if __name__ == '__main__':
-    run(sys.argv[1] if len(sys.argv) > 1 else None)
+    run(ts_code=sys.argv[1] if len(sys.argv) > 1 else None, to_date=sys.argv[2] if len(sys.argv) > 2 else None)

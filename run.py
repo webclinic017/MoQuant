@@ -12,14 +12,17 @@ def usage():
 
 
 if __name__ == '__main__':
-    opts, args = getopt.getopt(sys.argv[1:], "hj:c:")
+    opts, args = getopt.getopt(sys.argv[1:], "hj:c:d:")
     job_name = None
     ts_code = None
+    to_date = None
     for op, value in opts:
         if op == "-j":
             job_name = value
         elif op == "-c":
             ts_code = value
+        elif op == "-d":
+            to_date = value
         elif op == "-h":
             usage()
             sys.exit()
@@ -28,7 +31,7 @@ if __name__ == '__main__':
     elif job_name == 'clear_all_data':
         clear_all_data.run(ts_code)
     elif job_name == 'fetch_data':
-        fetch_data.run(ts_code)
+        fetch_data.run(ts_code, to_date)
     elif job_name == 'cal_mq_daily':
         cal_mq_daily.run(ts_code)
     else:
