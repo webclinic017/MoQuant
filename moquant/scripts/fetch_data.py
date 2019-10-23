@@ -113,7 +113,7 @@ def fetch_data(to_date: str = get_current_dt()):
     log.info(len(result))
     for row in result:  # type: MqStockMark
         if fetch_data_by_code(row.ts_code, to_date):
-            row.last_fetch_date = get_current_dt()
+            row.last_fetch_date = to_date
             session.flush()
             threadpool.submit(do_after_fetch, ts_code=row.ts_code)
 
