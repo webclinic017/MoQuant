@@ -1,6 +1,6 @@
 """ Declaration of table `mq_stock_mark` """
 
-from sqlalchemy import Column, String, Boolean
+from sqlalchemy import Column, String, Boolean, DECIMAL
 
 from moquant.dbclient.base import Base
 
@@ -16,6 +16,7 @@ class MqStockMark(Base):
     last_fetch_date = Column('last_fetch_date', String(10), comment='最后处理日期')
     fetch_data = Column('fetch_data', Boolean, comment='是否拉取数据')
     last_daily_cal = Column('last_daily_cal', String(10), comment='最后计算日期')
+    grow_score = Column('grow_score', DECIMAL(30, 10), comment='成长股评分')
 
 
 def create(engine):

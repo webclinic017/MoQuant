@@ -257,7 +257,7 @@ def calculate_period(ts_code, share_name,
         # Forecast dprofit
         dprofit_period = forecast_period
         dprofit = forecast_nprofit
-        if fina is not None and income is not None\
+        if fina is not None and income is not None \
                 and income.n_income_attr_p is not None and fina.profit_dedt is not None:
             dprofit = dprofit - (income.n_income_attr_p - fina.profit_dedt)
         dprofit_ly_l1 = None
@@ -273,7 +273,6 @@ def calculate_period(ts_code, share_name,
 
         if fina_lyy is not None and dprofit_ly is not None:
             dprofit_ltm = cal_ltm(dprofit, dprofit_ly, fina_lyy.profit_dedt, 0, forecast_period)
-
 
     # Calculate revenue
     revenue_period = None
@@ -397,7 +396,6 @@ def calculate(ts_code, share_name):
         if last_basic.report_period < last_basic.forecast_period:
             forcast_update_date = format_delta(last_basic.update_date, 1)
 
-
     # Get all reports including last two year, to calculate ttm
     period_to_get = period_delta(from_period, -12)
 
@@ -413,17 +411,17 @@ def calculate(ts_code, share_name):
 
     balance_arr = session.query(TsBalanceSheet) \
         .filter(TsBalanceSheet.ts_code == ts_code, TsBalanceSheet.end_date >= period_to_get,
-                     TsBalanceSheet.report_type == 1) \
+                TsBalanceSheet.report_type == 1) \
         .order_by(TsBalanceSheet.f_ann_date.asc(), TsBalanceSheet.end_date.asc()).all()
 
     adjust_balance_arr = session.query(TsBalanceSheet) \
         .filter(TsBalanceSheet.ts_code == ts_code, TsBalanceSheet.end_date >= period_to_get,
-                     TsBalanceSheet.report_type == 4) \
+                TsBalanceSheet.report_type == 4) \
         .order_by(TsBalanceSheet.f_ann_date.asc(), TsBalanceSheet.end_date.asc()).all()
 
     fina_arr = session.query(TsFinaIndicator) \
         .filter(TsFinaIndicator.ts_code == ts_code, TsFinaIndicator.end_date >= period_to_get,
-                     TsFinaIndicator.ann_date != None) \
+                TsFinaIndicator.ann_date != None) \
         .order_by(TsFinaIndicator.ann_date.asc(), TsFinaIndicator.end_date.asc()).all()
 
     forecast_arr = session.query(TsForecast) \
@@ -468,6 +466,22 @@ def calculate(ts_code, share_name):
                     forecast_nprofit = forecast_min_nprofit
                 if forecast_nprofit_ly is None and forecast.last_parent_net is not None:
                     forecast_nprofit_ly = forecast.last_parent_net * 10000
+
+                if same_period(express_arr, e_i, from_period):
+                    express: TsExpress = express_arr[e_i]
+                    if express.ann_date == forecast.ann_date:
+                        if forecast_nprofit is None:
+                            forecast_nprofit = express.n_income
+                        if forecast_revenue is None:
+                            forecast_revenue = express.revenue
+                        if forecast_nassets is None:
+                            forecast_nassets = express.total_hldr_eqy_exc_min_int
+                        if forecast_nprofit_ly is None:
+                            forecast_nprofit_ly = express.yoy_net_profit
+                        if forecast_revenue_ly is None:
+                            forecast_revenue_ly = express.or_last_year
+                        e_i = e_i + 1
+
                 session.add(
                     calculate_period(ts_code, share_name,
                                      income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr,

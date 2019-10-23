@@ -21,7 +21,7 @@ from moquant.dbclient.ts_fina_indicator import TsFinaIndicator
 from moquant.dbclient.ts_forecast import TsForecast
 from moquant.dbclient.ts_income import TsIncome
 from moquant.log import get_logger
-from moquant.scripts import clear_after_fetch, cal_mq_quarter, cal_mq_daily
+from moquant.scripts import clear_after_fetch, cal_mq_quarter, cal_mq_daily, cal_grow
 from moquant.tsclient import ts_client
 from moquant.utils import threadpool
 from moquant.utils.datetime import format_delta, get_current_dt
@@ -166,10 +166,8 @@ def run(ts_code, to_date: str = get_current_dt()):
     else:
         init_stock_basic()
         fetch_data(to_date)
-        clear_after_fetch.clear(None)
-        cal_mq_quarter.calculate_all()
-        cal_mq_daily.calculate_all()
     threadpool.join()
+    cal_grow.run(to_date)
 
 
 if __name__ == '__main__':
