@@ -7,7 +7,6 @@ from logging.handlers import RotatingFileHandler
 
 from moquant.utils.env_utils import get_env_value
 
-sys.setdefaultencoding( "utf-8" )
 log_formatter = '%(asctime)s - %(levelname)s - %(message)s'
 level = logging.INFO
 stdout = logging.StreamHandler(sys.stdout)

@@ -12,7 +12,7 @@ def format_delta(d_str: str, day_num: int = 0, d_format: str = '%Y%m%d') -> str:
 
 def get_current_dt() -> str:
     nowd = datetime.datetime.now()
-    dt = format_date(nowd)
+    dt = format_date(nowd + datetime.timedelta(hours=-16))
     return dt
 
 

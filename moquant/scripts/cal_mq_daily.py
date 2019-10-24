@@ -27,7 +27,8 @@ def get_next_index(arr, field, current, i: int = -1):
     return i
 
 
-def calculate(ts_code: str, share_name: str, to_date: str):
+def calculate(ts_code: str, share_name: str, to_date: str, fix_from: str = None):
+    result_list = []
     if to_date is None:
         to_date = get_current_dt()
     start_time = time.time()
@@ -42,7 +43,7 @@ def calculate(ts_code: str, share_name: str, to_date: str):
         ts_basic_arr = session.query(TsBasic).filter(TsBasic.ts_code == ts_code).all()
         if len(ts_basic_arr) > 0 and ts_basic_arr[0].list_date > from_date:
             from_date = ts_basic_arr[0].list_date
-    if from_date > to_date:
+    if fix_from is None and from_date > to_date:
         return
 
     # Get all daily basic from a date
@@ -65,6 +66,9 @@ def calculate(ts_code: str, share_name: str, to_date: str):
         .all()
     if len(quarter_arr) > 0 and quarter_arr[0].update_date > from_date:
         from_date = quarter_arr[0].update_date
+
+    if fix_from is not None:
+        from_date = fix_from
 
     prepare_time = time.time()
     log.info("Prepare data for %s: %s seconds" % (ts_code, prepare_time - start_time))
@@ -105,11 +109,12 @@ def calculate(ts_code: str, share_name: str, to_date: str):
             if nassets is not None and market_value is not None and nassets != 0:
                 pb = market_value / nassets
 
-        session.add(MqDailyBasic(ts_code=ts_code, share_name=share_name, date=from_date, is_trade_day=is_trade_day,
-                                 total_share=total_share, close=close, market_value=market_value, pb=pb,
-                                 dprofit_period=dprofit_period, dprofit_eps=dprofit_eps,
-                                 quarter_dprofit_yoy=quarter_dprofit_yoy,
-                                 dprofit_pe=dprofit_pe, dprofit_peg=dprofit_peg))
+        result_list.append(
+            MqDailyBasic(ts_code=ts_code, share_name=share_name, date=from_date, is_trade_day=is_trade_day,
+                         total_share=total_share, close=close, market_value=market_value, pb=pb,
+                         dprofit_period=dprofit_period, dprofit_eps=dprofit_eps,
+                         quarter_dprofit_yoy=quarter_dprofit_yoy,
+                         dprofit_pe=dprofit_pe, dprofit_peg=dprofit_peg))
 
         from_date = format_delta(from_date, 1)
         d_i = get_next_index(daily_arr, 'trade_date', from_date, d_i)
@@ -117,8 +122,17 @@ def calculate(ts_code: str, share_name: str, to_date: str):
 
     calculate_time = time.time()
     log.info("Calculate data for %s: %s seconds" % (ts_code, calculate_time - prepare_time))
+    return result_list
 
+
+def calculate_and_insert(ts_code: str, share_name: str, to_date: str):
+    result_list = calculate(ts_code, share_name, to_date)
+    start_time = time.time()
+    session: Session = db_client.get_session()
+    for item in result_list:  # type: MqDailyBasic
+        session.add(item)
     session.flush()
+    log.info("Insert mq daily data for %s: %s seconds" % (ts_code, time.time() - start_time))
 
 
 def calculate_all():
@@ -126,7 +140,7 @@ def calculate_all():
     now_date = get_current_dt()
     mq_list = session.query(MqStockMark).filter(MqStockMark.last_fetch_date == now_date).all()
     for mq in mq_list:
-        calculate(mq.ts_code, mq.share_name, mq.last_fetch_date)
+        calculate_and_insert(mq.ts_code, mq.share_name, mq.last_fetch_date)
     param = session.query(MqSysParam).filter(MqSysParam.param_key == 'CAL_DAILY_DONE').all()
     if len(param) > 0:
         param[0].value = now_date
@@ -140,7 +154,7 @@ def run(ts_code: str):
         session: Session = db_client.get_session()
         mq_list: MqStockMark = session.query(MqStockMark).filter(MqStockMark.ts_code == ts_code).all()
         for mq in mq_list:
-            calculate(mq.ts_code, mq.share_name, mq.last_fetch_date)
+            calculate_and_insert(mq.ts_code, mq.share_name, mq.last_fetch_date)
     else:
         calculate_all()
 

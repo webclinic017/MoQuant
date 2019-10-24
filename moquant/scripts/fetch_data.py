@@ -70,6 +70,20 @@ def common_fetch_data(ts_code: str, api_name: str, table: Table, date_field, cod
     return True
 
 
+def fetch_period_report(ts_code: str, to_date: str):
+    result = True
+    result = result and common_fetch_data(ts_code, 'fetch_income', TsIncome,
+                                          TsIncome.ann_date, TsIncome.ts_code,
+                                          to_date=to_date)
+    result = result and common_fetch_data(ts_code, 'fetch_balance_sheet', TsBalanceSheet,
+                                          TsBalanceSheet.ann_date, TsBalanceSheet.ts_code,
+                                          to_date=to_date)
+    result = result and common_fetch_data(ts_code, 'fetch_cash_flow', TsCashFlow,
+                                          TsCashFlow.ann_date, TsCashFlow.ts_code,
+                                          to_date=to_date)
+    return result
+
+
 def fetch_data_by_code(stock_code, to_date: str = get_current_dt()):
     if to_date is None:
         to_date = get_current_dt()
@@ -83,15 +97,9 @@ def fetch_data_by_code(stock_code, to_date: str = get_current_dt()):
     result = result and common_fetch_data(stock_code, 'fetch_adj_factor', StockAdjFactor,
                                           StockAdjFactor.trade_date, StockAdjFactor.ts_code,
                                           to_date=to_date)
-    result = result and common_fetch_data(stock_code, 'fetch_income', TsIncome,
-                                          TsIncome.ann_date, TsIncome.ts_code,
-                                          to_date=to_date)
-    result = result and common_fetch_data(stock_code, 'fetch_balance_sheet', TsBalanceSheet,
-                                          TsBalanceSheet.ann_date, TsBalanceSheet.ts_code,
-                                          to_date=to_date)
-    result = result and common_fetch_data(stock_code, 'fetch_cash_flow', TsCashFlow,
-                                          TsCashFlow.ann_date, TsCashFlow.ts_code,
-                                          to_date=to_date)
+
+    result = result and fetch_period_report(stock_code, to_date)
+
     result = result and common_fetch_data(stock_code, 'fetch_forecast', TsForecast,
                                           TsForecast.ann_date, TsForecast.ts_code,
                                           to_date=to_date)
@@ -109,7 +117,7 @@ def fetch_data(to_date: str = get_current_dt()):
         to_date = get_current_dt()
     session: Session = db_client.get_session()
     result = session.query(MqStockMark).filter(
-        and_(MqStockMark.fetch_data == 1, MqStockMark.last_fetch_date < get_current_dt())).all()
+        and_(MqStockMark.fetch_data == 1, MqStockMark.last_fetch_date < to_date)).all()
     log.info(len(result))
     for row in result:  # type: MqStockMark
         if fetch_data_by_code(row.ts_code, to_date):

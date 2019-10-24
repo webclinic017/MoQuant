@@ -64,10 +64,8 @@ class TsClient(object):
         func = methodcaller(method_name, ts_code=ts_code, start_date=start_date, end_date=end_date, **kwargs)
         return func(self)
 
+    def fetch_disclosure_date(self, date: str) -> DataFrame:
+        return self.__pro.disclosure_date(pre_date=date)
+
 
 ts_client = TsClient()
-
-if __name__ == '__main__':
-    result = ts_client.fetch_forecast('000048.SZ', start_date='20181031', end_date='20181031')
-    for index, stock in result.iterrows():
-        print('%s %s' % (stock.end_date, stock.report_type))

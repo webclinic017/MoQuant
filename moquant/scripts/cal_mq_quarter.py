@@ -377,7 +377,8 @@ def calculate_period(ts_code, share_name,
                           dprofit_ltm=dprofit_ltm, nassets=nassets)
 
 
-def calculate(ts_code, share_name):
+def calculate(ts_code, share_name, fix_from: str = None):
+    result_list = []
     start_time = time.time()
     now_date = get_current_dt()
     max_period = get_period(int(now_date[0:4]), 12)
@@ -390,11 +391,13 @@ def calculate(ts_code, share_name):
     if len(last_basic_arr) > 0:
         last_basic = last_basic_arr[0]
 
-    from_period = mq_calculate_start_period
-    if last_basic is not None:
-        from_period = next_period(last_basic.report_period)
-        if last_basic.report_period < last_basic.forecast_period:
-            forcast_update_date = format_delta(last_basic.update_date, 1)
+    from_period = fix_from
+    if from_period is None:
+        from_period = mq_calculate_start_period
+        if last_basic is not None:
+            from_period = next_period(last_basic.report_period)
+            if last_basic.report_period < last_basic.forecast_period:
+                forcast_update_date = format_delta(last_basic.update_date, 1)
 
     # Get all reports including last two year, to calculate ttm
     period_to_get = period_delta(from_period, -12)
@@ -482,7 +485,7 @@ def calculate(ts_code, share_name):
                             forecast_revenue_ly = express.or_last_year
                         e_i = e_i + 1
 
-                session.add(
+                result_list.append(
                     calculate_period(ts_code, share_name,
                                      income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr,
                                      i_i, ai_i, b_i, ab_i, fi_i,
@@ -502,7 +505,7 @@ def calculate(ts_code, share_name):
                 forecast_nassets = express.total_hldr_eqy_exc_min_int
                 forecast_nprofit_ly = express.yoy_net_profit
                 forecast_revenue_ly = express.or_last_year
-                session.add(
+                result_list.append(
                     calculate_period(ts_code, share_name,
                                      income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr,
                                      i_i, ai_i, b_i, ab_i, fi_i,
@@ -515,7 +518,7 @@ def calculate(ts_code, share_name):
         elif same_period(adjust_balance_arr, ab_i, period_delta(from_period, -4)):
             report_period = adjust_balance_arr[ab_i].end_date
             forecast_period = report_period
-            session.add(
+            result_list.append(
                 calculate_period(ts_code, share_name,
                                  adjust_income_arr, adjust_income_arr, adjust_balance_arr, adjust_balance_arr, fina_arr,
                                  ai_i, ai_i, ab_i, ab_i, fi_i,
@@ -532,7 +535,7 @@ def calculate(ts_code, share_name):
         elif same_period(balance_arr, b_i, from_period):
             report_period = balance_arr[b_i].end_date
             forecast_period = report_period
-            session.add(
+            result_list.append(
                 calculate_period(ts_code, share_name,
                                  income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr,
                                  i_i, ai_i, b_i, ab_i, fi_i,
@@ -562,9 +565,17 @@ def calculate(ts_code, share_name):
 
     calculate_time = time.time()
     log.info("Calculate data for %s: %s seconds" % (ts_code, calculate_time - find_index_time))
+    return result_list
+
+
+def calculate_and_insert(ts_code: str, share_name: str):
+    session: Session = db_client.get_session()
+    result_list = calculate(ts_code, share_name)
+    start = time.time()
+    for item in result_list:  # type: MqQuarterBasic
+        session.add(item)
     session.flush()
-    insert_time = time.time()
-    log.info("Insert data for %s: %s seconds" % (ts_code, insert_time - calculate_time))
+    log.info("Insert data for %s: %s seconds" % (ts_code, time.time() - start))
 
 
 def calculate_all():
@@ -572,7 +583,7 @@ def calculate_all():
     now_date = get_current_dt()
     mq_list: MqStockMark = session.query(MqStockMark).filter(MqStockMark.last_fetch_date == now_date).all()
     for mq in mq_list:
-        calculate(mq.ts_code, mq.share_name)
+        calculate_and_insert(mq.ts_code, mq.share_name)
     session.flush()
 
 
@@ -581,7 +592,7 @@ def run(ts_code: str):
         session: Session = db_client.get_session()
         mq_list: MqStockMark = session.query(MqStockMark).filter(MqStockMark.ts_code == ts_code).all()
         for mq in mq_list:
-            calculate(mq.ts_code, mq.share_name)
+            calculate_and_insert(mq.ts_code, mq.share_name)
     else:
         calculate_all()
 

@@ -3,7 +3,7 @@
 import getopt
 import sys
 
-from moquant.scripts import clear_all_data, init_table, fetch_data, cal_mq_daily
+from moquant.scripts import clear_all_data, init_table, fetch_data, cal_mq_daily, fetch_latest
 
 
 def usage():
@@ -34,5 +34,7 @@ if __name__ == '__main__':
         fetch_data.run(ts_code, to_date)
     elif job_name == 'cal_mq_daily':
         cal_mq_daily.run(ts_code)
+    elif job_name == 'fetch_latest':
+        fetch_latest.run(to_date)
     else:
         print("unsupported job")
