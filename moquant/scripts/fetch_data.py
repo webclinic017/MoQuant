@@ -175,6 +175,7 @@ def run(ts_code, to_date: str = get_current_dt()):
         init_stock_basic()
         fetch_data(to_date)
     threadpool.join()
+    cal_mq_daily.update_done_record(to_date)
     cal_grow.run(to_date)
 
 

@@ -141,11 +141,12 @@ def calculate_all():
     mq_list = session.query(MqStockMark).filter(MqStockMark.last_fetch_date == now_date).all()
     for mq in mq_list:
         calculate_and_insert(mq.ts_code, mq.share_name, mq.last_fetch_date)
-    param = session.query(MqSysParam).filter(MqSysParam.param_key == 'CAL_DAILY_DONE').all()
-    if len(param) > 0:
-        param[0].value = now_date
-    else:
-        session.add(MqSysParam(param_key='CAL_DAILY_DONE', param_value=now_date))
+    update_done_record(now_date)
+
+
+def update_done_record(to_date: str):
+    session: Session = db_client.get_session()
+    session.merge(MqSysParam(param_key='CAL_DAILY_DONE', param_value=to_date), True)
     session.flush()
 
 
