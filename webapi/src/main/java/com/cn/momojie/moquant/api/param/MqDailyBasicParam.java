@@ -5,10 +5,6 @@ import lombok.Data;
 @Data
 public class MqDailyBasicParam {
 
-    private Boolean g = false;
-
-    private Boolean peg = false;
-
     private Boolean orderByDate = false;
 
     private Boolean onlyIndicator = false;

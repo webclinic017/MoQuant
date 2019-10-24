@@ -38,12 +38,6 @@
       </if>
     ORDER BY
     <choose>
-      <when test="g">
-        quarter_dprofit_yoy DESC
-      </when>
-      <when test="peg">
-        sign(dprofit_peg) DESC, sign(quarter_dprofit_yoy) DESC, dprofit_peg ASC
-      </when>
       <when test="orderByDate">
           date ASC
       </when>
@@ -60,5 +54,39 @@
     WHERE ts_code = #{tsCode}
     ORDER BY date DESC
     LIMIT 1
+  </select>
+
+  <select id="getScoreList" parameterType="com.cn.momojie.moquant.api.param.MqShareListParam"
+          resultMap="BaseResultMap">
+    SELECT
+      daily.ts_code,
+      daily.share_name,
+      <choose>
+        <when test="scoreBy == 'grow_score'">
+          daily.dprofit_pe,
+          daily.quarter_dprofit_yoy,
+          daily.dprofit_peg
+        </when>
+      </choose>
+    FROM mq_daily_basic daily
+    LEFT JOIN mq_stock_mark mark
+    ON daily.ts_code = mark.ts_code
+    WHERE daily.date = #{dt} AND mark.${scoreBy} != -1
+    ORDER BY
+    <choose>
+      <when test="orderBy == 'pe'">
+        daily.dprofit_pe ASC
+      </when>
+      <when test="orderBy == 'yoy'">
+        daily.quarter_dprofit_yoy DESC
+      </when>
+      <when test="orderBy == 'peg'">
+        daily.dprofit_peg ASC
+      </when>
+      <otherwise>
+        mark.${scoreBy} DESC
+      </otherwise>
+    </choose>
+
   </select>
 </mapper>

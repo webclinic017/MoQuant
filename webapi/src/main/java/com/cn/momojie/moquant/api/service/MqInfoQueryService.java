@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import com.cn.momojie.moquant.api.dao.MqStockMarkDao;
+import com.cn.momojie.moquant.api.param.MqShareListParam;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -47,6 +49,9 @@ public class MqInfoQueryService {
     private MqQuarterBasicDao quarterBasicDao;
 
     @Autowired
+    private MqStockMarkDao mqStockMarkDao;
+
+    @Autowired
     private MqSysParamService mqSysParamService;
 
     public PageResult getLatestListByOrder(MqDailyBasicParam param) {
@@ -55,6 +60,14 @@ public class MqInfoQueryService {
         List<MqDailyBasic> list = dailyBasicDao.selectByParam(param);
         return PageResult.fromList(list);
     }
+
+    public PageResult getGrowList(MqShareListParam param) {
+    	param.setDt(getLatestDt());
+    	param.setScoreBy("grow_score");
+		PageHelper.startPage(param.getPageNum(), param.getPageSize());
+		List<MqDailyBasic> list = dailyBasicDao.getScoreList(param);
+		return PageResult.fromList(list);
+	}
 
     private String getLatestDt() {
         return mqSysParamService.getString(SysParamKey.CAL_DAILY_DONE);

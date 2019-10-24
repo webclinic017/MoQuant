@@ -11,7 +11,7 @@ from moquant.dbclient.mq_stock_mark import MqStockMark
 from moquant.utils.datetime import get_current_dt
 
 basic_profit = 1000 * 10000
-max_peg = Decimal(0.6)
+max_peg = Decimal(0.2)
 
 
 def get_growing_score(date: str):
