@@ -45,7 +45,9 @@ class TsClient(object):
         return df1.append(df2)
 
     def fetch_balance_sheet(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
-        return self.__pro.balancesheet(ts_code=ts_code, start_date=start_date, end_date=end_date)
+        df1 = self.__pro.balancesheet(ts_code=ts_code, start_date=start_date, end_date=end_date, report_type=1)
+        df2 = self.__pro.balancesheet(ts_code=ts_code, start_date=start_date, end_date=end_date, report_type=4)
+        return df1.append(df2)
 
     def fetch_cash_flow(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
         return self.__pro.cashflow(ts_code=ts_code, start_date=start_date, end_date=end_date)

@@ -10,6 +10,7 @@ from moquant.dbclient.mq_quarter_basic import MqQuarterBasic
 from moquant.dbclient.mq_stock_mark import MqStockMark
 from moquant.dbclient.ts_balance_sheet import TsBalanceSheet
 from moquant.dbclient.ts_cashflow import TsCashFlow
+from moquant.dbclient.ts_fina_indicator import TsFinaIndicator
 from moquant.dbclient.ts_income import TsIncome
 from moquant.log import get_logger
 from moquant.scripts import fetch_data, cal_mq_quarter, cal_mq_daily, cal_grow
@@ -47,7 +48,9 @@ def run(to_date: str = get_current_dt()):
         already_codes = session.query(TsIncome.ts_code).filter(
             and_(TsIncome.report_type == 1, TsIncome.end_date == period)).all()
         existed = [already[0] for already in already_codes]
-        end_date_to_check = to_check[(~to_check['ts_code'].isin(existed)) & (to_check['end_date'] == period)]
+        end_date_to_check = to_check[(~to_check['ts_code'].isin(existed)) & (to_check['end_date'] == period)] \
+            .dropna(how='any')
+        log.info(end_date_to_check)
         log.info('%s more to fetch for %s' % (len(end_date_to_check), period))
         for index, row in end_date_to_check.iterrows():
             fetch_data.fetch_period_report(ts_code=row.ts_code, to_date=to_date)
@@ -55,14 +58,17 @@ def run(to_date: str = get_current_dt()):
             and_(TsIncome.report_type == 1, TsIncome.end_date == period)).all()
         existed = [already[0] for already in already_codes]
         success = end_date_to_check[(end_date_to_check['ts_code'].isin(existed)) &
-                                    (end_date_to_check['end_date'] == period)]
+                                    (end_date_to_check['end_date'] == period)] \
+            .drop_duplicates(['ts_code', 'end_date'])
         log.info('%s to recalculate for %s' % (len(success), period))
         for index, row in success.iterrows():
             did_calculate = True
-            threadpool.submit(recal_after_report, ts_code=row.ts_code, to_date=to_date, period=period)
+            recal_after_report(ts_code=row.ts_code, to_date=to_date, period=period)
+            # threadpool.submit(recal_after_report, ts_code=row.ts_code, to_date=to_date, period=period)
         threadpool.join()
     if did_calculate:
-        cal_grow.run(to_date)
+        # cal_grow.run(to_date)
+        pass
 
 
 def clear_report_by_date(to_date: str):
@@ -70,6 +76,7 @@ def clear_report_by_date(to_date: str):
     session.query(TsIncome).filter(TsIncome.f_ann_date == format_delta(to_date, 1)).delete()
     session.query(TsBalanceSheet).filter(TsBalanceSheet.f_ann_date == format_delta(to_date, 1)).delete()
     session.query(TsCashFlow).filter(TsCashFlow.f_ann_date == format_delta(to_date, 1)).delete()
+    session.query(TsFinaIndicator).filter(TsFinaIndicator.ann_date == format_delta(to_date, 1)).delete()
 
 
 if __name__ == '__main__':

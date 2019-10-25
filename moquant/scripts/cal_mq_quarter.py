@@ -108,8 +108,7 @@ def get_first_not_none(arr, field_name):
             return getattr(item, field_name)
     return None
 
-
-def find_previous_period(arr: list, pos: int, period: str, num: int):
+def find_previous_period(arr: list, pos: int, period: str, num: int, sub_arr: list=None, sub_pos: int=None):
     if num is None:
         return None
     year = int(period[0:4])
@@ -127,8 +126,17 @@ def find_previous_period(arr: list, pos: int, period: str, num: int):
         pos -= 1
     if pos >= 0 and arr[pos].end_date == to_find_period:
         return arr[pos]
-    else:
-        return None
+
+    if sub_arr is not None and sub_pos is not None:
+        if sub_pos >= len(sub_arr):
+            sub_pos = len(sub_arr) - 1
+        while sub_pos >= 0 and sub_arr[sub_pos].end_date != to_find_period \
+                and sub_arr[sub_pos].ann_date >= to_find_period:
+            sub_pos -= 1
+        if sub_pos >= 0 and sub_arr[sub_pos].end_date == to_find_period:
+            return sub_arr[sub_pos]
+
+    return None
 
 
 def same_period(arr, i: int, period: str) -> bool:
@@ -140,20 +148,39 @@ def calculate_period(ts_code, share_name,
                      i_i, ai_i, b_i, ab_i, fi_i,
                      report_period, forecast_period,
                      forecast_nprofit, forecast_nprofit_ly, forecast_revenue, forecast_revenue_ly, forecast_nassets,
-                     f_ann_date
+                     f_ann_date, is_adjust
                      ):
     report_quarter = get_quarter_num(report_period)
     forecast_quarter = get_quarter_num(forecast_period)
 
-    income: TsIncome = find_previous_period(income_arr, i_i, report_period, 0)
-    income_l1: TsIncome = find_previous_period(income_arr, i_i, report_period, 1)
-    income_l3: TsIncome = find_previous_period(income_arr, i_i, report_period, 3)
-    income_l4: TsIncome = find_previous_period(income_arr, i_i, report_period, 4)
-    income_l5: TsIncome = find_previous_period(income_arr, i_i, report_period, 5)
-    income_lyy: TsIncome = find_previous_period(income_arr, i_i, report_period, report_quarter)
-    income_forecast_lyy: TsIncome = find_previous_period(income_arr, i_i, forecast_period, forecast_quarter)
+    # incase there is no report for adjust
+    main_income_arr = adjust_income_arr if is_adjust else income_arr
+    sub_income_arr = income_arr if is_adjust else adjust_income_arr
+    main_i_i = ai_i if is_adjust else i_i
+    sub_i_i = i_i if is_adjust else ai_i
 
-    balance: TsBalanceSheet = find_previous_period(balance_arr, b_i, report_period, 0)
+    main_bs_arr = adjust_balance_arr if is_adjust else balance_arr
+    sub_bs_arr = balance_arr if is_adjust else adjust_balance_arr
+    main_b_i = ab_i if is_adjust else b_i
+    sub_b_i = b_i if is_adjust else ab_i
+
+    income: TsIncome = find_previous_period(main_income_arr, main_i_i, report_period, 0,
+                                            sub_arr=sub_income_arr, sub_pos=sub_i_i)
+    income_l1: TsIncome = find_previous_period(main_income_arr, main_i_i, report_period, 1,
+                                               sub_arr=sub_income_arr, sub_pos=sub_i_i)
+    income_l3: TsIncome = find_previous_period(main_income_arr, main_i_i, report_period, 3,
+                                               sub_arr=sub_income_arr, sub_pos=sub_i_i)
+    income_l4: TsIncome = find_previous_period(main_income_arr, main_i_i, report_period, 4,
+                                               sub_arr=sub_income_arr, sub_pos=sub_i_i)
+    income_l5: TsIncome = find_previous_period(main_income_arr, main_i_i, report_period, 5,
+                                               sub_arr=sub_income_arr, sub_pos=sub_i_i)
+    income_lyy: TsIncome = find_previous_period(main_income_arr, main_i_i, report_period, report_quarter,
+                                                sub_arr=sub_income_arr, sub_pos=sub_i_i)
+    income_forecast_lyy: TsIncome = find_previous_period(main_income_arr, main_i_i, forecast_period, forecast_quarter,
+                                                         sub_arr=sub_income_arr, sub_pos=sub_i_i)
+
+    balance: TsBalanceSheet = find_previous_period(main_bs_arr, main_b_i, report_period, 0,
+                                                   sub_arr=sub_bs_arr, sub_pos=sub_b_i)
 
     adjust_income_l3: TsIncome = find_previous_period(adjust_income_arr, ai_i, report_period, 3)
     adjust_income_l4: TsIncome = find_previous_period(adjust_income_arr, ai_i, report_period, 4)
@@ -492,7 +519,7 @@ def calculate(ts_code, share_name, fix_from: str = None):
                                      report_period, forecast_period,
                                      forecast_nprofit, forecast_nprofit_ly, forecast_revenue, forecast_revenue_ly,
                                      forecast_nassets,
-                                     forecast.ann_date)
+                                     forecast.ann_date, False)
                 )
             f_i = f_i + 1
         elif same_period(express_arr, e_i, from_period):
@@ -512,26 +539,26 @@ def calculate(ts_code, share_name, fix_from: str = None):
                                      report_period, forecast_period,
                                      forecast_nprofit, forecast_nprofit_ly, forecast_revenue, forecast_revenue_ly,
                                      forecast_nassets,
-                                     express.ann_date)
+                                     express.ann_date, False)
                 )
             e_i = e_i + 1
-        elif same_period(adjust_balance_arr, ab_i, period_delta(from_period, -4)):
-            report_period = adjust_balance_arr[ab_i].end_date
+        elif same_period(adjust_income_arr, ai_i, period_delta(from_period, -4)):
+            report_period = adjust_income_arr[ai_i].end_date
             forecast_period = report_period
             result_list.append(
                 calculate_period(ts_code, share_name,
-                                 adjust_income_arr, adjust_income_arr, adjust_balance_arr, adjust_balance_arr, fina_arr,
-                                 ai_i, ai_i, ab_i, ab_i, fi_i,
+                                 income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr,
+                                 i_i, ai_i, b_i, ab_i, fi_i,
                                  report_period, forecast_period,
                                  forecast_nprofit, forecast_nprofit_ly, forecast_revenue, forecast_revenue_ly,
                                  forecast_nassets,
-                                 adjust_balance_arr[ab_i].f_ann_date)
+                                 adjust_income_arr[ai_i].f_ann_date, True)
             )
-            ab_i = ab_i + 1
+            ai_i = ai_i + 1
             if same_period(adjust_balance_arr, ab_i, period_delta(from_period, -4)):
-                ai_i = ai_i + 1
+                ab_i = ab_i + 1
             else:
-                ai_i = get_index_by_end_date(adjust_income_arr, period_delta(from_period, -3))
+                ab_i = get_index_by_end_date(adjust_balance_arr, period_delta(from_period, -3))
         elif same_period(balance_arr, b_i, from_period):
             report_period = balance_arr[b_i].end_date
             forecast_period = report_period
@@ -542,7 +569,7 @@ def calculate(ts_code, share_name, fix_from: str = None):
                                  report_period, forecast_period,
                                  forecast_nprofit, forecast_nprofit_ly, forecast_revenue, forecast_revenue_ly,
                                  forecast_nassets,
-                                 balance_arr[b_i].f_ann_date)
+                                 balance_arr[b_i].f_ann_date, False)
             )
             b_i = b_i + 1
             if same_period(income_arr, i_i, from_period):

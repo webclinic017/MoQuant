@@ -81,6 +81,9 @@ def fetch_period_report(ts_code: str, to_date: str):
     result = result and common_fetch_data(ts_code, 'fetch_cash_flow', TsCashFlow,
                                           TsCashFlow.ann_date, TsCashFlow.ts_code,
                                           to_date=to_date)
+    result = result and common_fetch_data(ts_code, 'fetch_fina_indicator', TsFinaIndicator,
+                                          TsFinaIndicator.ann_date, TsFinaIndicator.ts_code,
+                                          to_date=to_date)
     return result
 
 
@@ -106,9 +109,7 @@ def fetch_data_by_code(stock_code, to_date: str = get_current_dt()):
     result = result and common_fetch_data(stock_code, 'fetch_express', TsExpress,
                                           TsExpress.ann_date, TsExpress.ts_code,
                                           to_date=to_date)
-    result = result and common_fetch_data(stock_code, 'fetch_fina_indicator', TsFinaIndicator,
-                                          TsFinaIndicator.ann_date, TsFinaIndicator.ts_code,
-                                          to_date=to_date)
+
     return result
 
 
