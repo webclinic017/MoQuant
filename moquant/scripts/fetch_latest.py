@@ -29,8 +29,11 @@ def recal_after_report(ts_code: str, to_date: str, period: str):
         session.merge(quarter, True)
     session.flush()
     daily_list = cal_mq_daily.calculate(ts_code, basic.share_name, to_date, fix_from=to_date)
+    new_grow_score = 0
     for daily in daily_list:  # type: MqDailyBasic
         session.merge(daily, True)
+        new_grow_score = cal_grow.cal_growing_score(daily)
+        basic.grow_score = new_grow_score
     session.flush()
 
 
@@ -39,11 +42,11 @@ def run(to_date: str = get_current_dt()):
         to_date = get_current_dt()
 
     session: Session = db_client.get_session()
+
+    # Check new report
     to_check: DataFrame = ts_client.fetch_disclosure_date(format_delta(to_date, 1))
     end_date_column: Series = to_check['end_date']
     end_date_column = end_date_column.drop_duplicates().sort_values(ascending=True)
-    log.info(end_date_column)
-    did_calculate = False
     for index, period in end_date_column.items():
         already_codes = session.query(TsIncome.ts_code).filter(
             and_(TsIncome.report_type == 1, TsIncome.end_date == period)).all()
@@ -62,13 +65,12 @@ def run(to_date: str = get_current_dt()):
             .drop_duplicates(['ts_code', 'end_date'])
         log.info('%s to recalculate for %s' % (len(success), period))
         for index, row in success.iterrows():
-            did_calculate = True
-            recal_after_report(ts_code=row.ts_code, to_date=to_date, period=period)
-            # threadpool.submit(recal_after_report, ts_code=row.ts_code, to_date=to_date, period=period)
+            # recal_after_report(ts_code=row.ts_code, to_date=to_date, period=period)
+            threadpool.submit(recal_after_report, ts_code=row.ts_code, to_date=to_date, period=period)
         threadpool.join()
-    if did_calculate:
-        # cal_grow.run(to_date)
-        pass
+
+    # Check forecast
+
 
 
 def clear_report_by_date(to_date: str):

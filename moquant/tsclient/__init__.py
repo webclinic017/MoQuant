@@ -69,5 +69,10 @@ class TsClient(object):
     def fetch_disclosure_date(self, date: str) -> DataFrame:
         return self.__pro.disclosure_date(pre_date=date)
 
+    def fetch_forecast_by_ann(self, ann_date: str) -> DataFrame:
+        return self.__pro.forecast(ann_date=ann_date)
+
+    def fetch_trade_cal(self, exchange, start_date, end_date, is_open):
+        return self.__pro.trade_cal(exchange=exchange, start_date=start_date, end_date=end_date, is_open=is_open)
 
 ts_client = TsClient()
