@@ -1,6 +1,8 @@
 import sys
 from decimal import Decimal
 
+import pandas as pd
+from pandas import DataFrame
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
@@ -8,7 +10,10 @@ from moquant.dbclient import db_client
 from moquant.dbclient.mq_daily_basic import MqDailyBasic
 from moquant.dbclient.mq_quarter_basic import MqQuarterBasic
 from moquant.dbclient.mq_stock_mark import MqStockMark
+from moquant.log import get_logger
 from moquant.utils.datetime import get_current_dt
+
+log = get_logger(__name__)
 
 basic_profit = 1000 * 10000
 max_peg = Decimal(0.2)
@@ -53,6 +58,12 @@ def get_growing_score(date: str):
         result[share.ts_code] = cal_growing_score(share)
 
     return result
+
+
+def get_grow_df(date: str) -> DataFrame:
+    grow_dict = get_growing_score(date)
+    df = pd.DataFrame(list(grow_dict.items()), columns=['ts_code', 'grow_score'])
+    return df[df.grow_score != -1].sort_values(by='grow_score', ascending=False)
 
 
 def run(fetch_date: str):

@@ -1,10 +1,10 @@
-from moquant.simulator import SimCenter
+from moquant.simulator.sim_context import SimContext
 
 
 class SimHandler(object):
 
-    def auction_before_trade(self, sc: SimCenter):
+    def auction_before_trade(self, context: SimContext):
         pass
 
-    def auction_before_end(self, sc: SimCenter):
+    def auction_before_end(self, context: SimContext):
         pass
