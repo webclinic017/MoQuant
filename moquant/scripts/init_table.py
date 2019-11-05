@@ -14,6 +14,7 @@ from moquant.dbclient.ts_basic import TsBasic
 from moquant.dbclient.ts_cashflow import TsCashFlow
 from moquant.dbclient.ts_daily_basic import TsDailyBasic
 from moquant.dbclient.ts_daily_trade_info import TsDailyTradeInfo
+from moquant.dbclient.ts_dividend import TsDividend
 from moquant.dbclient.ts_express import TsExpress
 from moquant.dbclient.ts_fina_indicator import TsFinaIndicator
 from moquant.dbclient.ts_forecast import TsForecast
@@ -25,7 +26,7 @@ def create_table():
     all_table = [MqSysParam, MqStockMark, MqDailyBasic, MqQuarterBasic,
                  TsBasic, TsDailyBasic, TsDailyTradeInfo, StockAdjFactor,
                  TsIncome, TsBalanceSheet, TsCashFlow, TsForecast, TsExpress,
-                 TsFinaIndicator]
+                 TsFinaIndicator, TsDividend]
 
     # Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)

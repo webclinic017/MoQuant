@@ -72,7 +72,11 @@ class TsClient(object):
     def fetch_forecast_by_ann(self, ann_date: str) -> DataFrame:
         return self.__pro.forecast(ann_date=ann_date)
 
-    def fetch_trade_cal(self, exchange, start_date, end_date, is_open):
+    def fetch_trade_cal(self, exchange, start_date, end_date, is_open) -> DataFrame:
         return self.__pro.trade_cal(exchange=exchange, start_date=start_date, end_date=end_date, is_open=is_open)
+
+    def fetch_dividend(self, ts_code: str = None, ann_date: str = None) -> DataFrame:
+        return self.__pro.dividend(ts_code=ts_code, ann_date=ann_date)
+
 
 ts_client = TsClient()
