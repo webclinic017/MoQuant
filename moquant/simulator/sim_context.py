@@ -19,6 +19,7 @@ class SimContext(object):
     __orders: dict
     __cd: str  # current date
     __shares: dict
+    __dividend: dict
     __records: dict
 
     def __init__(self, sd: str, ed: str, cash: Decimal = 500000, charge: Decimal = 0.00025,
@@ -37,6 +38,7 @@ class SimContext(object):
 
         self.__cd = sd
         self.__shares = {}
+        self.__dividend = {}
         self.__records = {}
         self.__orders = {}
 
@@ -44,7 +46,7 @@ class SimContext(object):
         self.__records[self.__cd] = []
 
     def sell_share(self, ts_code: str, num: Decimal = 0, price: Decimal = 0) -> SimOrder:
-        order : SimOrder = None
+        order: SimOrder = None
         if num == 0:
             order = SimOrder(0, ts_code, num, False, 'You cant sell nothing')
 
