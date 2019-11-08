@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from moquant.dbclient import db_client
 from moquant.log import get_logger
 from moquant.scripts import cal_grow
+from moquant.simulator.sim_order import SimOrder
 from moquant.simulator.sim_share_hold import SimShareHold
 from moquant.simulator.sim_context import SimContext
 from moquant.simulator.sim_handler import SimHandler
@@ -19,13 +20,22 @@ class GrowStrategyHandler(SimHandler):
         dt = context.get_dt()
         grow_df: DataFrame = cal_grow.get_grow_df(dt)
         code_col: Series = grow_df['ts_code'].values
-        holding = context.get_holding()
+        holding: dict = context.get_holding()
 
-        # sell not in grow list
-        for share in holding:  # type: SimShareHold
-            if not share.get_ts_code() in code_col:
+        for ts_code, share in holding:  # type: str, SimShareHold
+            if ts_code not in code_col:
+                # sell not in grow list
+                context.sell_share(share.get_ts_code(), share.get_num())
+            if share.achieve_win() or share.achieve_lose():
+                # sell achieve goal
                 context.sell_share(share.get_ts_code(), share.get_num())
 
+        for index, stock in grow_df.iterrows():
+            max_buy = 50000
+            if stock.ts_code in holding:
+                continue
+
+            context.buy_amap(stock.ts_code, max_buy)
 
 
     def auction_before_end(self, context: SimContext):
