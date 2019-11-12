@@ -1,6 +1,12 @@
 import math
 from decimal import Decimal
 
+from sqlalchemy import and_
+from sqlalchemy.orm import Session
+
+from moquant.dbclient import db_client
+from moquant.dbclient.ts_daily_trade_info import TsDailyTradeInfo
+from moquant.dbclient.ts_dividend import TsDividend
 from moquant.log import get_logger
 from moquant.simulator.sim_order import SimOrder
 from moquant.simulator.sim_share_hold import SimShareHold
@@ -14,16 +20,16 @@ class SimContext(object):
     __sd: str
     __ed: str
     __cash: Decimal
-    __reserved_cash: Decimal # money sent out for buying
+    __reserved_cash: Decimal  # money sent out for buying
     __charge: Decimal
     __tax: Decimal
 
     __sz: set  # trade date
     __sh: set  # trade date
 
-    __orders: dict
     __cd: str  # current date
-    __shares: dict
+    __shares: dict  # current share to hold
+    __orders: dict  # order list of every day
     __dividend: dict
     __records: dict
 
@@ -49,7 +55,20 @@ class SimContext(object):
         self.__orders = {}
 
     def date_init(self):
-        self.__records[self.__cd] = []
+        self.__orders[self.__cd] = []
+
+        session: Session = db_client.get_session()
+        dividend_list = session.query(TsDividend).filter(
+            and_(TsDividend.div_proc == '实施', TsDividend.ex_date == self.__cd)).all()
+        dividend_dict: dict = {}
+        for dividend in dividend_list:  # type: TsDividend
+            dividend_dict[dividend.ts_code] = dividend
+
+        daily_info_list = session.query(TsDailyTradeInfo).filter(TsDailyTradeInfo.trade_date == self.__cd).all()
+        for daily_info in daily_info_list:  # type: TsDailyTradeInfo
+            base_price = daily_info.pre_close
+            if daily_info.ts_code in dividend_dict:
+                dividend: TsDividend = dividend_dict[daily_info.ts_code]
 
     def sell_share(self, ts_code: str, num: Decimal = 0, price: Decimal = 0) -> SimOrder:
         order: SimOrder = None
@@ -86,10 +105,8 @@ class SimContext(object):
         self.__add_record(order)
         return order
 
-
-
     def __add_record(self, order: SimOrder):
-        self.__records[self.__cd].append(order)
+        self.__orders[self.__cd].append(order)
         if order.is_sent():
             log.info('Send order successfully. type: %d, code: %s' % (order.get_order_type(), order.get_ts_code()))
         else:
