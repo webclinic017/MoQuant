@@ -56,6 +56,7 @@ def run(to_date: str = get_current_dt()):
         log.info(end_date_to_check)
         log.info('%s more to fetch for %s' % (len(end_date_to_check), period))
         for index, row in end_date_to_check.iterrows():
+            # og.info(row.ts_code)
             fetch_data.fetch_period_report(ts_code=row.ts_code, to_date=to_date)
         already_codes = session.query(TsIncome.ts_code).filter(
             and_(TsIncome.report_type == 1, TsIncome.end_date == period)).all()
@@ -70,7 +71,6 @@ def run(to_date: str = get_current_dt()):
         threadpool.join()
 
     # Check forecast
-
 
 
 def clear_report_by_date(to_date: str):
