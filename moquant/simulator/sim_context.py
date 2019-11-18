@@ -59,16 +59,7 @@ class SimContext(object):
         self.__dividend = {}
 
     def day_init(self):
-        for ts_code in self.__dividend:
-            dividend: SimDividend = self.__dividend[ts_code]
-            if dividend.pay_date == self.__cd:
-                self.__cash = self.__cash + dividend.dividend_cash
-            if dividend.div_listdate == self.__cd:
-                share: SimShareHold = self.__shares[ts_code]
-                if share is not None:
-                    share.add_dividend(dividend.dividend_num)
-                else:
-                    self.__shares[ts_code] = SimShareHold(ts_code, dividend.dividend_num, 0, 0, 0, 0)
+        self.__update_for_dividend()
 
         self.__orders[self.__cd] = []
         self.__price = {}
@@ -77,7 +68,6 @@ class SimContext(object):
         # TODO update share price
         for daily in daily_info_list:  # type: TsDailyTradeInfo
             self.__price[daily.ts_code] = SimSharePrice(pre_close=daily.pre_close, low=daily.low, high=daily.high)
-
         dividend_list = session.query(TsDividend).filter(
             and_(TsDividend.div_proc == '实施', TsDividend.ex_date == self.__cd)
         ).all()
@@ -91,6 +81,26 @@ class SimContext(object):
             if share is not None:
                 share.update_by_dividend(cash_div_tax, stk_div)
 
+    # Add cash and share for dividend
+    def __update_for_dividend(self):
+        finish_dividend = set([])
+        for ts_code in self.__dividend:
+            dividend: SimDividend = self.__dividend[ts_code]
+            if dividend.pay_date == self.__cd:
+                self.__cash = self.__cash + dividend.dividend_cash
+            if dividend.div_listdate == self.__cd:
+                share: SimShareHold = self.__shares[ts_code]
+                if share is not None:
+                    share.add_dividend(dividend.dividend_num)
+                else:
+                    self.__shares[ts_code] = SimShareHold(ts_code, dividend.dividend_num, 0, 0, 0, 0)
+            if dividend.pay_date >= self.__cd and dividend.div_listdate >= self.__cd:
+                finish_dividend.add(ts_code)
+
+        # delete finish dividend
+        for ts_code in finish_dividend: # type: str
+            self.__dividend.pop(ts_code)
+
     def day_end(self):
         session: Session = db_client.get_session()
         dividend_list = session.query(TsDividend).filter(
@@ -99,7 +109,7 @@ class SimContext(object):
         for dividend in dividend_list:  # type: TsDividend
             share: SimShareHold = self.__shares[dividend.ts_code]
             if share is not None:
-                dividend_num = math.floor(share.get_num() * dividend.stk_div)
+                dividend_num = math.floor(math.floor(share.get_num() / 10) * (dividend.stk_div * 10))
                 dividend_cash = share.get_num() * dividend.cash_div
                 self.__dividend[dividend.ts_code] = SimDividend(dividend.ts_code, dividend_num, dividend_cash,
                                                                 dividend.pay_date, dividend.div_listdate)
