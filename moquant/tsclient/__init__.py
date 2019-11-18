@@ -78,5 +78,8 @@ class TsClient(object):
     def fetch_dividend(self, ts_code: str = None, ann_date: str = None) -> DataFrame:
         return self.__pro.dividend(ts_code=ts_code, ann_date=ann_date)
 
+    def fetch_stk_limit(self, ts_code: str = None, trade_date: str = None):
+        return self.__pro.stk_limit(ts_code=ts_code, trade_date=trade_date)
+
 
 ts_client = TsClient()

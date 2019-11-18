@@ -19,6 +19,7 @@ from moquant.dbclient.ts_express import TsExpress
 from moquant.dbclient.ts_fina_indicator import TsFinaIndicator
 from moquant.dbclient.ts_forecast import TsForecast
 from moquant.dbclient.ts_income import TsIncome
+from moquant.dbclient.ts_stk_limit import TsStkLimit
 from moquant.log import get_logger
 from moquant.scripts import clear_after_fetch, cal_mq_quarter, cal_mq_daily, cal_grow, fetch_dividend
 from moquant.tsclient import ts_client
@@ -98,6 +99,9 @@ def fetch_data_by_code(stock_code, to_date: str = get_current_dt()):
                                           to_date=to_date)
     result = result and common_fetch_data(stock_code, 'fetch_adj_factor', StockAdjFactor,
                                           StockAdjFactor.trade_date, StockAdjFactor.ts_code,
+                                          to_date=to_date)
+    result = result and common_fetch_data(stock_code, 'fetch_stk_limit', TsStkLimit,
+                                          TsStkLimit.trade_date, TsStkLimit.ts_code,
                                           to_date=to_date)
 
     result = result and fetch_period_report(stock_code, to_date)
