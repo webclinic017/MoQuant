@@ -3,7 +3,6 @@
 """ To fetch basic data from TuShare """
 import sys
 import time
-
 from sqlalchemy import and_, Column, func, Table
 from sqlalchemy.orm import Session
 

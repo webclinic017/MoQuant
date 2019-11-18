@@ -4,7 +4,6 @@ from decimal import Decimal
 class SimShareHold(object):
     __ts_code: str
     __num: Decimal
-    __can_sell: str
     __cost_price: Decimal
     __price: Decimal
     __win_rate: Decimal
@@ -13,14 +12,13 @@ class SimShareHold(object):
     __lose: Decimal
 
     def __init__(self, ts_code, num, cost_price: Decimal, current_price: Decimal = None,
-                 win_rate: Decimal = 0.25, lose_rate: Decimal = 0.08, can_sell: str = None):
+                 win_rate: Decimal = 0.25, lose_rate: Decimal = 0.08):
         self.__ts_code = ts_code
         self.__num = num
         self.__cost_price = cost_price
         self.__price = cost_price if current_price is None else current_price
         self.__win_rate = win_rate
         self.__lose_rate = lose_rate
-        self.__can_sell = can_sell
 
     def get_ts_code(self):
         return self.__ts_code
@@ -44,8 +42,8 @@ class SimShareHold(object):
         else:
             return self.__lose >= self.__current_price
 
-    def can_sell(self, dt: str):
-        if self.__can_sell is None or dt is None:
-            return True
-        else:
-            return self.__can_sell <= dt
+    def update_by_dividend(self, cash_div_tax, stk_div):
+        self.__price = (self.__price - cash_div_tax) / (1 + stk_div)
+
+    def add_dividend(self, dividend_num):
+        self.__num = self.__num + dividend_num

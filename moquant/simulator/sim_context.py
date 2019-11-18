@@ -8,8 +8,10 @@ from moquant.dbclient import db_client
 from moquant.dbclient.ts_daily_trade_info import TsDailyTradeInfo
 from moquant.dbclient.ts_dividend import TsDividend
 from moquant.log import get_logger
+from moquant.simulator.sim_dividend import SimDividend
 from moquant.simulator.sim_order import SimOrder
 from moquant.simulator.sim_share_hold import SimShareHold
+from moquant.simulator.sim_share_price import SimSharePrice
 from moquant.tsclient import ts_client
 from moquant.utils.datetime import format_delta
 
@@ -27,9 +29,9 @@ class SimContext(object):
     __sz: set  # trade date
     __sh: set  # trade date
 
+    __orders: dict
     __cd: str  # current date
-    __shares: dict  # current share to hold
-    __orders: dict  # order list of every day
+    __shares: dict
     __dividend: dict
     __records: dict
 
@@ -53,22 +55,54 @@ class SimContext(object):
         self.__dividend = {}
         self.__records = {}
         self.__orders = {}
+        self.__price = {}
+        self.__dividend = {}
 
-    def date_init(self):
+    def day_init(self):
+        for ts_code in self.__dividend:
+            dividend: SimDividend = self.__dividend[ts_code]
+            if dividend.pay_date == self.__cd:
+                self.__cash = self.__cash + dividend.dividend_cash
+            if dividend.div_listdate == self.__cd:
+                share: SimShareHold = self.__shares[ts_code]
+                if share is not None:
+                    share.add_dividend(dividend.dividend_num)
+                else:
+                    self.__shares[ts_code] = SimShareHold(ts_code, dividend.dividend_num, 0, 0, 0, 0)
+
         self.__orders[self.__cd] = []
+        self.__price = {}
+        session: Session = db_client.get_session()
+        daily_info_list = session.query(TsDailyTradeInfo).filter(TsDailyTradeInfo.trade_date == self.__cd).all()
+        # TODO update share price
+        for daily in daily_info_list:  # type: TsDailyTradeInfo
+            self.__price[daily.ts_code] = SimSharePrice(pre_close=daily.pre_close, low=daily.low, high=daily.high)
 
+        dividend_list = session.query(TsDividend).filter(
+            and_(TsDividend.div_proc == '实施', TsDividend.ex_date == self.__cd)
+        ).all()
+        for dividend in dividend_list:  # type: TsDividend
+            cash_div_tax = dividend.cash_div_tax if dividend.cash_div_tax is not None else 0
+            stk_div = dividend.stk_div if dividend.stk_div is not None else 0
+            price: SimSharePrice = self.__price[dividend.ts_code]
+            if price is not None:
+                price.update_by_dividend(cash_div_tax, stk_div)
+            share: SimShareHold = self.__shares[dividend.ts_code]
+            if share is not None:
+                share.update_by_dividend(cash_div_tax, stk_div)
+
+    def day_end(self):
         session: Session = db_client.get_session()
         dividend_list = session.query(TsDividend).filter(
-            and_(TsDividend.div_proc == '实施', TsDividend.ex_date == self.__cd)).all()
-        dividend_dict: dict = {}
+            and_(TsDividend.div_proc == '实施', TsDividend.ex_date == self.__cd)
+        ).all()
         for dividend in dividend_list:  # type: TsDividend
-            dividend_dict[dividend.ts_code] = dividend
-
-        daily_info_list = session.query(TsDailyTradeInfo).filter(TsDailyTradeInfo.trade_date == self.__cd).all()
-        for daily_info in daily_info_list:  # type: TsDailyTradeInfo
-            base_price = daily_info.pre_close
-            if daily_info.ts_code in dividend_dict:
-                dividend: TsDividend = dividend_dict[daily_info.ts_code]
+            share: SimShareHold = self.__shares[dividend.ts_code]
+            if share is not None:
+                dividend_num = math.floor(share.get_num() * dividend.stk_div)
+                dividend_cash = share.get_num() * dividend.cash_div
+                self.__dividend[dividend.ts_code] = SimDividend(dividend.ts_code, dividend_num, dividend_cash,
+                                                                dividend.pay_date, dividend.div_listdate)
 
     def sell_share(self, ts_code: str, num: Decimal = 0, price: Decimal = 0) -> SimOrder:
         order: SimOrder = None
@@ -83,7 +117,7 @@ class SimContext(object):
             order = SimOrder(0, ts_code, num, price, False, 'You have only %d of %s' % (num, ts_code))
 
         order = SimOrder(0, ts_code, num, price)
-        self.__add_record(order)
+        self.__add_order(order)
         return order
 
     # Buy share with cash as more as possible
@@ -102,10 +136,10 @@ class SimContext(object):
             order = SimOrder(1, ts_code, num, price)
             self.__reserved_cash += total_cost
             self.__cash -= total_cost
-        self.__add_record(order)
+        self.__add_order(order)
         return order
 
-    def __add_record(self, order: SimOrder):
+    def __add_order(self, order: SimOrder):
         self.__orders[self.__cd].append(order)
         if order.is_sent():
             log.info('Send order successfully. type: %d, code: %s' % (order.get_order_type(), order.get_ts_code()))
