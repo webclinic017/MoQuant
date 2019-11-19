@@ -9,6 +9,7 @@ from moquant.simulator.sim_order import SimOrder
 from moquant.simulator.sim_share_hold import SimShareHold
 from moquant.simulator.sim_context import SimContext
 from moquant.simulator.sim_handler import SimHandler
+from moquant.simulator.sim_share_price import SimSharePrice
 
 log = get_logger(__name__)
 
@@ -33,10 +34,11 @@ class GrowStrategyHandler(SimHandler):
         for index, stock in grow_df.iterrows():
             max_buy = 50000
             if stock.ts_code in holding:
+                hold: SimShareHold = holding[stock.ts_code]
+                max_buy = max_buy - hold.get_cost()
                 continue
-
-            context.buy_amap(stock.ts_code, max_buy)
-
+            price: SimSharePrice = context.get_price(stock.ts_code)
+            context.buy_amap(stock.ts_code, price.get_up_limit(), max_buy)
 
     def auction_before_end(self, context: SimContext):
         pass

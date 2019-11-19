@@ -7,7 +7,7 @@ class SimOrder(object):
     __ts_code: str
     __num: int
     __price: Decimal
-    __status: int  # 0 sent, 1 deal, -1 rejected
+    __status: int  # 0 sent, 1 deal, -1 rejected, -2 retrieve, -99 not available
 
     def __init__(self, type: int, ts_code: str, num: int, price: Decimal, success: bool = True, msg: str = ''):
         self.__type = type
@@ -17,11 +17,22 @@ class SimOrder(object):
         self.__msg = msg
         self.__status = 0 if success else self.__status = -1
 
-    def is_sent(self):
-        return self.__status != -1
+    def available(self):
+        return self.__status == 0
 
     def get_order_type(self):
-        return 'Sell' if self.__type == 0 else 'Buy'
+        return self.__type
 
     def get_ts_code(self):
         return self.__ts_code
+
+    def get_price(self):
+        return self.__price
+
+    def get_num(self):
+        return self.__num
+
+    """##################################### update part #####################################"""
+
+    def deal(self):
+        self.__status = 1
