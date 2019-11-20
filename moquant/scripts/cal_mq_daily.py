@@ -110,15 +110,15 @@ def calculate(ts_code: str, share_name: str, to_date: str, fix_from: str = None)
             if nassets is not None and market_value is not None and nassets != 0:
                 pb = market_value / nassets
 
-        grow_score = cal_growing_score(daily_basic, quarter)
+        mq_daily = MqDailyBasic(ts_code=ts_code, share_name=share_name, date=from_date, is_trade_day=is_trade_day,
+                                total_share=total_share, close=close, market_value=market_value, pb=pb,
+                                dprofit_period=dprofit_period, dprofit_eps=dprofit_eps,
+                                quarter_dprofit_yoy=quarter_dprofit_yoy,
+                                dprofit_pe=dprofit_pe, dprofit_peg=dprofit_peg,
+                                grow_score=-1)
+        mq_daily.grow_score = cal_growing_score(mq_daily, quarter)
 
-        result_list.append(
-            MqDailyBasic(ts_code=ts_code, share_name=share_name, date=from_date, is_trade_day=is_trade_day,
-                         total_share=total_share, close=close, market_value=market_value, pb=pb,
-                         dprofit_period=dprofit_period, dprofit_eps=dprofit_eps,
-                         quarter_dprofit_yoy=quarter_dprofit_yoy,
-                         dprofit_pe=dprofit_pe, dprofit_peg=dprofit_peg,
-                         grow_score=grow_score))
+        result_list.append(mq_daily)
 
         from_date = format_delta(from_date, 1)
         d_i = get_next_index(daily_arr, 'trade_date', from_date, d_i)

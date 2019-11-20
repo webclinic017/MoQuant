@@ -21,7 +21,7 @@ from moquant.dbclient.ts_forecast import TsForecast
 from moquant.dbclient.ts_income import TsIncome
 from moquant.dbclient.ts_stk_limit import TsStkLimit
 from moquant.log import get_logger
-from moquant.scripts import clear_after_fetch, cal_mq_quarter, cal_mq_daily, cal_grow, fetch_dividend
+from moquant.scripts import clear_after_fetch, cal_mq_quarter, cal_mq_daily, cal_grow, fetch_dividend, fetch_stk_limit
 from moquant.tsclient import ts_client
 from moquant.utils import threadpool
 from moquant.utils.datetime import format_delta, get_current_dt
@@ -167,8 +167,10 @@ def init_stock_basic():
 def run(ts_code, to_date: str = get_current_dt()):
     if to_date is None:
         to_date = get_current_dt()
-    else:
-        fetch_dividend.fetch_dividend_by_date(to_date)
+
+    threadpool.submit(fetch_dividend.update_dividend_to, dt=to_date)
+    threadpool.submit(fetch_stk_limit.update_stk_limit_to, dt=to_date)
+
     if ts_code is not None and ts_code != '':
         session: Session = db_client.get_session()
         mq_list: MqStockMark = session.query(MqStockMark).filter(MqStockMark.ts_code == ts_code).all()
@@ -182,7 +184,6 @@ def run(ts_code, to_date: str = get_current_dt()):
         fetch_data(to_date)
     threadpool.join()
     cal_mq_daily.update_done_record(to_date)
-    cal_grow.run(to_date)
 
 
 if __name__ == '__main__':

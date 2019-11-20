@@ -78,7 +78,7 @@ def clear_duplicate_dividend(ts_code):
             and to_keep.id!=source.id
         ) tmp
     )
-    """ % ('1=1' if ts_code is None else 'ts_code=%s' % ts_code)
+    """ % ('1=1' if ts_code is None else 'ts_code=\'%s\'' % ts_code)
 
 
 def clear(ts_code: str):
