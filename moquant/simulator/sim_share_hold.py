@@ -9,6 +9,7 @@ class SimShareHold(object):
     __earn: Decimal
     __win_rate: Decimal
     __lose_rate: Decimal
+    __trade: bool
 
     def __init__(self, ts_code, num, current_price: Decimal,
                  win_rate: Decimal = 0.25, lose_rate: Decimal = 0.08):
@@ -19,12 +20,16 @@ class SimShareHold(object):
         self.__price = current_price
         self.__win_rate = win_rate
         self.__lose_rate = lose_rate
+        self.__can_trade = False
 
     def get_ts_code(self):
         return self.__ts_code
 
     def get_num(self):
         return self.__num
+
+    def get_earn(self):
+        return self.get_earn()
 
     def get_cost(self):
         return self.__cost
@@ -41,6 +46,12 @@ class SimShareHold(object):
         else:
             return self.__price * self.__num + self.__earn <= self.__cost * (1 + self.__lose_rate)
 
+    def can_trade(self):
+        return self.__can_trade
+
+    def get_mv(self):
+        return self.__num * self.__price
+
     """##################################### update part #####################################"""
 
     def update_by_dividend(self, cash_div_tax, stk_div):
@@ -53,3 +64,9 @@ class SimShareHold(object):
         self.__num = self.__num + delta_num
         self.__earn = self.__earn + earn
         self.__cost = self.__cost + cost
+
+    def update_price(self, price):
+        self.__price = price
+
+    def update_can_trade(self, can: bool):
+        self.__can_trade = can

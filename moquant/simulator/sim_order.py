@@ -15,7 +15,7 @@ class SimOrder(object):
         self.__num = num
         self.__price = price
         self.__msg = msg
-        self.__status = 0 if success else self.__status = -1
+        self.__status = 0 if success else -1
 
     def available(self):
         return self.__status == 0
@@ -36,3 +36,6 @@ class SimOrder(object):
 
     def deal(self):
         self.__status = 1
+
+    def day_pass(self):
+        self.__status = -99

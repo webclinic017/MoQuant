@@ -16,6 +16,7 @@ from moquant.dbclient.mq_sys_param import MqSysParam
 from moquant.dbclient.ts_basic import TsBasic
 from moquant.dbclient.ts_daily_basic import TsDailyBasic
 from moquant.log import get_logger
+from moquant.scripts.cal_grow import cal_growing_score
 from moquant.utils.datetime import format_delta, get_current_dt
 
 log = get_logger(__name__)
@@ -109,12 +110,15 @@ def calculate(ts_code: str, share_name: str, to_date: str, fix_from: str = None)
             if nassets is not None and market_value is not None and nassets != 0:
                 pb = market_value / nassets
 
+        grow_score = cal_growing_score(daily_basic, quarter)
+
         result_list.append(
             MqDailyBasic(ts_code=ts_code, share_name=share_name, date=from_date, is_trade_day=is_trade_day,
                          total_share=total_share, close=close, market_value=market_value, pb=pb,
                          dprofit_period=dprofit_period, dprofit_eps=dprofit_eps,
                          quarter_dprofit_yoy=quarter_dprofit_yoy,
-                         dprofit_pe=dprofit_pe, dprofit_peg=dprofit_peg))
+                         dprofit_pe=dprofit_pe, dprofit_peg=dprofit_peg,
+                         grow_score=grow_score))
 
         from_date = format_delta(from_date, 1)
         d_i = get_next_index(daily_arr, 'trade_date', from_date, d_i)

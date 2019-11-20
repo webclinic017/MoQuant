@@ -4,14 +4,16 @@ from decimal import Decimal
 class SimSharePrice(object):
     __pre_close: Decimal
     __open: Decimal
+    __close: Decimal
     __low: Decimal
     __high: Decimal
     __up_limit: Decimal
     __down_limit: Decimal
 
-    def __init__(self, pre_close: Decimal, open: Decimal, low: Decimal, high: Decimal):
+    def __init__(self, pre_close: Decimal, open: Decimal, close: Decimal, low: Decimal, high: Decimal):
         self.__pre_close = pre_close
         self.__open = open
+        self.__close = close
         self.__low = low
         self.__high = high
 
@@ -27,3 +29,12 @@ class SimSharePrice(object):
 
     def get_open(self):
         return self.__open
+
+    def get_high(self):
+        return self.__high
+
+    def get_low(self):
+        return self.__low
+
+    def get_close(self):
+        return self.__close

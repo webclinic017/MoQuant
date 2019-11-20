@@ -1,14 +1,12 @@
-import pandas as pd
 from pandas import DataFrame, Series
 from sqlalchemy.orm import Session
 
 from moquant.dbclient import db_client
 from moquant.log import get_logger
 from moquant.scripts import cal_grow
-from moquant.simulator.sim_order import SimOrder
-from moquant.simulator.sim_share_hold import SimShareHold
 from moquant.simulator.sim_context import SimContext
 from moquant.simulator.sim_handler import SimHandler
+from moquant.simulator.sim_share_hold import SimShareHold
 from moquant.simulator.sim_share_price import SimSharePrice
 
 log = get_logger(__name__)
@@ -42,8 +40,3 @@ class GrowStrategyHandler(SimHandler):
 
     def auction_before_end(self, context: SimContext):
         pass
-
-
-if __name__ == '__main__':
-    s = pd.Series(['ab', 'bc'])
-    log.info('ab' in s.values)
