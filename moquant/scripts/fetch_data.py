@@ -132,8 +132,8 @@ def fetch_data(to_date: str = get_current_dt()):
 
 def do_after_fetch(ts_code: str):
     clear_after_fetch.clear(ts_code)
-    cal_mq_quarter.run(ts_code)
-    cal_mq_daily.run(ts_code)
+    cal_mq_quarter.calculate_by_code(ts_code)
+    cal_mq_daily.calculate_by_code(ts_code)
 
 
 def init_stock_basic():

@@ -154,15 +154,20 @@ def update_done_record(to_date: str):
     session.flush()
 
 
-def run(ts_code: str):
-    if ts_code is not None:
-        session: Session = db_client.get_session()
-        mq_list: MqStockMark = session.query(MqStockMark).filter(MqStockMark.ts_code == ts_code).all()
-        for mq in mq_list:
-            calculate_and_insert(mq.ts_code, mq.share_name, mq.last_fetch_date)
-    else:
-        calculate_all()
+def calculate_by_code(ts_code: str):
+    session: Session = db_client.get_session()
+    stock: MqStockMark = session.query(MqStockMark).filter(MqStockMark.ts_code == ts_code).one()
+    calculate_and_insert(ts_code, stock.share_name)
+
+
+def recalculate_by_code(ts_code: str):
+    session: Session = db_client.get_session()
+    session.query(MqDailyBasic).filter(MqDailyBasic.ts_code == ts_code).delete()
+    calculate_by_code(ts_code)
 
 
 if __name__ == '__main__':
-    run(sys.argv[1] if len(sys.argv) > 1 else None)
+    if len(sys.argv) > 1:
+        recalculate_by_code(sys.argv[1])
+    else:
+        calculate_all()

@@ -108,7 +108,8 @@ def get_first_not_none(arr, field_name):
             return getattr(item, field_name)
     return None
 
-def find_previous_period(arr: list, pos: int, period: str, num: int, sub_arr: list=None, sub_pos: int=None):
+
+def find_previous_period(arr: list, pos: int, period: str, num: int, sub_arr: list = None, sub_pos: int = None):
     if num is None:
         return None
     year = int(period[0:4])
@@ -141,6 +142,14 @@ def find_previous_period(arr: list, pos: int, period: str, num: int, sub_arr: li
 
 def same_period(arr, i: int, period: str) -> bool:
     return 0 <= i < len(arr) and arr[i].end_date == period
+
+
+def same_f_ann_date(arr, i, adjust_arr, ai) -> bool:
+    if i < 0 or i >= len(arr):
+        return False
+    if ai < 0 or ai >= len(adjust_arr):
+        return False
+    return arr[i].f_ann_date == adjust_arr[ai].f_ann_date
 
 
 def calculate_period(ts_code, share_name,
@@ -349,7 +358,7 @@ def calculate_period(ts_code, share_name,
             revenue_adjust = revenue_ly - income_l3.revenue
 
         if income_forecast_lyy is not None:
-            nprofit_ltm = cal_ltm(forecast_revenue, revenue_ly, income_forecast_lyy.revenue, revenue_adjust,
+            revenue_ltm = cal_ltm(forecast_revenue, revenue_ly, income_forecast_lyy.revenue, revenue_adjust,
                                   forecast_period)
 
     nassets = None
@@ -409,7 +418,7 @@ def calculate(ts_code, share_name, fix_from: str = None):
     start_time = time.time()
     now_date = get_current_dt()
     max_period = get_period(int(now_date[0:4]), 12)
-    forcast_update_date = '20010101'
+    forecast_update_date = '20010101'
 
     session = db_client.get_session()
     last_basic_arr = session.query(MqQuarterBasic).filter(MqQuarterBasic.ts_code == ts_code) \
@@ -424,7 +433,7 @@ def calculate(ts_code, share_name, fix_from: str = None):
         if last_basic is not None:
             from_period = next_period(last_basic.report_period)
             if last_basic.report_period < last_basic.forecast_period:
-                forcast_update_date = format_delta(last_basic.update_date, 1)
+                forecast_update_date = format_delta(last_basic.update_date, 1)
 
     # Get all reports including last two year, to calculate ttm
     period_to_get = period_delta(from_period, -12)
@@ -477,6 +486,17 @@ def calculate(ts_code, share_name, fix_from: str = None):
     log.info("Find index for %s: %s seconds" % (ts_code, find_index_time - prepare_time))
 
     while from_period <= max_period:
+        if same_period(income_arr, i_i, from_period) and same_period(adjust_income_arr, ai_i, from_period) and \
+                same_f_ann_date(income_arr, i_i, adjust_income_arr, ai_i):
+            i_i += 1
+            b_i = get_index_by_end_date(balance_arr, period_delta(from_period, 1))
+            continue
+        if same_period(balance_arr, b_i, from_period) and same_period(adjust_balance_arr, ab_i, from_period) and \
+                same_f_ann_date(balance_arr, b_i, adjust_balance_arr, ab_i):
+            b_i += 1
+            i_i = get_index_by_end_date(income_arr, period_delta(from_period, 1))
+            continue
+
         report_period = None
         forecast_period = None
         forecast_nprofit = None
@@ -487,7 +507,7 @@ def calculate(ts_code, share_name, fix_from: str = None):
 
         if same_period(forecast_arr, f_i, from_period):
             forecast: TsForecast = forecast_arr[f_i]
-            if forcast_update_date != forecast.ann_date:
+            if forecast_update_date != forecast.ann_date:
                 report_period = period_delta(from_period, -1)
                 forecast_period = from_period
                 income_forecast_ly = find_previous_period(income_arr, i_i, forecast_period, 4)
@@ -524,7 +544,7 @@ def calculate(ts_code, share_name, fix_from: str = None):
             f_i = f_i + 1
         elif same_period(express_arr, e_i, from_period):
             express: TsExpress = express_arr[e_i]
-            if forcast_update_date != express.ann_date:
+            if forecast_update_date != express.ann_date:
                 report_period = period_delta(from_period, -1)
                 forecast_period = from_period
                 forecast_nprofit = express.n_income
@@ -559,8 +579,8 @@ def calculate(ts_code, share_name, fix_from: str = None):
                 ab_i = ab_i + 1
             else:
                 ab_i = get_index_by_end_date(adjust_balance_arr, period_delta(from_period, -3))
-        elif same_period(balance_arr, b_i, from_period):
-            report_period = balance_arr[b_i].end_date
+        elif same_period(income_arr, i_i, from_period):
+            report_period = income_arr[i_i].end_date
             forecast_period = report_period
             result_list.append(
                 calculate_period(ts_code, share_name,
@@ -571,11 +591,11 @@ def calculate(ts_code, share_name, fix_from: str = None):
                                  forecast_nassets,
                                  balance_arr[b_i].f_ann_date, False)
             )
-            b_i = b_i + 1
-            if same_period(income_arr, i_i, from_period):
-                i_i = i_i + 1
+            i_i = i_i + 1
+            if same_period(balance_arr, b_i, from_period):
+                b_i += 1
             else:
-                i_i = get_index_by_end_date(income_arr, period_delta(from_period, 1))
+                b_i = get_index_by_end_date(balance_arr, period_delta(from_period, 1))
             if same_period(fina_arr, fi_i, from_period):
                 fi_i = fi_i + 1
             else:
@@ -614,15 +634,20 @@ def calculate_all():
     session.flush()
 
 
-def run(ts_code: str):
-    if ts_code is not None:
-        session: Session = db_client.get_session()
-        mq_list: MqStockMark = session.query(MqStockMark).filter(MqStockMark.ts_code == ts_code).all()
-        for mq in mq_list:
-            calculate_and_insert(mq.ts_code, mq.share_name)
-    else:
-        calculate_all()
+def calculate_by_code(ts_code: str):
+    session: Session = db_client.get_session()
+    stock: MqStockMark = session.query(MqStockMark).filter(MqStockMark.ts_code == ts_code).one()
+    calculate_and_insert(ts_code, stock.share_name)
+
+
+def recalculate_by_code(ts_code: str):
+    session: Session = db_client.get_session()
+    session.query(MqQuarterBasic).filter(MqQuarterBasic.ts_code == ts_code).delete()
+    calculate_by_code(ts_code)
 
 
 if __name__ == '__main__':
-    run(sys.argv[1] if len(sys.argv) > 1 else None)
+    if len(sys.argv) > 1:
+        recalculate_by_code(sys.argv[1])
+    else:
+        calculate_all()

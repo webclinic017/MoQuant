@@ -225,8 +225,11 @@ class SimContext(object):
         record = SimDailyRecord()
         for (ts_code, share) in self.__shares.items():  # type: str, SimShareHold
             record.add_share(share)
+        for (ts_code, share) in self.__shares_just_buy.items():  # type: str, SimShareHold
+            record.add_share(share)
         record.add_cash(self.__cash)
         self.__records[self.__cd] = record
+        self.info("Market value. cash: %s. share: %s" % (record.get_cash(), record.get_share_value()))
 
     def __next_day(self):
         if self.__cd > self.__ed:

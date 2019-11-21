@@ -19,10 +19,18 @@ class SimDailyRecord(object):
     def add_cash(self, cash: Decimal):
         self.__cash += cash
 
-    def get_total(self):
+    def get_share_value(self):
         ret = 0
         for key in self.__mv:
             value = self.__mv[key]
             ret += value
+        return ret
+
+    def get_cash(self):
+        return self.__cash
+
+    def get_total(self):
+        ret = 0
+        ret += self.get_share_value()
         ret += self.__cash
         return ret
