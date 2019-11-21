@@ -21,7 +21,8 @@ class SimDailyRecord(object):
 
     def get_total(self):
         ret = 0
-        for key, value in self.__mv:
+        for key in self.__mv:
+            value = self.__mv[key]
             ret += value
         ret += self.__cash
         return ret

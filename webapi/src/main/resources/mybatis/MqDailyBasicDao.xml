@@ -16,6 +16,7 @@
     <result column="quarter_dprofit_yoy" jdbcType="DECIMAL" property="quarterDprofitYoy" />
     <result column="dprofit_pe" jdbcType="DECIMAL" property="dprofitPe" />
     <result column="dprofit_peg" jdbcType="DECIMAL" property="dprofitPeg" />
+      <result column="grow_score" jdbcType="DECIMAL" property="growScore" />
   </resultMap>
 
   <select id="selectByParam" parameterType="com.cn.momojie.moquant.api.param.MqDailyBasicParam"
@@ -69,9 +70,7 @@
         </when>
       </choose>
     FROM mq_daily_basic daily
-    LEFT JOIN mq_stock_mark mark
-    ON daily.ts_code = mark.ts_code
-    WHERE daily.date = #{dt} AND mark.${scoreBy} != -1
+    WHERE daily.date = #{dt} AND daily.${scoreBy} != -1
     ORDER BY
     <choose>
       <when test="orderBy == 'pe'">
@@ -84,7 +83,7 @@
         daily.dprofit_peg ASC
       </when>
       <otherwise>
-        mark.${scoreBy} DESC
+          daily.${scoreBy} DESC
       </otherwise>
     </choose>
 

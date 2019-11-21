@@ -1,6 +1,7 @@
 import math
 from decimal import Decimal
 
+from pandas import DataFrame
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
@@ -42,18 +43,17 @@ class SimContext(object):
                  tax: Decimal = 5):
         self.__sd = sd
         self.__ed = ed
-        self.__init_cash = cash
-        self.__cash = cash
-        self.__charge = charge
-        self.__tax = tax
+        self.__init_cash = Decimal(cash)
+        self.__cash = Decimal(cash)
+        self.__charge = Decimal(charge)
+        self.__tax = Decimal(tax)
 
-        sz = ts_client.fetch_trade_cal(exchange='SZSE', start_date=sd, end_date=ed, is_open=1)
-        self.__sz = set([i for i in sz['cal_date'].items()])
+        sz: DataFrame = ts_client.fetch_trade_cal(exchange='SZSE', start_date=sd, end_date=ed, is_open=1)
+        self.__sz = set([s.cal_date for i, s in sz.iterrows()])
 
-        sh = ts_client.fetch_trade_cal(exchange='SSE', start_date=sd, end_date=ed, is_open=1)
-        self.__sh = set([i for i in sh['cal_date'].items()])
+        sh: DataFrame = ts_client.fetch_trade_cal(exchange='SSE', start_date=sd, end_date=ed, is_open=1)
+        self.__sh = set([s.cal_date for i, s in sh.iterrows()])
 
-        self.__cd = sd
         self.__shares = {}
         self.__shares_just_buy = {}
         self.__dividend = {}
@@ -61,6 +61,10 @@ class SimContext(object):
         self.__orders = {}
         self.__price = {}
         self.__dividend = {}
+
+        self.__cd = format_delta(sd, -1)
+        # find next trade day
+        self.__next_day()
 
     """##################################### flow part #####################################"""
 
@@ -73,12 +77,12 @@ class SimContext(object):
         session: Session = db_client.get_session()
         daily_info_list = session.query(TsDailyTradeInfo).filter(TsDailyTradeInfo.trade_date == self.__cd).all()
 
-        for ts_code, share in self.__shares:  # type: str, SimShareHold
+        for (ts_code, share) in self.__shares.items():  # type: str, SimShareHold
             share.update_can_trade(False)
 
         # Init price info
         for daily in daily_info_list:  # type: TsDailyTradeInfo
-            self.__price[daily.ts_code] = SimSharePrice(pre_close=daily.pre_close, open=daily.open,
+            self.__price[daily.ts_code] = SimSharePrice(pre_close=daily.pre_close, open=daily.open, close=daily.close,
                                                         low=daily.low, high=daily.high)
             if daily.ts_code in self.__shares:
                 hold: SimShareHold = self.__shares[daily.ts_code]
@@ -93,7 +97,7 @@ class SimContext(object):
                 price.update_limit(stk_limit.up_limit, stk_limit.down_limit)
 
     def __merge_yesterday_buy(self):
-        for ts_code, share in self.__shares_just_buy:  # type: str, SimShareHold
+        for (ts_code, share) in self.__shares_just_buy.items():  # type: str, SimShareHold
             if ts_code in self.__shares:
                 self.__shares[ts_code].update_after_deal(share.get_num(), share.get_earn(), share.get_cost())
             else:
@@ -106,14 +110,16 @@ class SimContext(object):
         for ts_code in self.__dividend:
             dividend: SimDividend = self.__dividend[ts_code]
             if dividend.pay_date == self.__cd:
+                self.info('Get dividend cash. code: %s, cash: %s' % (dividend.ts_code, dividend.dividend_cash))
                 self.__cash = self.__cash + dividend.dividend_cash
             if dividend.div_listdate == self.__cd:
+                self.info('Get dividend share. code: %s, num: %s' % (dividend.ts_code, dividend.dividend_num))
                 if ts_code in self.__shares:
                     share: SimShareHold = self.__shares[ts_code]
                     share.add_dividend(dividend.dividend_num)
                 else:
                     self.__shares[ts_code] = SimShareHold(ts_code, dividend.dividend_num, 0)
-            if dividend.pay_date >= self.__cd and dividend.div_listdate >= self.__cd:
+            if dividend.finish(self.__cd):
                 finish_dividend.add(ts_code)
 
         # delete finish dividend
@@ -135,10 +141,10 @@ class SimContext(object):
         self.__update_price_to_open()
 
     def __update_price_to_open(self):
-        hold_list = self.__shares[self.__cd]
-        for hold in hold_list:  # type: SimShareHold
-            price: SimSharePrice = self.get_price(hold.get_ts_code())
-            hold.update_price(price.get_open())
+        for (ts_code, hold) in self.__shares.items():  # type: str, SimShareHold
+            price: SimSharePrice = self.get_price(ts_code)
+            if price is not None:
+                hold.update_price(price.get_open())
 
     def deal_after_afternoon_auction(self):
         order_list: list = self.__orders[self.__cd]
@@ -157,37 +163,43 @@ class SimContext(object):
 
     def day_end(self):
         # update price after trade is closed
-        for ts_code, price in self.__price:  # type: str, SimSharePrice
+        for (ts_code, price) in self.__price.items():  # type: str, SimSharePrice
             if ts_code in self.__shares:
                 share: SimShareHold = self.__shares[ts_code]
                 share.update_price(price.get_close())
-            if ts_code in self.__shares:
+            if ts_code in self.__shares_just_buy:
                 share: SimShareHold = self.__shares_just_buy[ts_code]
                 share.update_price(price.get_close())
 
         # clear empty hold
         to_clear: set = set()
-        for ts_code, share in self.__shares:  # type: str, SimShareHold
+        for (ts_code, share) in self.__shares.items():  # type: str, SimShareHold
             if share.get_num() != 0:
                 continue
             if ts_code not in self.__shares_just_buy:
                 to_clear.add(ts_code)
         for ts_code in to_clear:  # type: str
             share: SimShareHold = self.__shares[ts_code]
-            log.info("Finish trade of %s, earn %s", share.get_ts_code(), share.get_earn())
+            self.info("Finish trade of %s, earn %s" % (share.get_ts_code(), share.get_net_earn()))
             self.__shares.pop(ts_code)
 
         # failure order
         for order in self.__orders[self.__cd]:  # type: SimOrder
             if order.available():
                 order.day_pass()
-                if order.get_order_type() == 1:
+                if order.get_order_type() == 1:  # buy
                     self.__cash = self.__cash + order.get_num() * order.get_price()
+                elif order.get_order_type() == 0:  # sell
+                    hold: SimShareHold = self.get_hold(order.get_ts_code())
+                    if hold is None:
+                        self.error('A sell order without share hold')
+                    else:
+                        hold.update_on_sell(order.get_num() * (-1))
 
         # register dividend
         session: Session = db_client.get_session()
         dividend_list = session.query(TsDividend).filter(
-            and_(TsDividend.div_proc == '实施', TsDividend.ex_date == self.__cd)
+            and_(TsDividend.div_proc == '实施', TsDividend.record_date == self.__cd)
         ).all()
 
         for dividend in dividend_list:  # type: TsDividend
@@ -199,16 +211,19 @@ class SimContext(object):
                 share: SimShareHold = self.__shares_just_buy[dividend.ts_code]
                 total_num = total_num + share.get_num()
 
+            if total_num == 0:
+                continue
             dividend_num = math.floor(math.floor(total_num / 10) * (dividend.stk_div * 10))
             dividend_cash = total_num * dividend.cash_div
             self.__dividend[dividend.ts_code] = SimDividend(dividend.ts_code, dividend_num, dividend_cash,
                                                             dividend.pay_date, dividend.div_listdate)
+            self.info('Dividend register. code: %s, num: %s, cash: %s' % (dividend.ts_code, dividend_num, dividend_cash))
         self.__mark_record()
         self.__next_day()
 
     def __mark_record(self):
         record = SimDailyRecord()
-        for ts_code, share in self.__shares:  # type: str, SimShareHold
+        for (ts_code, share) in self.__shares.items():  # type: str, SimShareHold
             record.add_share(share)
         record.add_cash(self.__cash)
         self.__records[self.__cd] = record
@@ -227,23 +242,23 @@ class SimContext(object):
 
     def __deal_sell(self, order: SimOrder, deal_price: Decimal):
         if order.get_order_type() != 0:
-            log.error('[deal_sell] Not sell type order')
+            self.error('[deal_sell] Not sell type order')
             return
         ts_code = order.get_ts_code()
         hold: SimShareHold = self.__shares[ts_code] if ts_code in self.__shares else None
         if hold is None:
-            log.error('[deal_sell] not holding %s' % ts_code)
+            self.error('[deal_sell] not holding %s' % ts_code)
             return
         earn = order.get_num() * deal_price
         cost = earn * self.__charge + self.__tax
         hold.update_after_deal(order.get_num() * (-1), earn, cost)
         self.__cash = self.__cash + earn - cost
-        log.info("%s: Sell %s of %s" % (self.__cd, order.get_num(), order.get_ts_code()))
+        self.info("Sell %s of %s" % (order.get_num(), order.get_ts_code()))
         order.deal()
 
     def __deal_buy(self, order: SimOrder, deal_price: Decimal):
         if order.get_order_type() != 1:
-            log.error('[deal_buy] Not buy type order')
+            self.error('[deal_buy] Not buy type order')
             return
         ts_code = order.get_ts_code()
         hold: SimShareHold = self.__shares[ts_code] if ts_code in self.__shares else None
@@ -252,7 +267,7 @@ class SimContext(object):
         else:
             hold.update_after_deal(order.get_num(), 0, order.get_num() * deal_price)
         self.__cash = self.__cash + (order.get_num() * order.get_price()) - (order.get_num() * deal_price)
-        log.info("%s: Buy %s of %s" % (self.__cd, order.get_num(), order.get_ts_code()))
+        self.info("Buy %s of %s" % (order.get_num(), order.get_ts_code()))
         order.deal()
 
     """##################################### send order part #####################################"""
@@ -270,10 +285,14 @@ class SimContext(object):
             msg = 'You dont hold any %s' % ts_code
         else:
             share: SimShareHold = self.__shares[ts_code]
-            if share.get_num() < num:
-                msg = 'You have only %d of %s' % (num, ts_code)
+            if share.get_can_sell() < num:
+                msg = 'You have only %d of %s that can be sold' % (share.get_can_sell(), ts_code)
+            else:
+                order = SimOrder(0, ts_code, num, price)
+                share.update_on_sell(num)
 
-        order = SimOrder(0, ts_code, num, price) if msg is None else SimOrder(0, ts_code, num, price, False, msg)
+        if msg is not None:
+            order = SimOrder(0, ts_code, num, price, False, msg)
         self.__add_order(order)
         return order
 
@@ -313,14 +332,18 @@ class SimContext(object):
     def __add_order(self, order: SimOrder):
         self.__orders[self.__cd].append(order)
         if order.available():
-            log.info('Send order successfully. type: %d, code: %s' % (order.get_order_type(), order.get_ts_code()))
+            self.info('Send order successfully. type: %d, code: %s' % (order.get_order_type(), order.get_ts_code()))
         else:
-            log.error('Send order fail. type: %d, code: %s' % (order.get_order_type(), order.get_ts_code()))
+            self.warn('Send order fail. type: %d, code: %s, reason: %s' %
+                      (order.get_order_type(), order.get_ts_code(), order.get_msg()))
 
     """##################################### get info part #####################################"""
 
     def get_holding(self):
         return self.__shares
+
+    def get_hold(self, ts_code):
+        return self.__shares[ts_code] if ts_code in self.__shares else None
 
     def get_dt(self):
         return self.__cd
@@ -329,7 +352,7 @@ class SimContext(object):
         return self.__cash
 
     def get_price(self, ts_code) -> SimSharePrice:
-        return self.__price[ts_code]
+        return self.__price[ts_code] if ts_code in self.__price else None
 
     def get_daily_records(self):
         return self.__records
@@ -350,5 +373,15 @@ class SimContext(object):
                 if retrieve > max_retrieve:
                     max_retrieve = retrieve
             d = format_delta(d, 1)
-        log.info('Final market value is %s' % last_mv)
-        log.info('Max retrieve: %s' % max_retrieve)
+        self.info('Final market value is %s' % last_mv)
+        self.info('Max retrieve: %s' % max_retrieve)
+
+    """##################################### log part #####################################"""
+    def info(self, msg: str):
+        log.info("[%s] %s" % (self.__cd, msg))
+
+    def warn(self, msg: str):
+        log.warn("[%s] %s" % (self.__cd, msg))
+
+    def error(self, msg: str):
+        log.error("[%s] %s" % (self.__cd, msg))

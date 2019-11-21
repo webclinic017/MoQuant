@@ -10,17 +10,19 @@ class SimShareHold(object):
     __win_rate: Decimal
     __lose_rate: Decimal
     __trade: bool
+    __on_sell: Decimal
 
     def __init__(self, ts_code, num, current_price: Decimal,
                  win_rate: Decimal = 0.25, lose_rate: Decimal = 0.08):
         self.__ts_code = ts_code
-        self.__num = num
-        self.__cost = current_price * num
-        self.__earn = 0
-        self.__price = current_price
-        self.__win_rate = win_rate
-        self.__lose_rate = lose_rate
+        self.__num = Decimal(num)
+        self.__cost = Decimal(current_price) * Decimal(num)
+        self.__earn = Decimal(0)
+        self.__price = Decimal(current_price)
+        self.__win_rate = Decimal(win_rate)
+        self.__lose_rate = Decimal(lose_rate)
         self.__can_trade = False
+        self.__on_sell = Decimal(0)
 
     def get_ts_code(self):
         return self.__ts_code
@@ -28,8 +30,14 @@ class SimShareHold(object):
     def get_num(self):
         return self.__num
 
+    def get_can_sell(self):
+        return self.__num - self.__on_sell
+
     def get_earn(self):
-        return self.get_earn()
+        return self.__earn
+
+    def get_net_earn(self):
+        return self.__earn - self.__cost
 
     def get_cost(self):
         return self.__cost
@@ -62,6 +70,8 @@ class SimShareHold(object):
 
     def update_after_deal(self, delta_num, earn, cost):
         self.__num = self.__num + delta_num
+        if delta_num < 0: # sell
+            self.__on_sell -= delta_num
         self.__earn = self.__earn + earn
         self.__cost = self.__cost + cost
 
@@ -70,3 +80,6 @@ class SimShareHold(object):
 
     def update_can_trade(self, can: bool):
         self.__can_trade = can
+
+    def update_on_sell(self, delte_num):
+        self.__on_sell += delte_num

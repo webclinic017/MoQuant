@@ -22,4 +22,5 @@ class SimCenter(object):
             self.h.auction_before_trade(self.c)
             self.c.deal_after_morning_auction()
             self.c.deal_after_afternoon_auction()
-            self.day_end()
+            self.c.day_end()
+        self.c.analyse()
