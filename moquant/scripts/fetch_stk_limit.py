@@ -6,13 +6,12 @@ from sqlalchemy.orm import Session
 from moquant.constants import fetch_data_start_date
 from moquant.dbclient import db_client
 from moquant.dbclient.mq_sys_param import MqSysParam
-from moquant.dbclient.ts_dividend import TsDividend
 from moquant.dbclient.ts_stk_limit import TsStkLimit
 from moquant.log import get_logger
 from moquant.tsclient import ts_client
 from moquant.utils.datetime import format_delta, get_current_dt
 
-log = get_logger('moquant.scripts.fetch_stk_limit')
+log = get_logger(__name__)
 
 param_key = 'STK_LIMIT_DATE'
 

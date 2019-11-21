@@ -21,14 +21,14 @@ from moquant.utils.datetime import get_current_dt, format_delta
 log = get_logger(__name__)
 
 
-def recal_after_report(ts_code: str, to_date: str, period: str):
+def recal_after_report(ts_code: str, dt: str, period: str):
     session: Session = db_client.get_session()
     basic: MqStockMark = session.query(MqStockMark).filter(MqStockMark.ts_code == ts_code).one()
     quarter_list = cal_mq_quarter.calculate(ts_code, basic.share_name, fix_from=period)
     for quarter in quarter_list:  # type: MqQuarterBasic
         session.merge(quarter, True)
     session.flush()
-    daily_list = cal_mq_daily.calculate(ts_code, basic.share_name, to_date, fix_from=to_date)
+    daily_list = cal_mq_daily.calculate(ts_code, basic.share_name, dt, fix_from=dt)
     new_grow_score = 0
     for daily in daily_list:  # type: MqDailyBasic
         session.merge(daily, True)
@@ -37,14 +37,17 @@ def recal_after_report(ts_code: str, to_date: str, period: str):
     session.flush()
 
 
-def run(to_date: str = get_current_dt()):
-    if to_date is None:
-        to_date = get_current_dt()
+def run(dt: str = get_current_dt()):
+    if dt is None:
+        dt = get_current_dt()
+
+    if not cal_mq_daily.is_done(dt):
+        log.info('Daily calculation is not done. Skip fetching latest')
+        return
 
     session: Session = db_client.get_session()
-
     # Check new report
-    to_check: DataFrame = ts_client.fetch_disclosure_date(format_delta(to_date, 1))
+    to_check: DataFrame = ts_client.fetch_disclosure_date(format_delta(dt, 1))
     end_date_column: Series = to_check['end_date']
     end_date_column = end_date_column.drop_duplicates().sort_values(ascending=True)
     for index, period in end_date_column.items():
@@ -57,7 +60,7 @@ def run(to_date: str = get_current_dt()):
         log.info('%s more to fetch for %s' % (len(end_date_to_check), period))
         for index, row in end_date_to_check.iterrows():
             # og.info(row.ts_code)
-            fetch_data.fetch_period_report(ts_code=row.ts_code, to_date=to_date)
+            fetch_data.fetch_period_report(ts_code=row.ts_code, to_date=dt)
         already_codes = session.query(TsIncome.ts_code).filter(
             and_(TsIncome.report_type == 1, TsIncome.end_date == period)).all()
         existed = [already[0] for already in already_codes]
@@ -66,19 +69,19 @@ def run(to_date: str = get_current_dt()):
             .drop_duplicates(['ts_code', 'end_date'])
         log.info('%s to recalculate for %s' % (len(success), period))
         for index, row in success.iterrows():
-            # recal_after_report(ts_code=row.ts_code, to_date=to_date, period=period)
-            threadpool.submit(recal_after_report, ts_code=row.ts_code, to_date=to_date, period=period)
+            # recal_after_report(ts_code=row.ts_code, to_date=dt, period=period)
+            threadpool.submit(recal_after_report, ts_code=row.ts_code, to_date=dt, period=period)
         threadpool.join()
 
     # Check forecast
 
 
-def clear_report_by_date(to_date: str):
+def clear_report_by_date(dt: str):
     session: Session = db_client.get_session()
-    session.query(TsIncome).filter(TsIncome.f_ann_date == format_delta(to_date, 1)).delete()
-    session.query(TsBalanceSheet).filter(TsBalanceSheet.f_ann_date == format_delta(to_date, 1)).delete()
-    session.query(TsCashFlow).filter(TsCashFlow.f_ann_date == format_delta(to_date, 1)).delete()
-    session.query(TsFinaIndicator).filter(TsFinaIndicator.ann_date == format_delta(to_date, 1)).delete()
+    session.query(TsIncome).filter(TsIncome.f_ann_date == format_delta(dt, 1)).delete()
+    session.query(TsBalanceSheet).filter(TsBalanceSheet.f_ann_date == format_delta(dt, 1)).delete()
+    session.query(TsCashFlow).filter(TsCashFlow.f_ann_date == format_delta(dt, 1)).delete()
+    session.query(TsFinaIndicator).filter(TsFinaIndicator.ann_date == format_delta(dt, 1)).delete()
 
 
 if __name__ == '__main__':

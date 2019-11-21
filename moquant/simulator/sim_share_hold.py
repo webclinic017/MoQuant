@@ -13,7 +13,7 @@ class SimShareHold(object):
     __on_sell: Decimal
 
     def __init__(self, ts_code, num, current_price: Decimal,
-                 win_rate: Decimal = 0.25, lose_rate: Decimal = 0.08):
+                 win_rate: Decimal = 0.25, lose_rate: Decimal = -0.08):
         self.__ts_code = ts_code
         self.__num = Decimal(num)
         self.__cost = Decimal(current_price) * Decimal(num)

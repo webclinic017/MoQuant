@@ -20,6 +20,7 @@ from moquant.scripts.cal_grow import cal_growing_score
 from moquant.utils.datetime import format_delta, get_current_dt
 
 log = get_logger(__name__)
+done_record_key = 'CAL_DAILY_DONE'
 
 
 def get_next_index(arr, field, current, i: int = -1):
@@ -150,8 +151,17 @@ def calculate_all():
 
 def update_done_record(to_date: str):
     session: Session = db_client.get_session()
-    session.merge(MqSysParam(param_key='CAL_DAILY_DONE', param_value=to_date), True)
+    session.merge(MqSysParam(param_key=done_record_key, param_value=to_date), True)
     session.flush()
+
+
+def is_done(dt: str) -> bool:
+    session: Session = db_client.get_session()
+    param_list: list = session.query(MqSysParam).filter(MqSysParam.param_key == done_record_key).all()
+    param: MqSysParam = None
+    if len(param_list) > 0:
+        param = param_list[0]
+    return param is not None and param.param_value >= dt
 
 
 def calculate_by_code(ts_code: str):

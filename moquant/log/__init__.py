@@ -7,7 +7,7 @@ from logging.handlers import RotatingFileHandler
 
 from moquant.utils.env_utils import get_env_value
 
-log_formatter = '%(asctime)s - %(levelname)s - %(message)s'
+log_formatter = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 level = logging.INFO
 stdout = logging.StreamHandler(sys.stdout)
 file_name = get_env_value('LOG_FILE_NAME')

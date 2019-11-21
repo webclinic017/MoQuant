@@ -11,7 +11,7 @@ from moquant.log import get_logger
 from moquant.tsclient import ts_client
 from moquant.utils.datetime import format_delta, get_current_dt
 
-log = get_logger('moquant.scripts.fetch_dividend')
+log = get_logger(__name__)
 
 param_key = 'DIVIDEND_DATE'
 

@@ -188,3 +188,4 @@ def run(ts_code, to_date: str = get_current_dt()):
 
 if __name__ == '__main__':
     run(ts_code=sys.argv[1] if len(sys.argv) > 1 else None, to_date=sys.argv[2] if len(sys.argv) > 2 else None)
+    exit(0)

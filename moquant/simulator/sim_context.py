@@ -18,7 +18,7 @@ from moquant.simulator.sim_share_price import SimSharePrice
 from moquant.tsclient import ts_client
 from moquant.utils.datetime import format_delta
 
-log = get_logger('moquant.simulator.SimContext')
+log = get_logger(__name__)
 
 
 class SimContext(object):
