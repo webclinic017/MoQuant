@@ -61,7 +61,7 @@ def common_fetch_data(ts_code: str, api_name: str, table: Table, date_field, cod
             return False
         elif not stock_data.empty:
             db_client.store_dataframe(stock_data, table.__tablename__)
-            print('Successfully save %s of stock %s %s~%s' % (api_name, ts_code, from_date, to_date))
+            log.info('Successfully save %s of stock %s %s~%s' % (api_name, ts_code, from_date, to_date))
         if not empty_to_end:
             break
         elif stock_data.empty:
