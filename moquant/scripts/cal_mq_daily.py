@@ -130,7 +130,7 @@ def calculate(ts_code: str, share_name: str, to_date: str, fix_from: str = None)
     return result_list
 
 
-def calculate_and_insert(ts_code: str, share_name: str, to_date: str):
+def calculate_and_insert(ts_code: str, share_name: str, to_date: str = get_current_dt()):
     result_list = calculate(ts_code, share_name, to_date)
     start_time = time.time()
     session: Session = db_client.get_session()

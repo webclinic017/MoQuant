@@ -100,9 +100,6 @@ def fetch_data_by_code(stock_code, to_date: str = get_current_dt()):
     result = result and common_fetch_data(stock_code, 'fetch_adj_factor', StockAdjFactor,
                                           StockAdjFactor.trade_date, StockAdjFactor.ts_code,
                                           to_date=to_date)
-    result = result and common_fetch_data(stock_code, 'fetch_stk_limit', TsStkLimit,
-                                          TsStkLimit.trade_date, TsStkLimit.ts_code,
-                                          to_date=to_date)
 
     result = result and fetch_period_report(stock_code, to_date)
 
