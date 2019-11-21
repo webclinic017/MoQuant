@@ -32,9 +32,7 @@ if __name__ == '__main__':
         clear_all_data.run(ts_code)
     elif job_name == 'fetch_data':
         fetch_data.run(ts_code, to_date)
-    elif job_name == 'cal_mq_daily':
-        cal_mq_daily.run(ts_code)
     elif job_name == 'fetch_latest':
-        fetch_latest.run(to_date)
+        fetch_latest.run()
     else:
         print("unsupported job")
