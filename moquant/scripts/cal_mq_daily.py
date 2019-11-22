@@ -46,7 +46,7 @@ def calculate(ts_code: str, share_name: str, to_date: str, fix_from: str = None)
         if len(ts_basic_arr) > 0 and ts_basic_arr[0].list_date > from_date:
             from_date = ts_basic_arr[0].list_date
     if fix_from is None and from_date > to_date:
-        return
+        return result_list
 
     # Get all daily basic from a date
     last_ts_daily = session.query(TsDailyBasic) \
@@ -132,12 +132,15 @@ def calculate(ts_code: str, share_name: str, to_date: str, fix_from: str = None)
 
 def calculate_and_insert(ts_code: str, share_name: str, to_date: str = get_current_dt()):
     result_list = calculate(ts_code, share_name, to_date)
-    start_time = time.time()
-    session: Session = db_client.get_session()
-    for item in result_list:  # type: MqDailyBasic
-        session.add(item)
-    session.flush()
-    log.info("Insert mq daily data for %s: %s seconds" % (ts_code, time.time() - start_time))
+    if len(result_list) > 0:
+        start_time = time.time()
+        session: Session = db_client.get_session()
+        for item in result_list:  # type: MqDailyBasic
+            session.add(item)
+        session.flush()
+        log.info("Insert mq daily data for %s: %s seconds" % (ts_code, time.time() - start_time))
+    else:
+        log.info('Nothing to insert %s' % ts_code)
 
 
 def calculate_all():

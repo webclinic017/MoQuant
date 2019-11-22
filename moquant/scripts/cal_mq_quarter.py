@@ -616,13 +616,16 @@ def calculate(ts_code, share_name, fix_from: str = None):
 
 
 def calculate_and_insert(ts_code: str, share_name: str):
-    session: Session = db_client.get_session()
     result_list = calculate(ts_code, share_name)
-    start = time.time()
-    for item in result_list:  # type: MqQuarterBasic
-        session.add(item)
-    session.flush()
-    log.info("Insert data for %s: %s seconds" % (ts_code, time.time() - start))
+    if len(result_list) > 0:
+        session: Session = db_client.get_session()
+        start = time.time()
+        for item in result_list:  # type: MqQuarterBasic
+            session.add(item)
+        session.flush()
+        log.info("Insert data for %s: %s seconds" % (ts_code, time.time() - start))
+    else:
+        log.info('Nothing to insert %s' % ts_code)
 
 
 def calculate_all():

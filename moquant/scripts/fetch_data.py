@@ -3,6 +3,7 @@
 """ To fetch basic data from TuShare """
 import sys
 import time
+
 from sqlalchemy import and_, Column, func, Table
 from sqlalchemy.orm import Session
 
@@ -19,9 +20,8 @@ from moquant.dbclient.ts_express import TsExpress
 from moquant.dbclient.ts_fina_indicator import TsFinaIndicator
 from moquant.dbclient.ts_forecast import TsForecast
 from moquant.dbclient.ts_income import TsIncome
-from moquant.dbclient.ts_stk_limit import TsStkLimit
 from moquant.log import get_logger
-from moquant.scripts import clear_after_fetch, cal_mq_quarter, cal_mq_daily, cal_grow, fetch_dividend, fetch_stk_limit
+from moquant.scripts import clear_after_fetch, cal_mq_quarter, cal_mq_daily, fetch_dividend, fetch_stk_limit
 from moquant.tsclient import ts_client
 from moquant.utils import threadpool
 from moquant.utils.datetime import format_delta, get_current_dt
@@ -54,7 +54,7 @@ def common_fetch_data(ts_code: str, api_name: str, table: Table, date_field, cod
                 stock_data = ts_client.fetch_data_frame(api_name, ts_code, to_date, from_date, **kwargs)
                 break
             except Exception as e:
-                log.error('Calling TuShare too fast. Will sleep 1 minutes...')
+                log.exception('Calling TuShare too fast. Will sleep 1 minutes...')
                 time.sleep(60)
 
         if stock_data is None:
