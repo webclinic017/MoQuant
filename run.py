@@ -4,6 +4,7 @@ import getopt
 import sys
 
 from moquant.scripts import clear_all_data, init_table, fetch_data, cal_mq_daily, fetch_latest
+from moquant.strategy import loopback
 
 
 def usage():
@@ -34,5 +35,7 @@ if __name__ == '__main__':
         fetch_data.run(ts_code, to_date)
     elif job_name == 'fetch_latest':
         fetch_latest.run()
+    elif job_name == 'sim_grow':
+        loopback.run_grow_strategy('20190101', '20191120')
     else:
         print("unsupported job")

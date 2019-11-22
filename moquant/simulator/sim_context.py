@@ -1,21 +1,16 @@
 import math
 from decimal import Decimal
 
-from pandas import DataFrame
-from sqlalchemy import and_
-from sqlalchemy.orm import Session
-
-from moquant.dbclient import db_client
 from moquant.dbclient.ts_daily_trade_info import TsDailyTradeInfo
 from moquant.dbclient.ts_dividend import TsDividend
 from moquant.dbclient.ts_stk_limit import TsStkLimit
 from moquant.log import get_logger
 from moquant.simulator.sim_daily_record import SimDailyRecord
+from moquant.simulator.sim_data_service import SimDataService
 from moquant.simulator.sim_dividend import SimDividend
 from moquant.simulator.sim_order import SimOrder
 from moquant.simulator.sim_share_hold import SimShareHold
 from moquant.simulator.sim_share_price import SimSharePrice
-from moquant.tsclient import ts_client
 from moquant.utils.datetime import format_delta
 
 log = get_logger(__name__)
@@ -39,6 +34,8 @@ class SimContext(object):
     __dividend: dict
     __records: dict
 
+    __data: SimDataService
+
     def __init__(self, sd: str, ed: str, cash: Decimal = 500000, charge: Decimal = 0.00025,
                  tax: Decimal = 5):
         self.__sd = sd
@@ -48,11 +45,10 @@ class SimContext(object):
         self.__charge = Decimal(charge)
         self.__tax = Decimal(tax)
 
-        sz: DataFrame = ts_client.fetch_trade_cal(exchange='SZSE', start_date=sd, end_date=ed, is_open=1)
-        self.__sz = set([s.cal_date for i, s in sz.iterrows()])
+        self.__data = SimDataService(sd, ed)
 
-        sh: DataFrame = ts_client.fetch_trade_cal(exchange='SSE', start_date=sd, end_date=ed, is_open=1)
-        self.__sh = set([s.cal_date for i, s in sh.iterrows()])
+        self.__sz = self.__data.get_sz_trade_cal()
+        self.__sh = self.__data.get_sh_trade_cal()
 
         self.__shares = {}
         self.__shares_just_buy = {}
@@ -74,8 +70,7 @@ class SimContext(object):
 
         self.__orders[self.__cd] = []
         self.__price = {}
-        session: Session = db_client.get_session()
-        daily_info_list = session.query(TsDailyTradeInfo).filter(TsDailyTradeInfo.trade_date == self.__cd).all()
+        daily_info_list: list = self.__data.get_daily_info(self.__cd)
 
         for (ts_code, share) in self.__shares.items():  # type: str, SimShareHold
             share.update_can_trade(False)
@@ -90,7 +85,7 @@ class SimContext(object):
                 hold.update_can_trade(True)
 
         # Update limit
-        stk_limit_lit = session.query(TsStkLimit).filter(TsStkLimit.trade_date == self.__cd).all()
+        stk_limit_lit: list = self.__data.get_stk_limit(self.__cd)
         for stk_limit in stk_limit_lit:  # type: TsStkLimit
             if stk_limit.ts_code in self.__price:
                 price: SimSharePrice = self.__price[stk_limit.ts_code]
@@ -197,10 +192,7 @@ class SimContext(object):
                         hold.update_on_sell(order.get_num() * (-1))
 
         # register dividend
-        session: Session = db_client.get_session()
-        dividend_list = session.query(TsDividend).filter(
-            and_(TsDividend.div_proc == '实施', TsDividend.record_date == self.__cd)
-        ).all()
+        dividend_list = self.__data.get_dividend(self.__cd)
 
         for dividend in dividend_list:  # type: TsDividend
             total_num = 0
@@ -256,7 +248,7 @@ class SimContext(object):
         cost = earn * self.__charge + self.__tax
         hold.update_after_deal(order.get_num() * (-1), earn, cost)
         self.__cash = self.__cash + earn - cost
-        self.info("Sell %s of %s" % (order.get_num(), order.get_ts_code()))
+        self.info("Sell %s of %s with price %s." % (order.get_num(), order.get_ts_code(), deal_price))
         order.deal()
 
     def __deal_buy(self, order: SimOrder, deal_price: Decimal):
@@ -264,13 +256,15 @@ class SimContext(object):
             self.error('[deal_buy] Not buy type order')
             return
         ts_code = order.get_ts_code()
-        hold: SimShareHold = self.__shares[ts_code] if ts_code in self.__shares else None
+        hold: SimShareHold = self.get_hold(ts_code)
         if hold is None:
             self.__shares[ts_code] = SimShareHold(ts_code, order.get_num(), deal_price)
         else:
             hold.update_after_deal(order.get_num(), 0, order.get_num() * deal_price)
-        self.__cash = self.__cash + (order.get_num() * order.get_price()) - (order.get_num() * deal_price)
-        self.info("Buy %s of %s" % (order.get_num(), order.get_ts_code()))
+        buy_cost = order.get_num() * deal_price
+        self.__cash = self.__cash + (order.get_num() * order.get_price()) - buy_cost
+        self.info("Buy %s of %s with price %s. Total cost: %s" %
+                  (order.get_num(), order.get_ts_code(), deal_price, buy_cost))
         order.deal()
 
     """##################################### send order part #####################################"""
