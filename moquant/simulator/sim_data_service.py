@@ -16,6 +16,7 @@ log = get_logger(__name__)
 class SimDataService(object):
     __st: str
     __ed: str
+    __cache: bool
 
     # trade cal
     __sz: set
@@ -25,22 +26,29 @@ class SimDataService(object):
     __stk_limit: dict
     __dividend: dict
 
-    def __init__(self, st, ed):
+    def __init__(self, st, ed, cache: bool = False):
         self.__st = st
         self.__ed = ed
+        self.__cache = cache
 
-        session: Session = db_client.get_session()
-        self.__init_trade_cal(st, ed)
-        self.__init_daily_info(st, ed, session)
-        self.__init_stk_limit(st, ed, session)
-        self.__init_dividend(st, ed, session)
+        if cache:
+            session: Session = db_client.get_session()
+            self.__init_trade_cal(st, ed)
+            self.__init_daily_info(st, ed, session)
+            self.__init_stk_limit(st, ed, session)
+            self.__init_dividend(st, ed, session)
+
+    def __get_trade_cal_sz(self, st, ed) -> set:
+        sz: DataFrame = ts_client.fetch_trade_cal(exchange='SZSE', start_date=st, end_date=ed, is_open=1)
+        return set([s.cal_date for i, s in sz.iterrows()])
+
+    def __get_trade_cal_sh(self, st, ed) -> set:
+        sh: DataFrame = ts_client.fetch_trade_cal(exchange='SSE', start_date=st, end_date=ed, is_open=1)
+        return set([s.cal_date for i, s in sh.iterrows()])
 
     def __init_trade_cal(self, st, ed):
-        sz: DataFrame = ts_client.fetch_trade_cal(exchange='SZSE', start_date=st, end_date=ed, is_open=1)
-        self.__sz = set([s.cal_date for i, s in sz.iterrows()])
-
-        sh: DataFrame = ts_client.fetch_trade_cal(exchange='SSE', start_date=st, end_date=ed, is_open=1)
-        self.__sh = set([s.cal_date for i, s in sh.iterrows()])
+        self.__sz = self.__get_trade_cal_sz(st, ed)
+        self.__sh = self.__get_trade_cal_sh(st, ed)
         log.info('Init trade cal')
 
     def __init_daily_info(self, st, ed, session: Session):
@@ -95,28 +103,43 @@ class SimDataService(object):
         log.info('Init dividend')
 
     def get_sz_trade_cal(self) -> set:
-        return self.__sz
+        return self.__sz if self.__cache else self.__get_trade_cal_sz(self.__st, self.__ed)
 
     def get_sh_trade_cal(self) -> set:
-        return self.__sh
+        return self.__sh if self.__cache else self.__get_trade_cal_sh(self.__st, self.__ed)
+
+    def __get_daily_info_from_db(self, dt: str) -> list:
+        session: Session = db_client.get_session()
+        return session.query(TsDailyTradeInfo).filter(TsDailyTradeInfo.trade_date == dt).all()
 
     def get_daily_info(self, dt: str) -> list:
-        if dt in self.__daily_info:
-            return self.__daily_info[dt]
-        else:
-            log.error('Daily info not init %s' % dt)
-            return []
+        if self.__cache:
+            if dt in self.__daily_info:
+                return self.__daily_info[dt]
+            else:
+                log.error('Daily info not init %s' % dt)
+        return self.__get_daily_info_from_db(dt)
+
+    def __get_stk_limit_from_db(self, dt: str) -> list:
+        session: Session = db_client.get_session()
+        return session.query(TsStkLimit).filter(TsStkLimit.trade_date == dt).all()
 
     def get_stk_limit(self, dt: str) -> list:
-        if dt in self.__stk_limit:
-            return self.__stk_limit[dt]
-        else:
-            log.error('Stk limit not init %s' % dt)
-            return []
+        if self.__cache:
+            if dt in self.__stk_limit:
+                return self.__stk_limit[dt]
+            else:
+                log.error('Stk limit not init %s' % dt)
+        return self.__get_stk_limit_from_db(dt)
+
+    def __get_dividend_from_db(self, dt):
+        session: Session = db_client.get_session()
+        return session.query(TsDividend).filter(and_(TsDividend.div_proc == '实施', TsDividend.record_date == dt)).all()
 
     def get_dividend(self, dt: str) -> list:
-        if dt in self.__dividend:
-            return self.__dividend[dt]
-        else:
-            log.error('Dividend not init %s' % dt)
-            return []
+        if self.__cache:
+            if dt in self.__dividend:
+                return self.__dividend[dt]
+            else:
+                log.error('Dividend not init %s' % dt)
+        return self.__get_dividend_from_db(dt)
