@@ -5,7 +5,7 @@ public class GenerateTsTable {
     @Test
     public void go() {
         String[] fields = {
-				"trade_date,str,Y,交易日期","ts_code,str,Y,TS股票代码","up_limit,float,Y,涨停价","down_limit,float,Y,跌停价"
+				"exchange,str,Y,交易所 SSE上交所 SZSE深交所","cal_date,str,Y,日历日期","is_open,str,Y,是否交易 0休市 1交易","pretrade_date,str,N,上一个交易日"
         };
         for (String field: fields) {
             String[] splits = field.split(",");

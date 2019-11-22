@@ -21,14 +21,14 @@ from moquant.dbclient.ts_fina_indicator import TsFinaIndicator
 from moquant.dbclient.ts_forecast import TsForecast
 from moquant.dbclient.ts_income import TsIncome
 from moquant.log import get_logger
-from moquant.scripts import clear_after_fetch, cal_mq_quarter, cal_mq_daily, fetch_dividend, fetch_stk_limit
+from moquant.scripts import clear_after_fetch, cal_mq_quarter, cal_mq_daily, fetch_dividend, fetch_stk_limit, \
+    fetch_trade_cal
 from moquant.tsclient import ts_client
 from moquant.utils import threadpool
 from moquant.utils.datetime import format_delta, get_current_dt
 from moquant.utils.env_utils import pass_fetch_basic
 
 log = get_logger(__name__)
-threads = []
 
 
 def fetch_from_date(date_column: Column, code_column: Column, ts_code: str):
@@ -167,6 +167,7 @@ def run(ts_code, to_date: str = get_current_dt()):
 
     threadpool.submit(fetch_dividend.update_dividend_to, dt=to_date)
     threadpool.submit(fetch_stk_limit.update_stk_limit_to, dt=to_date)
+    threadpool.submit(fetch_trade_cal.fetch, to_date=to_date)
 
     if ts_code is not None and ts_code != '':
         session: Session = db_client.get_session()

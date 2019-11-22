@@ -248,7 +248,7 @@ class SimContext(object):
         cost = earn * self.__charge + self.__tax
         hold.update_after_deal(order.get_num() * (-1), earn, cost)
         self.__cash = self.__cash + earn - cost
-        self.info("Sell %s of %s with price %s." % (order.get_num(), order.get_ts_code(), deal_price))
+        self.info("Sell %s of %s with price %s. Tax: %s" % (order.get_num(), order.get_ts_code(), deal_price, cost))
         order.deal()
 
     def __deal_buy(self, order: SimOrder, deal_price: Decimal):
