@@ -9,4 +9,4 @@ def run_grow_strategy(st, ed):
 
 
 if __name__ == '__main__':
-    run_grow_strategy('20190101', '20191120')
+    run_grow_strategy('20190101', '20190103')

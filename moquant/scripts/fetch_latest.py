@@ -50,6 +50,7 @@ def run(dt: str = get_current_dt()):
     to_check: DataFrame = ts_client.fetch_disclosure_date(format_delta(dt, 1))
     end_date_column: Series = to_check['end_date']
     end_date_column = end_date_column.drop_duplicates().sort_values(ascending=True)
+    log.info('%s periods to check in %s' % (len(end_date_column), dt))
     for index, period in end_date_column.items():
         already_codes = session.query(TsIncome.ts_code).filter(
             and_(TsIncome.report_type == 1, TsIncome.end_date == period)).all()

@@ -29,10 +29,10 @@ def fetch_stk_limit_by_date(dt: str):
 
     if df is not None and not df.empty:
         db_client.store_dataframe(df, TsStkLimit.__tablename__)
-        print('Successfully save stk limit of %s' % dt)
+        log.info('Successfully save stk limit of %s' % dt)
 
 
-def update_stk_limit_to(dt: str):
+def update_stk_limit_to(dt: str = get_current_dt()):
     session: Session = db_client.get_session()
     param_list = session.query(MqSysParam).filter(MqSysParam.param_key == param_key).all()
     param: MqSysParam = None if len(param_list) == 0 else param_list[0]
@@ -50,4 +50,4 @@ def update_stk_limit_to(dt: str):
 
 
 if __name__ == '__main__':
-    update_stk_limit_to(get_current_dt())
+    update_stk_limit_to()

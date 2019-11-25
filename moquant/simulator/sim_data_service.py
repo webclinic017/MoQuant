@@ -42,7 +42,7 @@ class SimDataService(object):
         self.__sh = set()
         session: Session = db_client.get_session()
         trade_list: list = session.query(TsTradeCal).filter(
-            and_(TsTradeCal.cal_date >= st, TsTradeCal.cal_date <= ed, TsTradeCal.is_open == 1))
+            and_(TsTradeCal.cal_date >= st, TsTradeCal.cal_date <= ed, TsTradeCal.is_open == 1)).all()
         for trade in trade_list:  # type: TsTradeCal
             if trade.exchange == 'SZSE':
                 self.__sz.add(trade.cal_date)

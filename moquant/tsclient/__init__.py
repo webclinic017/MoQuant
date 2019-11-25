@@ -72,13 +72,16 @@ class TsClient(object):
     def fetch_forecast_by_ann(self, ann_date: str) -> DataFrame:
         return self.__pro.forecast(ann_date=ann_date)
 
-    def fetch_trade_cal(self, exchange = None, start_date = None, end_date = None, is_open = None) -> DataFrame:
-        return self.__pro.trade_cal(exchange=exchange, start_date=start_date, end_date=end_date, is_open=is_open)
+    def fetch_trade_cal(self, start_date=None, end_date=None, is_open=None) -> DataFrame:
+        df1: DataFrame = self.__pro.trade_cal(exchange='SSE', start_date=start_date, end_date=end_date, is_open=is_open)
+        df2: DataFrame = self.__pro.trade_cal(exchange='SZSE', start_date=start_date, end_date=end_date, is_open=is_open)
+        return df1.append(df2)
 
     def fetch_dividend(self, ts_code: str = None, ann_date: str = None) -> DataFrame:
         return self.__pro.dividend(ts_code=ts_code, ann_date=ann_date)
 
-    def fetch_stk_limit(self, ts_code: str = None, trade_date: str = None, start_date: str = None, end_date: str = None):
+    def fetch_stk_limit(self, ts_code: str = None, trade_date: str = None, start_date: str = None,
+                        end_date: str = None):
         return self.__pro.stk_limit(ts_code=ts_code, trade_date=trade_date, start_date=start_date, end_date=end_date)
 
 

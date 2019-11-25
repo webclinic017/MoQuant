@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """ Log util """
+import codecs
 import logging
 import sys
-from logging.handlers import RotatingFileHandler
 
 from moquant.utils.env_utils import get_env_value
+
+sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
 
 log_formatter = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 level = logging.INFO

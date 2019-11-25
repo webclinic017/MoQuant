@@ -12,7 +12,7 @@ class SimCenter(object):
     c: SimContext
 
     def __init__(self, handler: SimHandler,
-                 sd: str, ed: str, cash: Decimal = 500000, charge: Decimal = 0.00025, tax: Decimal = 5):
+                 sd: str, ed: str, cash: Decimal = 500000, charge: Decimal = 0.00025, tax: Decimal = 0.001):
         self.h = handler
         self.c = SimContext(sd, ed, cash, charge, tax)
 

@@ -35,6 +35,9 @@ class SimOrder(object):
     def get_msg(self):
         return self.__msg
 
+    def is_deal(self):
+        return self.__status == 1
+
     """##################################### update part #####################################"""
 
     def deal(self):

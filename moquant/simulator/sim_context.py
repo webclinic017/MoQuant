@@ -1,9 +1,11 @@
+import json
 import math
 from decimal import Decimal
 
 from moquant.dbclient.ts_daily_trade_info import TsDailyTradeInfo
 from moquant.dbclient.ts_dividend import TsDividend
 from moquant.dbclient.ts_stk_limit import TsStkLimit
+from moquant.json.mq_encoder import MqEncoder
 from moquant.log import get_logger
 from moquant.simulator.sim_daily_record import SimDailyRecord
 from moquant.simulator.sim_data_service import SimDataService
@@ -12,6 +14,7 @@ from moquant.simulator.sim_order import SimOrder
 from moquant.simulator.sim_share_hold import SimShareHold
 from moquant.simulator.sim_share_price import SimSharePrice
 from moquant.utils.datetime import format_delta
+from moquant.utils.env_utils import get_env_value
 
 log = get_logger(__name__)
 
@@ -37,7 +40,7 @@ class SimContext(object):
     __data: SimDataService
 
     def __init__(self, sd: str, ed: str, cash: Decimal = 500000, charge: Decimal = 0.00025,
-                 tax: Decimal = 5):
+                 tax: Decimal = 0.001):
         self.__sd = sd
         self.__ed = ed
         self.__init_cash = Decimal(cash)
@@ -209,7 +212,8 @@ class SimContext(object):
             dividend_cash = total_num * dividend.cash_div
             self.__dividend[dividend.ts_code] = SimDividend(dividend.ts_code, dividend_num, dividend_cash,
                                                             dividend.pay_date, dividend.div_listdate)
-            self.info('Dividend register. code: %s, num: %s, cash: %s' % (dividend.ts_code, dividend_num, dividend_cash))
+            self.info(
+                'Dividend register. code: %s, num: %s, cash: %s' % (dividend.ts_code, dividend_num, dividend_cash))
         self.__mark_record()
         self.__next_day()
 
@@ -245,10 +249,13 @@ class SimContext(object):
             self.error('[deal_sell] not holding %s' % ts_code)
             return
         earn = order.get_num() * deal_price
-        cost = earn * self.__charge + self.__tax
-        hold.update_after_deal(order.get_num() * (-1), earn, cost)
-        self.__cash = self.__cash + earn - cost
-        self.info("Sell %s of %s with price %s. Tax: %s" % (order.get_num(), order.get_ts_code(), deal_price, cost))
+        charge_cost = self.__get_charge_cost(earn)
+        pass_cost = self.__get_pass_cost(ts_code, order.get_num())
+        tax_cost = self.__get_tax_cost(earn)
+        deal_cost = charge_cost + pass_cost + tax_cost
+        hold.update_after_deal(order.get_num() * (-1), earn, deal_cost)
+        self.__cash = self.__cash + earn - deal_cost
+        self.info("Sell %s of %s with price %s. Tax: %s" % (order.get_num(), order.get_ts_code(), deal_price, deal_cost))
         order.deal()
 
     def __deal_buy(self, order: SimOrder, deal_price: Decimal):
@@ -257,15 +264,41 @@ class SimContext(object):
             return
         ts_code = order.get_ts_code()
         hold: SimShareHold = self.get_hold(ts_code)
-        if hold is None:
-            self.__shares[ts_code] = SimShareHold(ts_code, order.get_num(), deal_price)
-        else:
-            hold.update_after_deal(order.get_num(), 0, order.get_num() * deal_price)
         buy_cost = order.get_num() * deal_price
+        charge_cost = self.__get_charge_cost(buy_cost)
+        pass_cost = self.__get_pass_cost(ts_code, order.get_num())
+        deal_cost = charge_cost + pass_cost
+        if hold is None:
+            hold = SimShareHold(ts_code, order.get_num(), deal_price)
+            self.__shares[ts_code] = hold
+            hold.update_after_deal(0, 0, deal_cost)
+        else:
+            hold.update_after_deal(order.get_num(), 0, buy_cost + deal_cost)
+
         self.__cash = self.__cash + (order.get_num() * order.get_price()) - buy_cost
-        self.info("Buy %s of %s with price %s. Total cost: %s" %
-                  (order.get_num(), order.get_ts_code(), deal_price, buy_cost))
+        self.info("Buy %s of %s with price %s. Pay cost: %s. Deal cost: %s" %
+                  (order.get_num(), order.get_ts_code(), deal_price, buy_cost, deal_cost))
         order.deal()
+
+    def __get_tax_cost(self, deal):
+        return deal * self.__tax
+
+    def __get_charge_cost(self, deal):
+        cost = deal * self.__charge
+        if cost < 5:
+            cost = 5
+        return Decimal(cost)
+
+    def __get_pass_cost(self, ts_code: str, num):
+        ret = 0
+        if ts_code.endswith('.SH'):
+            if num <= 1000:
+                ret = 1
+            else:
+                ret = 1 + math.ceil((num - 1000) / 100) * 0.1
+        else:
+            ret = 0
+        return Decimal(ret)
 
     """##################################### send order part #####################################"""
 
@@ -355,6 +388,8 @@ class SimContext(object):
         return self.__records
 
     def analyse(self):
+        self.info('-------------------Analyse start-------------------')
+        self.output_done_order()
         d = self.__sd
         max_mv = self.__init_cash
         last_mv = self.__init_cash
@@ -373,7 +408,26 @@ class SimContext(object):
         self.info('Final market value is %s' % last_mv)
         self.info('Max retrieve: %s' % max_retrieve)
 
+    def output_done_order(self):
+        file_name = get_env_value('SIM_ORDER_FILE_NAME')
+        if file_name is None:
+            return
+        f = open(file_name, "w")
+        ojson = {}
+        dt = self.__sd
+        while dt <= self.__ed:
+            if dt in self.__orders:
+                ojson[dt] = []
+                for order in self.__orders[dt]:  # type: SimOrder
+                    if order.is_deal():
+                        ojson[dt].append({'code': order.get_ts_code(), 'num': order.get_num(),
+                                          'price': order.get_price(), 'type': order.get_order_type()})
+            dt = format_delta(dt, 1)
+        f.write(json.dumps(ojson, cls=MqEncoder))
+        f.close()
+
     """##################################### log part #####################################"""
+
     def info(self, msg: str):
         log.info("[%s] %s" % (self.__cd, msg))
 
