@@ -46,13 +46,13 @@ class SimShareHold(object):
         if self.__win_rate is None:
             return False
         else:
-            return self.__price * self.__num + self.__earn >= self.__cost * (1 + self.__win_rate)
+            return self.get_mv() + self.__earn >= self.__cost * (1 + self.__win_rate)
 
     def achieve_lose(self):
         if self.__lose_rate is None:
             return False
         else:
-            return self.__price * self.__num + self.__earn <= self.__cost * (1 + self.__lose_rate)
+            return self.get_mv() + self.__earn <= self.__cost * (1 + self.__lose_rate)
 
     def can_trade(self):
         return self.__can_trade

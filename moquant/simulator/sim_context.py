@@ -26,6 +26,7 @@ class SimContext(object):
     __cash: Decimal
     __charge: Decimal
     __tax: Decimal
+    __pass: Decimal
 
     __sz: set  # trade date
     __sh: set  # trade date
@@ -40,13 +41,14 @@ class SimContext(object):
     __data: SimDataService
 
     def __init__(self, sd: str, ed: str, cash: Decimal = 500000, charge: Decimal = 0.00025,
-                 tax: Decimal = 0.001):
+                 tax: Decimal = 0.001, pass_tax: Decimal = 0.00002):
         self.__sd = sd
         self.__ed = ed
         self.__init_cash = Decimal(cash)
         self.__cash = Decimal(cash)
         self.__charge = Decimal(charge)
         self.__tax = Decimal(tax)
+        self.__pass = Decimal(pass_tax)
 
         self.__data = SimDataService(sd, ed)
 
@@ -266,7 +268,7 @@ class SimContext(object):
         hold: SimShareHold = self.get_hold(ts_code)
         buy_cost = order.get_num() * deal_price
         charge_cost = self.__get_charge_cost(buy_cost)
-        pass_cost = self.__get_pass_cost(ts_code, order.get_num())
+        pass_cost = self.__get_pass_cost(ts_code, buy_cost)
         deal_cost = charge_cost + pass_cost
         if hold is None:
             hold = SimShareHold(ts_code, order.get_num(), deal_price)
@@ -289,16 +291,8 @@ class SimContext(object):
             cost = 5
         return Decimal(cost)
 
-    def __get_pass_cost(self, ts_code: str, num):
-        ret = 0
-        if ts_code.endswith('.SH'):
-            if num <= 1000:
-                ret = 1
-            else:
-                ret = 1 + math.ceil((num - 1000) / 100) * 0.1
-        else:
-            ret = 0
-        return Decimal(ret)
+    def __get_pass_cost(self, ts_code: str, deal):
+        return deal * self.__pass
 
     """##################################### send order part #####################################"""
 
@@ -362,7 +356,7 @@ class SimContext(object):
     def __add_order(self, order: SimOrder):
         self.__orders[self.__cd].append(order)
         if order.available():
-            self.info('Send order successfully. type: %d, code: %s' % (order.get_order_type(), order.get_ts_code()))
+            self.info('Send order successfully. type: %d, code: %s, price: %s' % (order.get_order_type(), order.get_ts_code(), order.get_price()))
         else:
             self.warn('Send order fail. type: %d, code: %s, reason: %s' %
                       (order.get_order_type(), order.get_ts_code(), order.get_msg()))

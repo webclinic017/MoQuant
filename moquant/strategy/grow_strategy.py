@@ -49,12 +49,12 @@ class GrowStrategyHandler(SimHandler):
         for stock in grow_list:  # type: MqDailyBasic
             if self.__is_ban(stock):
                 continue
-            max_buy = 55000
             if stock.ts_code in holding:
-                hold: SimShareHold = holding[stock.ts_code]
-                max_buy = max_buy - hold.get_cost()
                 continue
+            max_buy = 55000
             cash = context.get_cash()
+            if cash <= max_buy:
+                continue
             price: SimSharePrice = context.get_price(stock.ts_code)
             if price is not None and cash >= price.get_up_limit() * 100:
                 context.buy_amap(stock.ts_code, price.get_up_limit(), max_buy)
