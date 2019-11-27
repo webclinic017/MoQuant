@@ -7,7 +7,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import com.cn.momojie.moquant.api.dao.MqShareNoteDao;
 import com.cn.momojie.moquant.api.dao.MqStockMarkDao;
+import com.cn.momojie.moquant.api.dto.MqShareNote;
+import com.cn.momojie.moquant.api.param.MqCodePageParam;
 import com.cn.momojie.moquant.api.param.MqShareListParam;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +34,7 @@ import com.cn.momojie.moquant.api.vo.MqShareDetail;
 import com.cn.momojie.moquant.api.vo.MqShareTrend;
 import com.cn.momojie.moquant.api.vo.PageResult;
 import com.cn.momojie.moquant.api.vo.ShareListItem;
+import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
 
 import lombok.extern.slf4j.Slf4j;
@@ -50,6 +54,9 @@ public class MqInfoQueryService {
 
     @Autowired
     private MqStockMarkDao mqStockMarkDao;
+
+    @Autowired
+    private MqShareNoteDao noteDao;
 
     @Autowired
     private MqSysParamService mqSysParamService;
@@ -257,5 +264,10 @@ public class MqInfoQueryService {
 			ret.setPy(PinYinUtil.convertToPyFirst(i.getName()));
 			return ret;
 		}).collect(Collectors.toList());
+	}
+
+	public PageResult<MqShareNote> getNotes(MqCodePageParam param) {
+		PageHelper.startPage(param.getPageNum(), param.getPageSize());
+		return PageResult.fromList(noteDao.getByCode(param.getTsCode()));
 	}
 }

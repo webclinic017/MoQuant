@@ -1,5 +1,6 @@
 package com.cn.momojie.moquant.api.controller;
 
+import com.cn.momojie.moquant.api.param.MqCodePageParam;
 import com.cn.momojie.moquant.api.param.MqDailyBasicParam;
 import com.cn.momojie.moquant.api.param.MqShareListParam;
 import com.cn.momojie.moquant.api.param.MqTrendParam;
@@ -46,4 +47,9 @@ public class MqStockController {
     public List<ShareListItem> getAllShareForSearch() {
         return mqInfoQueryService.getAllShare();
     }
+
+	@RequestMapping(path = "getNoteList", method = RequestMethod.POST)
+    public PageResult getNoteList(@RequestBody MqCodePageParam param) {
+    	return mqInfoQueryService.getNotes(param);
+	}
 }

@@ -3,17 +3,11 @@ package com.cn.momojie.moquant.api.param;
 import lombok.Data;
 
 @Data
-public class MqDailyBasicParam {
+public class MqDailyBasicParam extends MqCodePageParam {
 
     private Boolean orderByDate = false;
 
     private Boolean onlyIndicator = false;
 
     private String dt;
-
-    private String tsCode;
-
-    private Integer pageNum = 1;
-
-    private Integer pageSize = 20;
 }

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cn.momojie.moquant.api.dao.MqShareNoteDao">
+    <resultMap id="BaseResultMap" type="com.cn.momojie.moquant.api.dto.MqShareNote">
+        <id column="id" jdbcType="BIGINT" property="id"/>
+        <result column="ts_code" jdbcType="VARCHAR" property="tsCode"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+        <result column="note_detail" jdbcType="VARCHAR" property="noteDetail"/>
+        <result column="note_conclusion" jdbcType="VARCHAR" property="noteConclusion"/>
+    </resultMap>
+
+    <select id="getByCode" resultMap="BaseResultMap">
+        SELECT * FROM mq_share_note
+        WHERE 1=1
+        <if test="ts_code != null and ts_code.length > 0">
+        AND ts_code = #{ts_code}
+        </if>
+        ORDER BY create_time DESC
+    </select>
+</mapper>
