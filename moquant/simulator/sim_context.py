@@ -252,7 +252,7 @@ class SimContext(object):
             return
         earn = order.get_num() * deal_price
         charge_cost = self.__get_charge_cost(earn)
-        pass_cost = self.__get_pass_cost(ts_code, order.get_num())
+        pass_cost = self.__get_pass_cost(order.get_num())
         tax_cost = self.__get_tax_cost(earn)
         deal_cost = charge_cost + pass_cost + tax_cost
         hold.update_after_deal(order.get_num() * (-1), earn, deal_cost)
@@ -268,7 +268,7 @@ class SimContext(object):
         hold: SimShareHold = self.get_hold(ts_code)
         buy_cost = order.get_num() * deal_price
         charge_cost = self.__get_charge_cost(buy_cost)
-        pass_cost = self.__get_pass_cost(ts_code, buy_cost)
+        pass_cost = self.__get_pass_cost(buy_cost)
         deal_cost = charge_cost + pass_cost
         if hold is None:
             hold = SimShareHold(ts_code, order.get_num(), deal_price)
@@ -291,7 +291,7 @@ class SimContext(object):
             cost = 5
         return Decimal(cost)
 
-    def __get_pass_cost(self, ts_code: str, deal):
+    def __get_pass_cost(self, deal):
         return deal * self.__pass
 
     """##################################### send order part #####################################"""

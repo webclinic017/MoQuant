@@ -1,11 +1,13 @@
 import sys
 import time
+from decimal import Decimal
 from operator import and_
 
 from sqlalchemy.orm import Session
 
 from moquant.constants import mq_calculate_start_period
 from moquant.dbclient import db_client
+from moquant.dbclient.mq_manual_forecast import MqManualForecast
 from moquant.dbclient.mq_quarter_basic import MqQuarterBasic
 from moquant.dbclient.mq_stock_mark import MqStockMark
 from moquant.dbclient.ts_balance_sheet import TsBalanceSheet
@@ -18,6 +20,76 @@ from moquant.utils.datetime import get_current_dt, format_delta, get_quarter_num
     next_period, period_delta, get_period
 
 log = get_logger(__name__)
+
+
+class ForecastInfo(object):
+    forecast_period: str
+    forecast_revenue: Decimal
+    forecast_nprofit: Decimal
+    forecast_dprofit: Decimal
+    forecast_nassets: Decimal
+    forecast_nprofit_ly: Decimal
+    forecast_revenue_ly: Decimal
+
+    def __init__(self, forecast_period=None, forecast_revenue=None, forecast_nprofit=None,
+                 forecast_dprofit=None, forecast_nassets=None,
+                 forecast_nprofit_ly=None, forecast_revenue_ly=None):
+        self.forecast_period = forecast_period
+        self.forecast_revenue = forecast_revenue
+        self.forecast_nprofit = forecast_nprofit
+        self.forecast_dprofit = forecast_dprofit
+        self.forecast_nassets = forecast_nassets
+        self.forecast_nprofit_ly = forecast_nprofit_ly
+        self.forecast_revenue_ly = forecast_revenue_ly
+        pass
+
+    def update_with(self, other):
+        if other is None:
+            return
+        if other.forecast_period is not None:
+            self.forecast_period = other.forecast_period
+        if other.forecast_revenue is not None:
+            self.forecast_revenue = other.forecast_revenue
+        if other.forecast_nprofit is not None:
+            self.forecast_nprofit = other.forecast_nprofit
+        if other.forecast_dprofit is not None:
+            self.forecast_dprofit = other.forecast_dprofit
+        if other.forecast_nassets is not None:
+            self.forecast_nassets = other.forecast_nassets
+        if other.forecast_nprofit_ly is not None:
+            self.forecast_nprofit_ly = other.forecast_nprofit_ly
+        if other.forecast_revenue_ly is not None:
+            self.forecast_revenue_ly = other.forecast_revenue_ly
+
+    def init_with_forecast(self, period: str, forecast: TsForecast, income_arr, i_i, adjust_income_arr, ai_i):
+        self.forecast_period = period
+        income_forecast_ly = find_previous_period(adjust_income_arr, ai_i, period, 4, sub_arr=income_arr, sub_pos=i_i)
+        forecast_min_nprofit = get_forecast_nprofit_ly(forecast, income_forecast_ly)
+        if self.forecast_nprofit is None and forecast_min_nprofit is not None:
+            self.forecast_nprofit = forecast_min_nprofit
+        if self.forecast_nprofit_ly is None and forecast.last_parent_net is not None:
+            self.forecast_nprofit_ly = forecast.last_parent_net * 10000
+
+    def init_with_express(self, period: str, express: TsExpress):
+        self.forecast_period = period
+        if self.forecast_nprofit is None:
+            self.forecast_nprofit = express.n_income
+        if self.forecast_revenue is None:
+            self.forecast_revenue = express.revenue
+        if self.forecast_nassets is None:
+            self.forecast_nassets = express.total_hldr_eqy_exc_min_int
+        if self.forecast_nprofit_ly is None:
+            self.forecast_nprofit_ly = express.yoy_net_profit
+        if self.forecast_revenue_ly is None:
+            self.forecast_revenue_ly = express.or_last_year
+
+    def update_with_manual(self, manual: MqManualForecast):
+        if manual.revenue is not None:
+            self.forecast_revenue = manual.revenue
+        if manual.nprofit is not None:
+            self.forecast_nprofit = manual.nprofit
+        if manual.dprofit is not None:
+            self.forecast_dprofit = manual.dprofit
 
 
 def get_index_by_end_date(arr, current_date: str, from_index: int = 0) -> int:
@@ -156,7 +228,7 @@ def calculate_period(ts_code, share_name,
                      income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr,
                      i_i, ai_i, b_i, ab_i, fi_i,
                      report_period, forecast_period,
-                     forecast_nprofit, forecast_nprofit_ly, forecast_revenue, forecast_revenue_ly, forecast_nassets,
+                     forecast_info: ForecastInfo,
                      f_ann_date, is_adjust
                      ):
     report_quarter = get_quarter_num(report_period)
@@ -210,7 +282,7 @@ def calculate_period(ts_code, share_name,
     nprofit_adjust = 0
     nprofit_ltm = None
     # Calculate nprofit
-    if forecast_nprofit is None:
+    if forecast_info.forecast_nprofit is None:
         # No forecast
         nprofit_period = report_period
         if income is not None:
@@ -232,11 +304,11 @@ def calculate_period(ts_code, share_name,
     else:
         # forecast
         nprofit_period = forecast_period
-        nprofit = forecast_nprofit
-        nprofit_ly = forecast_nprofit_ly
+        nprofit = forecast_info.forecast_nprofit
+        nprofit_ly = forecast_info.forecast_nprofit_ly
         nprofit_ly_l1 = None
         if income is not None:
-            quarter_nprofit = cal_quarter_value(forecast_nprofit, income.n_income_attr_p, forecast_period)
+            quarter_nprofit = cal_quarter_value(forecast_info.forecast_nprofit, income.n_income_attr_p, forecast_period)
         if nprofit_ly is None:
             nprofit_ly = get_first_not_none([adjust_income_l3, income_l3], 'n_income_attr_p')
         if nprofit_ly_l1 is None:
@@ -249,8 +321,8 @@ def calculate_period(ts_code, share_name,
             nprofit_adjust = nprofit_ly - income_l3.n_income_attr_p
 
         if income_forecast_lyy is not None:
-            nprofit_ltm = cal_ltm(forecast_nprofit, nprofit_ly, income_forecast_lyy.n_income_attr_p, nprofit_adjust,
-                                  forecast_period)
+            nprofit_ltm = cal_ltm(forecast_info.forecast_nprofit, nprofit_ly, income_forecast_lyy.n_income_attr_p,
+                                  nprofit_adjust, forecast_period)
 
     dprofit_period = None
     dprofit = None
@@ -259,7 +331,29 @@ def calculate_period(ts_code, share_name,
     quarter_dprofit_ly = None
     dprofit_ltm = None
     # Calculate dprofit
-    if forecast_nprofit is None:
+    if forecast_info.forecast_dprofit is not None or forecast_info.forecast_nprofit is not None:
+        # Forecast dprofit
+        dprofit_period = forecast_period
+        dprofit = forecast_info.forecast_dprofit
+        if dprofit is None:
+            dprofit = forecast_info.forecast_nprofit
+            if fina is not None and income is not None \
+                    and income.n_income_attr_p is not None and fina.profit_dedt is not None:
+                dprofit = dprofit - (income.n_income_attr_p - fina.profit_dedt)
+        dprofit_ly_l1 = None
+        if fina is not None:
+            quarter_dprofit = cal_quarter_value(dprofit, fina.profit_dedt, forecast_period)
+        if dprofit_ly is None:
+            dprofit_ly = get_first_not_none([fina_l3], 'profit_dedt')
+        if dprofit_ly_l1 is None:
+            dprofit_ly_l1 = get_first_not_none([fina_l4], 'profit_dedt')
+
+        if dprofit_ly_l1 is not None and dprofit_ly_l1 is not None:
+            quarter_dprofit_ly = cal_quarter_value(dprofit_ly, dprofit_ly_l1, forecast_period)
+
+        if fina_lyy is not None and dprofit_ly is not None:
+            dprofit_ltm = cal_ltm(dprofit, dprofit_ly, fina_lyy.profit_dedt, 0, forecast_period)
+    else:
         # No forecast
         dprofit_period = report_period
         if fina is not None:
@@ -289,26 +383,6 @@ def calculate_period(ts_code, share_name,
         if fina is not None and fina_lyy is not None:
             dprofit_ltm = cal_ltm(fina.profit_dedt, dprofit_ly, fina_lyy.profit_dedt, adjust,
                                   report_period)
-    else:
-        # Forecast dprofit
-        dprofit_period = forecast_period
-        dprofit = forecast_nprofit
-        if fina is not None and income is not None \
-                and income.n_income_attr_p is not None and fina.profit_dedt is not None:
-            dprofit = dprofit - (income.n_income_attr_p - fina.profit_dedt)
-        dprofit_ly_l1 = None
-        if fina is not None:
-            quarter_dprofit = cal_quarter_value(dprofit, fina.profit_dedt, forecast_period)
-        if dprofit_ly is None:
-            dprofit_ly = get_first_not_none([fina_l3], 'profit_dedt')
-        if dprofit_ly_l1 is None:
-            dprofit_ly_l1 = get_first_not_none([fina_l4], 'profit_dedt')
-
-        if dprofit_ly_l1 is not None and dprofit_ly_l1 is not None:
-            quarter_dprofit_ly = cal_quarter_value(dprofit_ly, dprofit_ly_l1, forecast_period)
-
-        if fina_lyy is not None and dprofit_ly is not None:
-            dprofit_ltm = cal_ltm(dprofit, dprofit_ly, fina_lyy.profit_dedt, 0, forecast_period)
 
     # Calculate revenue
     revenue_period = None
@@ -318,7 +392,7 @@ def calculate_period(ts_code, share_name,
     quarter_revenue_ly = None
     revenue_adjust = 0
     revenue_ltm = None
-    if forecast_revenue is None:
+    if forecast_info.forecast_revenue is None:
         # No forecast
         revenue_period = report_period
         if income is not None:
@@ -340,11 +414,11 @@ def calculate_period(ts_code, share_name,
     else:
         # forecast
         revenue_period = forecast_period
-        revenue = forecast_revenue
-        revenue_ly = forecast_revenue_ly
+        revenue = forecast_info.forecast_revenue
+        revenue_ly = forecast_info.forecast_revenue_ly
         revenue_ly_l1 = None
         if income is not None:
-            quarter_revenue = cal_quarter_value(forecast_revenue, income.revenue, forecast_period)
+            quarter_revenue = cal_quarter_value(forecast_info.forecast_revenue, income.revenue, forecast_period)
 
         if revenue_ly is None:
             revenue_ly = get_first_not_none([adjust_income_l3, income_l3], 'revenue')
@@ -358,15 +432,15 @@ def calculate_period(ts_code, share_name,
             revenue_adjust = revenue_ly - income_l3.revenue
 
         if income_forecast_lyy is not None:
-            revenue_ltm = cal_ltm(forecast_revenue, revenue_ly, income_forecast_lyy.revenue, revenue_adjust,
-                                  forecast_period)
+            revenue_ltm = cal_ltm(forecast_info.forecast_revenue, revenue_ly, income_forecast_lyy.revenue,
+                                  revenue_adjust, forecast_period)
 
     nassets = None
-    if forecast_nassets is None:
+    if forecast_info.forecast_nassets is None:
         if balance is not None:
             nassets = balance.total_hldr_eqy_exc_min_int
     else:
-        nassets = forecast_nassets
+        nassets = forecast_info.forecast_nassets
 
     revenue_yoy = None
     if revenue is not None and revenue_ly is not None and revenue_ly != 0:
@@ -471,6 +545,10 @@ def calculate(ts_code, share_name, fix_from: str = None):
         .filter(and_(TsExpress.ts_code == ts_code, TsExpress.end_date >= period_to_get)) \
         .order_by(TsExpress.ann_date.asc(), TsExpress.end_date.asc()).all()
 
+    forecast_manual_arr = session.query(MqManualForecast) \
+        .filter(and_(MqManualForecast.ts_code == ts_code, MqManualForecast.end_date >= period_to_get)) \
+        .order_by(MqManualForecast.end_date.asc(), MqManualForecast.forecast_type.asc()).all()
+
     prepare_time = time.time()
     log.info("Prepare data for %s: %s seconds" % (ts_code, prepare_time - start_time))
 
@@ -481,6 +559,7 @@ def calculate(ts_code, share_name, fix_from: str = None):
     fi_i = get_index_by_end_date(fina_arr, from_period)
     f_i = get_index_by_end_date(forecast_arr, from_period)
     e_i = get_index_by_end_date(express_arr, from_period)
+    fm_i = get_index_by_end_date(forecast_manual_arr, from_period)
 
     find_index_time = time.time()
     log.info("Find index for %s: %s seconds" % (ts_code, find_index_time - prepare_time))
@@ -498,47 +577,38 @@ def calculate(ts_code, share_name, fix_from: str = None):
             continue
 
         report_period = None
-        forecast_period = None
-        forecast_nprofit = None
-        forecast_revenue = None
-        forecast_nassets = None
-        forecast_nprofit_ly = None
-        forecast_revenue_ly = None
+        forecast_info = ForecastInfo()
 
         if same_period(forecast_arr, f_i, from_period):
             forecast: TsForecast = forecast_arr[f_i]
             if forecast_update_date != forecast.ann_date:
                 report_period = period_delta(from_period, -1)
                 forecast_period = from_period
-                income_forecast_ly = find_previous_period(income_arr, i_i, forecast_period, 4)
-                forecast_min_nprofit = get_forecast_nprofit_ly(forecast, income_forecast_ly)
-                if forecast_nprofit is None and forecast_min_nprofit is not None:
-                    forecast_nprofit = forecast_min_nprofit
-                if forecast_nprofit_ly is None and forecast.last_parent_net is not None:
-                    forecast_nprofit_ly = forecast.last_parent_net * 10000
+                forecast_info.init_with_forecast(from_period, forecast, income_arr, i_i, adjust_income_arr, ai_i)
+                if same_period(forecast_manual_arr, fm_i, from_period):
+                    forecast_manual: MqManualForecast = forecast_manual_arr[fm_i]
+                    if forecast_manual.forecast_type == 0:
+                        forecast_info.update_with_manual(forecast_manual)
+                        fm_i += 1
 
                 if same_period(express_arr, e_i, from_period):
                     express: TsExpress = express_arr[e_i]
                     if express.ann_date == forecast.ann_date:
-                        if forecast_nprofit is None:
-                            forecast_nprofit = express.n_income
-                        if forecast_revenue is None:
-                            forecast_revenue = express.revenue
-                        if forecast_nassets is None:
-                            forecast_nassets = express.total_hldr_eqy_exc_min_int
-                        if forecast_nprofit_ly is None:
-                            forecast_nprofit_ly = express.yoy_net_profit
-                        if forecast_revenue_ly is None:
-                            forecast_revenue_ly = express.or_last_year
+                        express_info = ForecastInfo()
+                        express_info.init_with_express(from_period, express)
+                        forecast_info.update_with(express_info)
                         e_i = e_i + 1
+                        if same_period(forecast_manual_arr, fm_i, from_period):
+                            forecast_manual: MqManualForecast = forecast_manual_arr[fm_i]
+                            if forecast_manual.forecast_type == 1:
+                                forecast_info.update_with_manual(forecast_manual)
+                                fm_i += 1
 
                 result_list.append(
                     calculate_period(ts_code, share_name,
                                      income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr,
                                      i_i, ai_i, b_i, ab_i, fi_i,
-                                     report_period, forecast_period,
-                                     forecast_nprofit, forecast_nprofit_ly, forecast_revenue, forecast_revenue_ly,
-                                     forecast_nassets,
+                                     report_period, forecast_period, forecast_info,
                                      forecast.ann_date, False)
                 )
             f_i = f_i + 1
@@ -547,18 +617,12 @@ def calculate(ts_code, share_name, fix_from: str = None):
             if forecast_update_date != express.ann_date:
                 report_period = period_delta(from_period, -1)
                 forecast_period = from_period
-                forecast_nprofit = express.n_income
-                forecast_revenue = express.revenue
-                forecast_nassets = express.total_hldr_eqy_exc_min_int
-                forecast_nprofit_ly = express.yoy_net_profit
-                forecast_revenue_ly = express.or_last_year
+                forecast_info.init_with_express(from_period, express)
                 result_list.append(
                     calculate_period(ts_code, share_name,
                                      income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr,
                                      i_i, ai_i, b_i, ab_i, fi_i,
-                                     report_period, forecast_period,
-                                     forecast_nprofit, forecast_nprofit_ly, forecast_revenue, forecast_revenue_ly,
-                                     forecast_nassets,
+                                     report_period, forecast_period, forecast_info,
                                      express.ann_date, False)
                 )
             e_i = e_i + 1
@@ -569,9 +633,7 @@ def calculate(ts_code, share_name, fix_from: str = None):
                 calculate_period(ts_code, share_name,
                                  income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr,
                                  i_i, ai_i, b_i, ab_i, fi_i,
-                                 report_period, forecast_period,
-                                 forecast_nprofit, forecast_nprofit_ly, forecast_revenue, forecast_revenue_ly,
-                                 forecast_nassets,
+                                 report_period, forecast_period, forecast_info,
                                  adjust_income_arr[ai_i].f_ann_date, True)
             )
             ai_i = ai_i + 1
@@ -586,9 +648,7 @@ def calculate(ts_code, share_name, fix_from: str = None):
                 calculate_period(ts_code, share_name,
                                  income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr,
                                  i_i, ai_i, b_i, ab_i, fi_i,
-                                 report_period, forecast_period,
-                                 forecast_nprofit, forecast_nprofit_ly, forecast_revenue, forecast_revenue_ly,
-                                 forecast_nassets,
+                                 report_period, forecast_period, forecast_info,
                                  balance_arr[b_i].f_ann_date, False)
             )
             i_i = i_i + 1
@@ -609,6 +669,7 @@ def calculate(ts_code, share_name, fix_from: str = None):
             fi_i = get_index_by_end_date(fina_arr, from_period, fi_i)
             f_i = get_index_by_end_date(forecast_arr, from_period, f_i)
             e_i = get_index_by_end_date(express_arr, from_period, e_i)
+            fm_i = get_index_by_end_date(forecast_manual_arr, from_period, fm_i)
 
     calculate_time = time.time()
     log.info("Calculate data for %s: %s seconds" % (ts_code, calculate_time - find_index_time))
