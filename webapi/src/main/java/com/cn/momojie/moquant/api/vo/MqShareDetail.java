@@ -78,4 +78,6 @@ public class MqShareDetail {
 	private BigDecimal dprofitLtm;
 
 	private BigDecimal nassets;
+
+	private String forecastReason;
 }

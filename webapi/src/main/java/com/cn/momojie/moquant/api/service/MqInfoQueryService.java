@@ -9,7 +9,9 @@ import java.util.stream.Collectors;
 
 import com.cn.momojie.moquant.api.dao.MqShareNoteDao;
 import com.cn.momojie.moquant.api.dao.MqStockMarkDao;
+import com.cn.momojie.moquant.api.dao.TsForecastDao;
 import com.cn.momojie.moquant.api.dto.MqShareNote;
+import com.cn.momojie.moquant.api.dto.TsForecast;
 import com.cn.momojie.moquant.api.param.MqCodePageParam;
 import com.cn.momojie.moquant.api.param.MqShareListParam;
 import org.springframework.beans.BeanUtils;
@@ -59,6 +61,9 @@ public class MqInfoQueryService {
     private MqShareNoteDao noteDao;
 
     @Autowired
+    private TsForecastDao forecastDao;
+
+    @Autowired
     private MqSysParamService mqSysParamService;
 
     public PageResult getLatestListByOrder(MqDailyBasicParam param) {
@@ -89,8 +94,24 @@ public class MqInfoQueryService {
 		MqQuarterBasic quarter = quarterBasicDao.selectLatestByCode(code);
 		BeanUtils.copyProperties(quarter, detail);
 
+		fillForecastInfo(detail);
+
 		return detail;
     }
+
+    private void fillForecastInfo(MqShareDetail detail) {
+    	if (detail.getReportPeriod() == null || detail.getForecastPeriod() == null) {
+    		return ;
+		}
+    	if (detail.getReportPeriod().equals(detail.getForecastPeriod())) {
+    		return ;
+		}
+		TsForecast forecast = forecastDao.selectOne(detail.getTsCode(), detail.getForecastPeriod());
+    	if (forecast == null) {
+    		return ;
+		}
+    	detail.setForecastReason(forecast.getChangeReason());
+	}
 
     public MqShareTrend getTrend(MqTrendParam input) {
 		String tsCode = input.getTsCode();

@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.cn.momojie.moquant.api.SpringBaseTest;
 import com.cn.momojie.moquant.api.param.MqCodePageParam;
+import com.cn.momojie.moquant.api.vo.MqShareDetail;
 import com.cn.momojie.moquant.api.vo.PageResult;
 
 public class MqInfoQueryServiceTest extends SpringBaseTest {
@@ -23,5 +24,12 @@ public class MqInfoQueryServiceTest extends SpringBaseTest {
 		param.setTsCode("");
 		PageResult result2 = service.getNotes(param);
 		Assert.assertTrue(result2.getTotal() > 0);
+	}
+
+	@Test
+	public void testDetail() {
+		MqShareDetail detail =service.getLatestByCode("600716.SH");
+		Assert.assertNotNull(detail.getForecastReason());
+		Assert.assertTrue(detail.getForecastReason().length() > 0);
 	}
 }
