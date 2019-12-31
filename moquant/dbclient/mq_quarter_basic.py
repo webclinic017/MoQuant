@@ -43,3 +43,6 @@ class MqQuarterBasic(Base):
     quarter_dprofit_yoy = Column('quarter_dprofit_yoy', DECIMAL(30, 10), comment='单季归母扣非净利润增速-同比')
     dprofit_ltm = Column('dprofit_ltm', DECIMAL(30, 10), comment='LTM归母扣非净利润')
     nassets = Column('nassets', DECIMAL(30, 10), comment='归母净资产')
+    receive_risk = Column('receive_risk', DECIMAL(30, 10), comment='应收风险=(应收账款/票据+其它/长期应收)/营收')
+    liquidity_risk = Column('liquidity_risk', DECIMAL(30, 10), comment='流动性风险=流动负债/流动资产')
+    intangible_risk = Column('intangible_risk', DECIMAL(30, 10), comment='无形风险=(商誉+开发支出+无形资产)/(净资产-优先股-永续债)')

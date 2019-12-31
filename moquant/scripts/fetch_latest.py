@@ -16,7 +16,7 @@ from moquant.log import get_logger
 from moquant.scripts import fetch_data, cal_mq_quarter, cal_mq_daily, cal_grow
 from moquant.tsclient import ts_client
 from moquant.utils import threadpool
-from moquant.utils.datetime import get_current_dt, format_delta
+from moquant.utils.date_utils import get_current_dt, format_delta
 
 log = get_logger(__name__)
 

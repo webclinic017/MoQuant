@@ -8,7 +8,7 @@ from moquant.simulator.sim_context import SimContext
 from moquant.simulator.sim_handler import SimHandler
 from moquant.simulator.sim_share_hold import SimShareHold
 from moquant.simulator.sim_share_price import SimSharePrice
-from moquant.utils.datetime import format_delta
+from moquant.utils.date_utils import format_delta
 
 log = get_logger(__name__)
 

@@ -7,7 +7,7 @@ from moquant.dbclient.ts_dividend import TsDividend
 from moquant.dbclient.ts_stk_limit import TsStkLimit
 from moquant.dbclient.ts_trade_cal import TsTradeCal
 from moquant.log import get_logger
-from moquant.utils.datetime import format_delta
+from moquant.utils.date_utils import format_delta
 
 log = get_logger(__name__)
 

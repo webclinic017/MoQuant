@@ -25,7 +25,7 @@ from moquant.scripts import clear_after_fetch, cal_mq_quarter, cal_mq_daily, fet
     fetch_trade_cal
 from moquant.tsclient import ts_client
 from moquant.utils import threadpool
-from moquant.utils.datetime import format_delta, get_current_dt
+from moquant.utils.date_utils import format_delta, get_current_dt
 from moquant.utils.env_utils import pass_fetch_basic
 
 log = get_logger(__name__)

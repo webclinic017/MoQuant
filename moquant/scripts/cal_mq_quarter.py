@@ -16,8 +16,9 @@ from moquant.dbclient.ts_fina_indicator import TsFinaIndicator
 from moquant.dbclient.ts_forecast import TsForecast
 from moquant.dbclient.ts_income import TsIncome
 from moquant.log import get_logger
-from moquant.utils.datetime import get_current_dt, format_delta, get_quarter_num, \
+from moquant.utils.date_utils import get_current_dt, format_delta, get_quarter_num, \
     next_period, period_delta, get_period
+from moquant.utils.decimal_utils import add, div, sub
 
 log = get_logger(__name__)
 
@@ -222,6 +223,17 @@ def same_f_ann_date(arr, i, adjust_arr, ai) -> bool:
     if ai < 0 or ai >= len(adjust_arr):
         return False
     return arr[i].f_ann_date == adjust_arr[ai].f_ann_date
+
+
+def cal_other_info(quarter: MqQuarterBasic, income: TsIncome, balance: TsBalanceSheet):
+    total_receive = add(balance.notes_receiv, balance.accounts_receiv, balance.oth_receiv, balance.lt_rec)
+    revenue = quarter.revenue_ltm
+    quarter.receive_risk = div(total_receive, revenue)
+    quarter.liquidity_risk = div(balance.total_cur_liab, balance.total_cur_assets)
+    total_intangible_risk = add(balance.goodwill, balance.r_and_d, balance.intan_assets)
+    total_assests = sub(quarter.nassets, balance.oth_eqt_tools_p_shr)
+    quarter.intangible_risk = div(total_intangible_risk, total_assests)
+    return quarter
 
 
 def calculate_period(ts_code, share_name,
@@ -473,18 +485,20 @@ def calculate_period(ts_code, share_name,
     if dprofit is None:
         dprofit_period = None
 
-    return MqQuarterBasic(ts_code=ts_code, share_name=share_name, update_date=format_delta(f_ann_date, -1),
-                          report_period=report_period, forecast_period=forecast_period,
-                          revenue_period=revenue_period, revenue=revenue, revenue_ly=revenue_ly,
-                          revenue_yoy=revenue_yoy, quarter_revenue=quarter_revenue, revenue_ltm=revenue_ltm,
-                          quarter_revenue_ly=quarter_revenue_ly, quarter_revenue_yoy=quarter_revenue_yoy,
-                          nprofit_period=nprofit_period, nprofit=nprofit, nprofit_ly=nprofit_ly,
-                          nprofit_yoy=nprofit_yoy, quarter_nprofit=quarter_nprofit,
-                          quarter_nprofit_ly=quarter_nprofit_ly, quarter_nprofit_yoy=quarter_nprofit_yoy,
-                          nprofit_ltm=nprofit_ltm, dprofit_period=dprofit_period, dprofit=dprofit,
-                          dprofit_ly=dprofit_ly, dprofit_yoy=dprofit_yoy, quarter_dprofit=quarter_dprofit,
-                          quarter_dprofit_ly=quarter_dprofit_ly, quarter_dprofit_yoy=quarter_dprofit_yoy,
-                          dprofit_ltm=dprofit_ltm, nassets=nassets)
+    ret = MqQuarterBasic(ts_code=ts_code, share_name=share_name, update_date=format_delta(f_ann_date, -1),
+                         report_period=report_period, forecast_period=forecast_period,
+                         revenue_period=revenue_period, revenue=revenue, revenue_ly=revenue_ly,
+                         revenue_yoy=revenue_yoy, quarter_revenue=quarter_revenue, revenue_ltm=revenue_ltm,
+                         quarter_revenue_ly=quarter_revenue_ly, quarter_revenue_yoy=quarter_revenue_yoy,
+                         nprofit_period=nprofit_period, nprofit=nprofit, nprofit_ly=nprofit_ly,
+                         nprofit_yoy=nprofit_yoy, quarter_nprofit=quarter_nprofit,
+                         quarter_nprofit_ly=quarter_nprofit_ly, quarter_nprofit_yoy=quarter_nprofit_yoy,
+                         nprofit_ltm=nprofit_ltm, dprofit_period=dprofit_period, dprofit=dprofit,
+                         dprofit_ly=dprofit_ly, dprofit_yoy=dprofit_yoy, quarter_dprofit=quarter_dprofit,
+                         quarter_dprofit_ly=quarter_dprofit_ly, quarter_dprofit_yoy=quarter_dprofit_yoy,
+                         dprofit_ltm=dprofit_ltm, nassets=nassets)
+    cal_other_info(ret, income, balance)
+    return ret
 
 
 def calculate(ts_code, share_name, fix_from: str = None):

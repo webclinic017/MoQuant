@@ -9,7 +9,7 @@ from moquant.dbclient.mq_sys_param import MqSysParam
 from moquant.dbclient.ts_dividend import TsDividend
 from moquant.log import get_logger
 from moquant.tsclient import ts_client
-from moquant.utils.datetime import format_delta, get_current_dt
+from moquant.utils.date_utils import format_delta, get_current_dt
 
 log = get_logger(__name__)
 

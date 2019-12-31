@@ -7,7 +7,7 @@ from moquant.dbclient import db_client
 from moquant.dbclient.ts_trade_cal import TsTradeCal
 from moquant.log import get_logger
 from moquant.tsclient import ts_client
-from moquant.utils.datetime import get_current_dt, format_delta
+from moquant.utils.date_utils import get_current_dt, format_delta
 
 log = get_logger(__name__)
 

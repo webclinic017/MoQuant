@@ -13,7 +13,7 @@ from moquant.simulator.sim_dividend import SimDividend
 from moquant.simulator.sim_order import SimOrder
 from moquant.simulator.sim_share_hold import SimShareHold
 from moquant.simulator.sim_share_price import SimSharePrice
-from moquant.utils.datetime import format_delta
+from moquant.utils.date_utils import format_delta
 from moquant.utils.env_utils import get_env_value
 
 log = get_logger(__name__)
