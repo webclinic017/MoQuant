@@ -1,7 +1,6 @@
 import sys
 import time
 from decimal import Decimal
-from operator import and_
 
 from sqlalchemy.orm import Session
 
@@ -11,6 +10,7 @@ from moquant.dbclient.mq_manual_forecast import MqManualForecast
 from moquant.dbclient.mq_quarter_basic import MqQuarterBasic
 from moquant.dbclient.mq_stock_mark import MqStockMark
 from moquant.dbclient.ts_balance_sheet import TsBalanceSheet
+from moquant.dbclient.ts_dividend import TsDividend
 from moquant.dbclient.ts_express import TsExpress
 from moquant.dbclient.ts_fina_indicator import TsFinaIndicator
 from moquant.dbclient.ts_forecast import TsForecast
@@ -175,6 +175,19 @@ def cal_ltm(current, last_year, last_year_q4, adjust, period):
         return current + last_year_q4 - last_year + adjust
 
 
+def add_ltm(mrq, l1, l2, l3, field):
+    result = Decimal(0)
+    if mrq is not None and getattr(mrq, field) is not None:
+        result += getattr(mrq, field)
+    if l1 is not None and getattr(l1, field) is not None:
+        result += getattr(l1, field)
+    if l2 is not None and getattr(l2, field) is not None:
+        result += getattr(l2, field)
+    if l3 is not None and getattr(l3, field) is not None:
+        result += getattr(l3, field)
+    return result
+
+
 def get_first_not_none(arr, field_name):
     for item in arr:
         if item is not None and getattr(item, field_name) is not None:
@@ -225,7 +238,39 @@ def same_f_ann_date(arr, i, adjust_arr, ai) -> bool:
     return arr[i].f_ann_date == adjust_arr[ai].f_ann_date
 
 
+def cal_quarter_dividend(balance: TsBalanceSheet, dividend: TsDividend):
+    if balance is None or dividend is None:
+        return 0
+    if balance.total_share is None or dividend.cash_div_tax is None:
+        return 0
+    return balance.total_share * dividend.cash_div_tax
+
+
+def cal_dividend(report_period, main_balance_arr, sub_balance_arr, mb_i, sb_i,
+                 dividend_arr, d_i):
+    balance: TsBalanceSheet = find_previous_period(main_balance_arr, mb_i, report_period, 0,
+                                                   sub_arr=sub_balance_arr, sub_pos=sb_i)
+    balance_l1: TsBalanceSheet = find_previous_period(main_balance_arr, mb_i, report_period, 1,
+                                                      sub_arr=sub_balance_arr, sub_pos=sb_i)
+    balance_l2: TsBalanceSheet = find_previous_period(main_balance_arr, mb_i, report_period, 2,
+                                                      sub_arr=sub_balance_arr, sub_pos=sb_i)
+    balance_l3: TsBalanceSheet = find_previous_period(main_balance_arr, mb_i, report_period, 3,
+                                                      sub_arr=sub_balance_arr, sub_pos=sb_i)
+
+    dividend: TsDividend = find_previous_period(dividend_arr, d_i, report_period, 0)
+    dividend_l1: TsDividend = find_previous_period(dividend_arr, d_i, report_period, 1)
+    dividend_l2: TsDividend = find_previous_period(dividend_arr, d_i, report_period, 2)
+    dividend_l3: TsDividend = find_previous_period(dividend_arr, d_i, report_period, 3)
+
+    current_dividend = cal_quarter_dividend(balance, dividend)
+    total_dividend = add(cal_quarter_dividend(balance, dividend), cal_quarter_dividend(balance_l1, dividend_l1),
+                         cal_quarter_dividend(balance_l2, dividend_l2), cal_quarter_dividend(balance_l3, dividend_l3))
+    return current_dividend, total_dividend
+
+
 def cal_other_info(quarter: MqQuarterBasic, income: TsIncome, balance: TsBalanceSheet):
+    quarter.eps = div(quarter.dprofit_ltm, balance.total_share)
+
     total_receive = add(balance.notes_receiv, balance.accounts_receiv, balance.oth_receiv, balance.lt_rec)
     revenue = quarter.revenue_ltm
     quarter.receive_risk = div(total_receive, revenue)
@@ -233,59 +278,13 @@ def cal_other_info(quarter: MqQuarterBasic, income: TsIncome, balance: TsBalance
     total_intangible_risk = add(balance.goodwill, balance.r_and_d, balance.intan_assets)
     total_assests = sub(quarter.nassets, balance.oth_eqt_tools_p_shr)
     quarter.intangible_risk = div(total_intangible_risk, total_assests)
+
     return quarter
 
 
-def calculate_period(ts_code, share_name,
-                     income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr,
-                     i_i, ai_i, b_i, ab_i, fi_i,
-                     report_period, forecast_period,
-                     forecast_info: ForecastInfo,
-                     f_ann_date, is_adjust
-                     ):
-    report_quarter = get_quarter_num(report_period)
-    forecast_quarter = get_quarter_num(forecast_period)
-
-    # incase there is no report for adjust
-    main_income_arr = adjust_income_arr if is_adjust else income_arr
-    sub_income_arr = income_arr if is_adjust else adjust_income_arr
-    main_i_i = ai_i if is_adjust else i_i
-    sub_i_i = i_i if is_adjust else ai_i
-
-    main_bs_arr = adjust_balance_arr if is_adjust else balance_arr
-    sub_bs_arr = balance_arr if is_adjust else adjust_balance_arr
-    main_b_i = ab_i if is_adjust else b_i
-    sub_b_i = b_i if is_adjust else ab_i
-
-    income: TsIncome = find_previous_period(main_income_arr, main_i_i, report_period, 0,
-                                            sub_arr=sub_income_arr, sub_pos=sub_i_i)
-    income_l1: TsIncome = find_previous_period(main_income_arr, main_i_i, report_period, 1,
-                                               sub_arr=sub_income_arr, sub_pos=sub_i_i)
-    income_l3: TsIncome = find_previous_period(main_income_arr, main_i_i, report_period, 3,
-                                               sub_arr=sub_income_arr, sub_pos=sub_i_i)
-    income_l4: TsIncome = find_previous_period(main_income_arr, main_i_i, report_period, 4,
-                                               sub_arr=sub_income_arr, sub_pos=sub_i_i)
-    income_l5: TsIncome = find_previous_period(main_income_arr, main_i_i, report_period, 5,
-                                               sub_arr=sub_income_arr, sub_pos=sub_i_i)
-    income_lyy: TsIncome = find_previous_period(main_income_arr, main_i_i, report_period, report_quarter,
-                                                sub_arr=sub_income_arr, sub_pos=sub_i_i)
-    income_forecast_lyy: TsIncome = find_previous_period(main_income_arr, main_i_i, forecast_period, forecast_quarter,
-                                                         sub_arr=sub_income_arr, sub_pos=sub_i_i)
-
-    balance: TsBalanceSheet = find_previous_period(main_bs_arr, main_b_i, report_period, 0,
-                                                   sub_arr=sub_bs_arr, sub_pos=sub_b_i)
-
-    adjust_income_l3: TsIncome = find_previous_period(adjust_income_arr, ai_i, report_period, 3)
-    adjust_income_l4: TsIncome = find_previous_period(adjust_income_arr, ai_i, report_period, 4)
-    adjust_income_l5: TsIncome = find_previous_period(adjust_income_arr, ai_i, report_period, 5)
-
-    fina: TsFinaIndicator = find_previous_period(fina_arr, fi_i, report_period, 0)
-    fina_l1: TsFinaIndicator = find_previous_period(fina_arr, fi_i, report_period, 1)
-    fina_l3: TsFinaIndicator = find_previous_period(fina_arr, fi_i, report_period, 3)
-    fina_l4: TsFinaIndicator = find_previous_period(fina_arr, fi_i, report_period, 4)
-    fina_l5: TsFinaIndicator = find_previous_period(fina_arr, fi_i, report_period, 5)
-    fina_lyy: TsFinaIndicator = find_previous_period(fina_arr, fi_i, report_period, report_quarter)
-
+def cal_nprofit(report_period, forecast_period, forecast_info,
+                income, income_l1, income_l3, income_l4, income_l5, income_lyy,
+                adjust_income_l3, adjust_income_l4, adjust_income_l5, income_forecast_lyy):
     nprofit_period = None
     nprofit = None
     nprofit_ly = None
@@ -336,6 +335,24 @@ def calculate_period(ts_code, share_name,
             nprofit_ltm = cal_ltm(forecast_info.forecast_nprofit, nprofit_ly, income_forecast_lyy.n_income_attr_p,
                                   nprofit_adjust, forecast_period)
 
+    nprofit_yoy = None
+    if nprofit is not None and nprofit_ly is not None and nprofit_ly != 0:
+        nprofit_yoy = (nprofit - nprofit_ly) / abs(nprofit_ly)
+
+    quarter_nprofit_yoy = None
+    if quarter_nprofit is not None and quarter_nprofit_ly is not None and quarter_nprofit_ly != 0:
+        quarter_nprofit_yoy = (quarter_nprofit - quarter_nprofit_ly) / abs(quarter_nprofit_ly)
+
+    if nprofit is None:
+        nprofit_period = None
+
+    return nprofit_period, nprofit, nprofit_ly, quarter_nprofit, quarter_nprofit_ly, nprofit_adjust, nprofit_ltm,\
+           nprofit_yoy, quarter_nprofit_yoy
+
+
+def cal_dprofit(report_period, forecast_period, forecast_info,
+                fina, fina_l1, fina_l3, fina_l4, fina_l5, fina_lyy,
+                income, nprofit_adjust):
     dprofit_period = None
     dprofit = None
     dprofit_ly = None
@@ -396,6 +413,24 @@ def calculate_period(ts_code, share_name,
             dprofit_ltm = cal_ltm(fina.profit_dedt, dprofit_ly, fina_lyy.profit_dedt, adjust,
                                   report_period)
 
+    dprofit_yoy = None
+    if dprofit is not None and dprofit_ly is not None and dprofit_ly != 0:
+        dprofit_yoy = (dprofit - dprofit_ly) / abs(dprofit_ly)
+
+    quarter_dprofit_yoy = None
+    if quarter_dprofit is not None and quarter_dprofit_ly is not None and quarter_dprofit_ly != 0:
+        quarter_dprofit_yoy = (quarter_dprofit - quarter_dprofit_ly) / abs(quarter_dprofit_ly)
+
+    if dprofit is None:
+        dprofit_period = None
+
+    return dprofit_period, dprofit, dprofit_ly, quarter_dprofit, quarter_dprofit_ly, dprofit_ltm, \
+           dprofit_yoy, quarter_dprofit_yoy
+
+
+def cal_revenue(report_period, forecast_period, forecast_info,
+                income, income_l1, income_l3, income_l4, income_l5, income_lyy,
+                adjust_income_l3, adjust_income_l4, adjust_income_l5, income_forecast_lyy):
     # Calculate revenue
     revenue_period = None
     revenue = None
@@ -447,43 +482,98 @@ def calculate_period(ts_code, share_name,
             revenue_ltm = cal_ltm(forecast_info.forecast_revenue, revenue_ly, income_forecast_lyy.revenue,
                                   revenue_adjust, forecast_period)
 
+    revenue_yoy = None
+    if revenue is not None and revenue_ly is not None and revenue_ly != 0:
+        revenue_yoy = (revenue - revenue_ly) / abs(revenue_ly)
+
+    quarter_revenue_yoy = None
+    if quarter_revenue is not None and quarter_revenue_ly is not None and quarter_revenue_ly != 0:
+        quarter_revenue_yoy = (quarter_revenue - quarter_revenue_ly) / abs(quarter_revenue_ly)
+
+    if revenue is None:
+        revenue_period = None
+
+    return revenue_period, revenue, revenue_ly, quarter_revenue, quarter_revenue_ly, revenue_adjust, revenue_ltm, \
+           revenue_yoy, quarter_revenue_yoy
+
+
+def calculate_period(ts_code, share_name,
+                     income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr, dividend_arr,
+                     i_i, ai_i, b_i, ab_i, fi_i, d_i,
+                     report_period, forecast_period,
+                     forecast_info: ForecastInfo,
+                     f_ann_date, is_adjust
+                     ):
+    report_quarter = get_quarter_num(report_period)
+    forecast_quarter = get_quarter_num(forecast_period)
+
+    # incase there is no report for adjust
+    main_income_arr = adjust_income_arr if is_adjust else income_arr
+    sub_income_arr = income_arr if is_adjust else adjust_income_arr
+    main_i_i = ai_i if is_adjust else i_i
+    sub_i_i = i_i if is_adjust else ai_i
+
+    main_bs_arr = adjust_balance_arr if is_adjust else balance_arr
+    sub_bs_arr = balance_arr if is_adjust else adjust_balance_arr
+    main_b_i = ab_i if is_adjust else b_i
+    sub_b_i = b_i if is_adjust else ab_i
+
+    income: TsIncome = find_previous_period(main_income_arr, main_i_i, report_period, 0,
+                                            sub_arr=sub_income_arr, sub_pos=sub_i_i)
+    income_l1: TsIncome = find_previous_period(main_income_arr, main_i_i, report_period, 1,
+                                               sub_arr=sub_income_arr, sub_pos=sub_i_i)
+    income_l3: TsIncome = find_previous_period(main_income_arr, main_i_i, report_period, 3,
+                                               sub_arr=sub_income_arr, sub_pos=sub_i_i)
+    income_l4: TsIncome = find_previous_period(main_income_arr, main_i_i, report_period, 4,
+                                               sub_arr=sub_income_arr, sub_pos=sub_i_i)
+    income_l5: TsIncome = find_previous_period(main_income_arr, main_i_i, report_period, 5,
+                                               sub_arr=sub_income_arr, sub_pos=sub_i_i)
+    income_lyy: TsIncome = find_previous_period(main_income_arr, main_i_i, report_period, report_quarter,
+                                                sub_arr=sub_income_arr, sub_pos=sub_i_i)
+    income_forecast_lyy: TsIncome = find_previous_period(main_income_arr, main_i_i, forecast_period, forecast_quarter,
+                                                         sub_arr=sub_income_arr, sub_pos=sub_i_i)
+
+    balance: TsBalanceSheet = find_previous_period(main_bs_arr, main_b_i, report_period, 0,
+                                                   sub_arr=sub_bs_arr, sub_pos=sub_b_i)
+
+    adjust_income_l3: TsIncome = find_previous_period(adjust_income_arr, ai_i, report_period, 3)
+    adjust_income_l4: TsIncome = find_previous_period(adjust_income_arr, ai_i, report_period, 4)
+    adjust_income_l5: TsIncome = find_previous_period(adjust_income_arr, ai_i, report_period, 5)
+
+    fina: TsFinaIndicator = find_previous_period(fina_arr, fi_i, report_period, 0)
+    fina_l1: TsFinaIndicator = find_previous_period(fina_arr, fi_i, report_period, 1)
+    fina_l3: TsFinaIndicator = find_previous_period(fina_arr, fi_i, report_period, 3)
+    fina_l4: TsFinaIndicator = find_previous_period(fina_arr, fi_i, report_period, 4)
+    fina_l5: TsFinaIndicator = find_previous_period(fina_arr, fi_i, report_period, 5)
+    fina_lyy: TsFinaIndicator = find_previous_period(fina_arr, fi_i, report_period, report_quarter)
+
+    dividend, dividend_ltm = cal_dividend(report_period, main_bs_arr, sub_bs_arr, main_b_i, sub_b_i,
+                                          dividend_arr, d_i)
+
+    nprofit_period, nprofit, nprofit_ly, quarter_nprofit, quarter_nprofit_ly, nprofit_adjust, nprofit_ltm, \
+    nprofit_yoy, quarter_nprofit_yoy = \
+        cal_nprofit(report_period, forecast_period, forecast_info,
+                    income, income_l1, income_l3, income_l4, income_l5, income_lyy,
+                    adjust_income_l3, adjust_income_l4, adjust_income_l5, income_forecast_lyy)
+
+    dprofit_period, dprofit, dprofit_ly, quarter_dprofit, quarter_dprofit_ly, dprofit_ltm, \
+    dprofit_yoy, quarter_dprofit_yoy = \
+        cal_dprofit(report_period, forecast_period, forecast_info,
+                    fina, fina_l1, fina_l3, fina_l4, fina_l5, fina_lyy,
+                    income, nprofit_adjust)
+
+    revenue_period, revenue, revenue_ly, quarter_revenue, quarter_revenue_ly, revenue_adjust, revenue_ltm, \
+    revenue_yoy, quarter_revenue_yoy = \
+        cal_revenue(report_period, forecast_period, forecast_info,
+                    income, income_l1, income_l3, income_l4, income_l5, income_lyy,
+                    adjust_income_l3, adjust_income_l4, adjust_income_l5, income_forecast_lyy)
+
     nassets = None
     if forecast_info.forecast_nassets is None:
         if balance is not None:
             nassets = balance.total_hldr_eqy_exc_min_int
     else:
         nassets = forecast_info.forecast_nassets
-
-    revenue_yoy = None
-    if revenue is not None and revenue_ly is not None and revenue_ly != 0:
-        revenue_yoy = (revenue - revenue_ly) / abs(revenue_ly)
-
-    nprofit_yoy = None
-    if nprofit is not None and nprofit_ly is not None and nprofit_ly != 0:
-        nprofit_yoy = (nprofit - nprofit_ly) / abs(nprofit_ly)
-
-    dprofit_yoy = None
-    if dprofit is not None and dprofit_ly is not None and dprofit_ly != 0:
-        dprofit_yoy = (dprofit - dprofit_ly) / abs(dprofit_ly)
-
-    quarter_revenue_yoy = None
-    if quarter_revenue is not None and quarter_revenue_ly is not None and quarter_revenue_ly != 0:
-        quarter_revenue_yoy = (quarter_revenue - quarter_revenue_ly) / abs(quarter_revenue_ly)
-
-    quarter_nprofit_yoy = None
-    if quarter_nprofit is not None and quarter_nprofit_ly is not None and quarter_nprofit_ly != 0:
-        quarter_nprofit_yoy = (quarter_nprofit - quarter_nprofit_ly) / abs(quarter_nprofit_ly)
-
-    quarter_dprofit_yoy = None
-    if quarter_dprofit is not None and quarter_dprofit_ly is not None and quarter_dprofit_ly != 0:
-        quarter_dprofit_yoy = (quarter_dprofit - quarter_dprofit_ly) / abs(quarter_dprofit_ly)
-
-    if revenue is None:
-        revenue_period = None
-    if nprofit is None:
-        nprofit_period = None
-    if dprofit is None:
-        dprofit_period = None
 
     ret = MqQuarterBasic(ts_code=ts_code, share_name=share_name, update_date=format_delta(f_ann_date, -1),
                          report_period=report_period, forecast_period=forecast_period,
@@ -496,7 +586,8 @@ def calculate_period(ts_code, share_name,
                          nprofit_ltm=nprofit_ltm, dprofit_period=dprofit_period, dprofit=dprofit,
                          dprofit_ly=dprofit_ly, dprofit_yoy=dprofit_yoy, quarter_dprofit=quarter_dprofit,
                          quarter_dprofit_ly=quarter_dprofit_ly, quarter_dprofit_yoy=quarter_dprofit_yoy,
-                         dprofit_ltm=dprofit_ltm, nassets=nassets)
+                         dprofit_ltm=dprofit_ltm, nassets=nassets,
+                         dividend=dividend, dividend_ltm=dividend_ltm)
     cal_other_info(ret, income, balance)
     return ret
 
@@ -552,15 +643,20 @@ def calculate(ts_code, share_name, fix_from: str = None):
         .order_by(TsFinaIndicator.ann_date.asc(), TsFinaIndicator.end_date.asc()).all()
 
     forecast_arr = session.query(TsForecast) \
-        .filter(and_(TsForecast.ts_code == ts_code, TsForecast.end_date >= period_to_get)) \
+        .filter(TsForecast.ts_code == ts_code, TsForecast.end_date >= period_to_get) \
         .order_by(TsForecast.ann_date.asc(), TsForecast.end_date.asc()).all()
 
     express_arr = session.query(TsExpress) \
-        .filter(and_(TsExpress.ts_code == ts_code, TsExpress.end_date >= period_to_get)) \
+        .filter(TsExpress.ts_code == ts_code, TsExpress.end_date >= period_to_get) \
         .order_by(TsExpress.ann_date.asc(), TsExpress.end_date.asc()).all()
 
+    dividend_arr = session.query(TsDividend) \
+        .filter(TsDividend.ts_code == ts_code, TsDividend.end_date >= period_to_get,
+                TsDividend.div_proc == '实施') \
+        .order_by(TsDividend.end_date.asc()).all()
+
     forecast_manual_arr = session.query(MqManualForecast) \
-        .filter(and_(MqManualForecast.ts_code == ts_code, MqManualForecast.end_date >= period_to_get)) \
+        .filter(MqManualForecast.ts_code == ts_code, MqManualForecast.end_date >= period_to_get) \
         .order_by(MqManualForecast.end_date.asc(), MqManualForecast.forecast_type.asc()).all()
 
     prepare_time = time.time()
@@ -574,6 +670,7 @@ def calculate(ts_code, share_name, fix_from: str = None):
     f_i = get_index_by_end_date(forecast_arr, from_period)
     e_i = get_index_by_end_date(express_arr, from_period)
     fm_i = get_index_by_end_date(forecast_manual_arr, from_period)
+    d_i = get_index_by_end_date(dividend_arr, from_period)
 
     find_index_time = time.time()
     log.info("Find index for %s: %s seconds" % (ts_code, find_index_time - prepare_time))
@@ -621,7 +718,8 @@ def calculate(ts_code, share_name, fix_from: str = None):
                 result_list.append(
                     calculate_period(ts_code, share_name,
                                      income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr,
-                                     i_i, ai_i, b_i, ab_i, fi_i,
+                                     dividend_arr,
+                                     i_i, ai_i, b_i, ab_i, fi_i, d_i,
                                      report_period, forecast_period, forecast_info,
                                      forecast.ann_date, False)
                 )
@@ -635,7 +733,8 @@ def calculate(ts_code, share_name, fix_from: str = None):
                 result_list.append(
                     calculate_period(ts_code, share_name,
                                      income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr,
-                                     i_i, ai_i, b_i, ab_i, fi_i,
+                                     dividend_arr,
+                                     i_i, ai_i, b_i, ab_i, fi_i, d_i,
                                      report_period, forecast_period, forecast_info,
                                      express.ann_date, False)
                 )
@@ -645,8 +744,8 @@ def calculate(ts_code, share_name, fix_from: str = None):
             forecast_period = report_period
             result_list.append(
                 calculate_period(ts_code, share_name,
-                                 income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr,
-                                 i_i, ai_i, b_i, ab_i, fi_i,
+                                 income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr, dividend_arr,
+                                 i_i, ai_i, b_i, ab_i, fi_i, d_i,
                                  report_period, forecast_period, forecast_info,
                                  adjust_income_arr[ai_i].f_ann_date, True)
             )
@@ -660,8 +759,8 @@ def calculate(ts_code, share_name, fix_from: str = None):
             forecast_period = report_period
             result_list.append(
                 calculate_period(ts_code, share_name,
-                                 income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr,
-                                 i_i, ai_i, b_i, ab_i, fi_i,
+                                 income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr, dividend_arr,
+                                 i_i, ai_i, b_i, ab_i, fi_i, d_i,
                                  report_period, forecast_period, forecast_info,
                                  balance_arr[b_i].f_ann_date, False)
             )
@@ -674,6 +773,17 @@ def calculate(ts_code, share_name, fix_from: str = None):
                 fi_i = fi_i + 1
             else:
                 fi_i = get_index_by_end_date(fina_arr, period_delta(from_period, 1))
+        elif same_period(dividend_arr, d_i, from_period):
+            report_period = dividend_arr[d_i].end_date
+            forecast_period = report_period
+            result_list.append(
+                calculate_period(ts_code, share_name,
+                                 income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr, dividend_arr,
+                                 i_i, ai_i, b_i, ab_i, fi_i, d_i,
+                                 report_period, forecast_period, forecast_info,
+                                 dividend_arr[d_i].imp_ann_date, False)
+            )
+            d_i += 1
         else:
             from_period = next_period(from_period)
             b_i = get_index_by_end_date(balance_arr, from_period, b_i)
@@ -684,6 +794,7 @@ def calculate(ts_code, share_name, fix_from: str = None):
             f_i = get_index_by_end_date(forecast_arr, from_period, f_i)
             e_i = get_index_by_end_date(express_arr, from_period, e_i)
             fm_i = get_index_by_end_date(forecast_manual_arr, from_period, fm_i)
+            d_i = get_index_by_end_date(dividend_arr, from_period, d_i)
 
     calculate_time = time.time()
     log.info("Calculate data for %s: %s seconds" % (ts_code, calculate_time - find_index_time))

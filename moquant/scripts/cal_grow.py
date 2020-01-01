@@ -29,4 +29,4 @@ def cal_growing_score(share: MqDailyBasic, quarter: MqQuarterBasic,
     if score != -1:
         score = (1 - share.dprofit_peg / max_peg) * 100
 
-    return score
+    return max(score, 0)

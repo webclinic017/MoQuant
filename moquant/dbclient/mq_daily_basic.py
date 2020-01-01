@@ -24,3 +24,5 @@ class MqDailyBasic(Base):
     dprofit_pe = Column('dprofit_pe', DECIMAL(30, 10), comment='归母扣非净利润PE')
     dprofit_peg = Column('dprofit_peg', DECIMAL(30, 10), comment='归母扣非净利润PEG')
     grow_score = Column('grow_score', DECIMAL(30, 10), comment='成长股评分')
+    dividend_yields = Column('dividend_yields', DECIMAL(30, 10), comment='股息率')
+    val_score = Column('val_score', DECIMAL(30, 10), comment='价值股评分')
