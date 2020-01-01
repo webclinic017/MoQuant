@@ -19,8 +19,6 @@ public class MqShareDetail {
 
 	private BigDecimal pb;
 
-	private BigDecimal dprofitEps;
-
 	private BigDecimal dprofitPe;
 
 	private BigDecimal dprofitPeg;
@@ -82,4 +80,8 @@ public class MqShareDetail {
 	private String forecastReason;
 
 	private BigDecimal growScore;
+
+	private BigDecimal dividendYields;
+
+	private BigDecimal valScore;
 }

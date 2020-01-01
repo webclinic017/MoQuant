@@ -105,7 +105,6 @@ def calculate(ts_code: str, share_name: str, to_date: str, fix_from: str = None)
             market_value = daily_basic.total_mv * 10000
 
         dprofit_period = None
-        dprofit_eps = None
         dprofit_pe = None
         dprofit_peg = None
         quarter_dprofit_yoy = None
@@ -114,8 +113,6 @@ def calculate(ts_code: str, share_name: str, to_date: str, fix_from: str = None)
         if quarter is not None:
             dprofit_period = quarter.dprofit_period
             dprofit_ltm = quarter.dprofit_ltm
-            if dprofit_ltm is not None and total_share is not None and total_share != 0:
-                dprofit_eps = dprofit_ltm / total_share
             if dprofit_ltm is not None and market_value is not None and dprofit_ltm != 0:
                 dprofit_pe = market_value / dprofit_ltm
             quarter_dprofit_yoy = quarter.quarter_dprofit_yoy
@@ -128,8 +125,7 @@ def calculate(ts_code: str, share_name: str, to_date: str, fix_from: str = None)
 
         mq_daily = MqDailyBasic(ts_code=ts_code, share_name=share_name, date=from_date, is_trade_day=is_trade_day,
                                 total_share=total_share, close=close, market_value=market_value, pb=pb,
-                                dprofit_period=dprofit_period, dprofit_eps=dprofit_eps,
-                                quarter_dprofit_yoy=quarter_dprofit_yoy,
+                                dprofit_period=dprofit_period, quarter_dprofit_yoy=quarter_dprofit_yoy,
                                 dprofit_pe=dprofit_pe, dprofit_peg=dprofit_peg, dividend_yields=dividend_yields,
                                 grow_score=-1, val_score=-1)
         mq_daily.grow_score = cal_growing_score(mq_daily, quarter)

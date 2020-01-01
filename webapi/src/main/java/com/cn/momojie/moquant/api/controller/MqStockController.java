@@ -33,6 +33,11 @@ public class MqStockController {
         return mqInfoQueryService.getGrowList(param);
     }
 
+    @RequestMapping(path = "getValList", method = RequestMethod.POST)
+    public PageResult getValList(@RequestBody MqShareListParam param) {
+        return mqInfoQueryService.getValList(param);
+    }
+
     @RequestMapping(path = "getLatestByCode", method = RequestMethod.POST)
     public MqShareDetail getLatestByCode(@RequestBody String tsCode) {
         return mqInfoQueryService.getLatestByCode(tsCode);
@@ -48,8 +53,8 @@ public class MqStockController {
         return mqInfoQueryService.getAllShare();
     }
 
-	@RequestMapping(path = "getNoteList", method = RequestMethod.POST)
+    @RequestMapping(path = "getNoteList", method = RequestMethod.POST)
     public PageResult getNoteList(@RequestBody MqCodePageParam param) {
-    	return mqInfoQueryService.getNotes(param);
-	}
+        return mqInfoQueryService.getNotes(param);
+    }
 }

@@ -19,7 +19,6 @@ class MqDailyBasic(Base):
     market_value = Column('market_value', DECIMAL(30, 10), comment='市值')
     pb = Column('pb', DECIMAL(30, 10), comment='PB')
     dprofit_period = Column('dprofit_period', String(10), comment='归母扣非净利润所属报告期 yyyyMMdd')
-    dprofit_eps = Column('dprofit_eps', DECIMAL(30, 10), comment='归母扣非净利润PEPS')
     quarter_dprofit_yoy = Column('quarter_dprofit_yoy', DECIMAL(30, 10), comment='归母扣非净利润增速-单季')
     dprofit_pe = Column('dprofit_pe', DECIMAL(30, 10), comment='归母扣非净利润PE')
     dprofit_peg = Column('dprofit_peg', DECIMAL(30, 10), comment='归母扣非净利润PEG')

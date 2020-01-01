@@ -65,5 +65,18 @@ public class MqQuarterBasic {
 
 	private BigDecimal dprofitLtm;
 
+	private BigDecimal eps;
+
 	private BigDecimal nassets;
+
+	private BigDecimal dividend;
+
+	private BigDecimal dividendLtm;
+
+	private BigDecimal receiveRisk;
+
+	private BigDecimal liquidityRisk;
+
+	private BigDecimal intangibleRisk;
+
 }

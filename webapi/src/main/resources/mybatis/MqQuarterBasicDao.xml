@@ -1,38 +1,44 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.cn.momojie.moquant.api.dao.MqQuarterBasicDao">
-  <resultMap id="BaseResultMap" type="com.cn.momojie.moquant.api.dto.MqQuarterBasic">
-    <id column="ts_code" jdbcType="VARCHAR" property="tsCode" />
-    <id column="update_date" jdbcType="VARCHAR" property="updateDate" />
-    <id column="report_period" jdbcType="VARCHAR" property="reportPeriod" />
-    <id column="forecast_period" jdbcType="VARCHAR" property="forecastPeriod" />
-    <result column="share_name" jdbcType="VARCHAR" property="shareName" />
-    <result column="revenue_period" jdbcType="VARCHAR" property="revenuePeriod" />
-    <result column="revenue" jdbcType="DECIMAL" property="revenue" />
-    <result column="revenue_ly" jdbcType="DECIMAL" property="revenueLy" />
-    <result column="revenue_yoy" jdbcType="DECIMAL" property="revenueYoy" />
-    <result column="revenue_ltm" jdbcType="DECIMAL" property="revenueLtm" />
-    <result column="quarter_revenue" jdbcType="DECIMAL" property="quarterRevenue" />
-    <result column="quarter_revenue_ly" jdbcType="DECIMAL" property="quarterRevenueLy" />
-    <result column="quarter_revenue_yoy" jdbcType="DECIMAL" property="quarterRevenueYoy" />
-    <result column="nprofit_period" jdbcType="VARCHAR" property="nprofitPeriod" />
-    <result column="nprofit" jdbcType="DECIMAL" property="nprofit" />
-    <result column="nprofit_ly" jdbcType="DECIMAL" property="nprofitLy" />
-    <result column="nprofit_yoy" jdbcType="DECIMAL" property="nprofitYoy" />
-    <result column="quarter_nprofit" jdbcType="DECIMAL" property="quarterNprofit" />
-    <result column="quarter_nprofit_ly" jdbcType="DECIMAL" property="quarterNprofitLy" />
-    <result column="quarter_nprofit_yoy" jdbcType="DECIMAL" property="quarterNprofitYoy" />
-    <result column="nprofit_ltm" jdbcType="DECIMAL" property="nprofitLtm" />
-    <result column="dprofit_period" jdbcType="VARCHAR" property="dprofitPeriod" />
-    <result column="dprofit" jdbcType="DECIMAL" property="dprofit" />
-    <result column="dprofit_ly" jdbcType="DECIMAL" property="dprofitLy" />
-    <result column="dprofit_yoy" jdbcType="DECIMAL" property="dprofitYoy" />
-    <result column="quarter_dprofit" jdbcType="DECIMAL" property="quarterDprofit" />
-    <result column="quarter_dprofit_ly" jdbcType="DECIMAL" property="quarterDprofitLy" />
-    <result column="quarter_dprofit_yoy" jdbcType="DECIMAL" property="quarterDprofitYoy" />
-    <result column="dprofit_ltm" jdbcType="DECIMAL" property="dprofitLtm" />
-    <result column="nassets" jdbcType="DECIMAL" property="nassets" />
-  </resultMap>
+    <resultMap id="BaseResultMap" type="com.cn.momojie.moquant.api.dto.MqQuarterBasic">
+        <id column="ts_code" jdbcType="VARCHAR" property="tsCode"/>
+        <id column="update_date" jdbcType="VARCHAR" property="updateDate"/>
+        <id column="report_period" jdbcType="VARCHAR" property="reportPeriod"/>
+        <id column="forecast_period" jdbcType="VARCHAR" property="forecastPeriod"/>
+        <result column="share_name" jdbcType="VARCHAR" property="shareName"/>
+        <result column="revenue_period" jdbcType="VARCHAR" property="revenuePeriod"/>
+        <result column="revenue" jdbcType="DECIMAL" property="revenue"/>
+        <result column="revenue_ly" jdbcType="DECIMAL" property="revenueLy"/>
+        <result column="revenue_yoy" jdbcType="DECIMAL" property="revenueYoy"/>
+        <result column="revenue_ltm" jdbcType="DECIMAL" property="revenueLtm"/>
+        <result column="quarter_revenue" jdbcType="DECIMAL" property="quarterRevenue"/>
+        <result column="quarter_revenue_ly" jdbcType="DECIMAL" property="quarterRevenueLy"/>
+        <result column="quarter_revenue_yoy" jdbcType="DECIMAL" property="quarterRevenueYoy"/>
+        <result column="nprofit_period" jdbcType="VARCHAR" property="nprofitPeriod"/>
+        <result column="nprofit" jdbcType="DECIMAL" property="nprofit"/>
+        <result column="nprofit_ly" jdbcType="DECIMAL" property="nprofitLy"/>
+        <result column="nprofit_yoy" jdbcType="DECIMAL" property="nprofitYoy"/>
+        <result column="quarter_nprofit" jdbcType="DECIMAL" property="quarterNprofit"/>
+        <result column="quarter_nprofit_ly" jdbcType="DECIMAL" property="quarterNprofitLy"/>
+        <result column="quarter_nprofit_yoy" jdbcType="DECIMAL" property="quarterNprofitYoy"/>
+        <result column="nprofit_ltm" jdbcType="DECIMAL" property="nprofitLtm"/>
+        <result column="dprofit_period" jdbcType="VARCHAR" property="dprofitPeriod"/>
+        <result column="dprofit" jdbcType="DECIMAL" property="dprofit"/>
+        <result column="dprofit_ly" jdbcType="DECIMAL" property="dprofitLy"/>
+        <result column="dprofit_yoy" jdbcType="DECIMAL" property="dprofitYoy"/>
+        <result column="quarter_dprofit" jdbcType="DECIMAL" property="quarterDprofit"/>
+        <result column="quarter_dprofit_ly" jdbcType="DECIMAL" property="quarterDprofitLy"/>
+        <result column="quarter_dprofit_yoy" jdbcType="DECIMAL" property="quarterDprofitYoy"/>
+        <result column="dprofit_ltm" jdbcType="DECIMAL" property="dprofitLtm"/>
+        <result column="eps" jdbcType="DECIMAL" property="eps"/>
+        <result column="nassets" jdbcType="DECIMAL" property="nassets"/>
+        <result column="dividend" jdbcType="DECIMAL" property="dividend"/>
+        <result column="dividend_ltm" jdbcType="DECIMAL" property="dividendLtm"/>
+        <result column="receive_risk" jdbcType="DECIMAL" property="receiveRisk"/>
+        <result column="liquidity_risk" jdbcType="DECIMAL" property="liquidityRisk"/>
+        <result column="intangible_risk" jdbcType="DECIMAL" property="intangibleRisk"/>
+    </resultMap>
 
     <select id="selectLatestByCode" resultMap="BaseResultMap">
         SELECT *
@@ -42,34 +48,35 @@
         LIMIT 1
     </select>
 
-    <select id="selectTrendByParam" parameterType="com.cn.momojie.moquant.api.param.MqQuarterBasicParam" resultMap="BaseResultMap">
+    <select id="selectTrendByParam" parameterType="com.cn.momojie.moquant.api.param.MqQuarterBasicParam"
+            resultMap="BaseResultMap">
         SELECT
-            <choose>
-                <when test="trendType == 'REVENUE_YEAR' or trendType == 'REVENUE_QUARTER'">
-                    revenue_period,
-                    revenue,
-                    revenue_yoy,
-                    revenue_ltm,
-                    quarter_revenue,
-                    quarter_revenue_yoy,
-                </when>
-                <when test="trendType == 'NPROFIT_YEAR' or trendType == 'NPROFIT_QUARTER' ">
-                    nprofit_period,
-                    nprofit,
-                    nprofit_yoy,
-                    nprofit_ltm,
-                    quarter_nprofit,
-                    quarter_nprofit_yoy,
-                </when>
-                <when test="trendType == 'DPROFIT_YEAR' or trendType == 'DPROFIT_QUARTER'">
-                    dprofit_period,
-                    dprofit,
-                    dprofit_yoy,
-                    dprofit_ltm,
-                    quarter_dprofit,
-                    quarter_dprofit_yoy,
-                </when>
-            </choose>
+        <choose>
+            <when test="trendType == 'REVENUE_YEAR' or trendType == 'REVENUE_QUARTER'">
+                revenue_period,
+                revenue,
+                revenue_yoy,
+                revenue_ltm,
+                quarter_revenue,
+                quarter_revenue_yoy,
+            </when>
+            <when test="trendType == 'NPROFIT_YEAR' or trendType == 'NPROFIT_QUARTER' ">
+                nprofit_period,
+                nprofit,
+                nprofit_yoy,
+                nprofit_ltm,
+                quarter_nprofit,
+                quarter_nprofit_yoy,
+            </when>
+            <when test="trendType == 'DPROFIT_YEAR' or trendType == 'DPROFIT_QUARTER'">
+                dprofit_period,
+                dprofit,
+                dprofit_yoy,
+                dprofit_ltm,
+                quarter_dprofit,
+                quarter_dprofit_yoy,
+            </when>
+        </choose>
         ts_code,
         update_date,
         report_period,

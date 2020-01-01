@@ -12,11 +12,12 @@
     <result column="market_value" jdbcType="DECIMAL" property="marketValue" />
     <result column="pb" jdbcType="DECIMAL" property="pb" />
     <result column="dprofit_period" jdbcType="VARCHAR" property="dprofitPeriod" />
-    <result column="dprofit_eps" jdbcType="DECIMAL" property="dprofitEps" />
     <result column="quarter_dprofit_yoy" jdbcType="DECIMAL" property="quarterDprofitYoy" />
     <result column="dprofit_pe" jdbcType="DECIMAL" property="dprofitPe" />
     <result column="dprofit_peg" jdbcType="DECIMAL" property="dprofitPeg" />
-      <result column="grow_score" jdbcType="DECIMAL" property="growScore" />
+    <result column="grow_score" jdbcType="DECIMAL" property="growScore" />
+    <result column="dividend_yields" jdbcType="DECIMAL" property="dividendYields" />
+    <result column="val_score" jdbcType="DECIMAL" property="valScore" />
   </resultMap>
 
   <select id="selectByParam" parameterType="com.cn.momojie.moquant.api.param.MqDailyBasicParam"
@@ -68,9 +69,14 @@
           daily.quarter_dprofit_yoy,
           daily.dprofit_peg
         </when>
+        <when test="scoreBy == 'val_score'">
+          daily.dprofit_pe,
+          daily.pb,
+          daily.dividend_yields
+        </when>
       </choose>
     FROM mq_daily_basic daily
-    WHERE daily.date = #{dt} AND daily.${scoreBy} != -1
+    WHERE daily.date = #{dt} AND daily.${scoreBy} > 0
     ORDER BY
     <choose>
       <when test="orderBy == 'pe'">
@@ -81,6 +87,12 @@
       </when>
       <when test="orderBy == 'peg'">
         daily.dprofit_peg ASC
+      </when>
+      <when test="orderBy == 'pb'">
+        daily.pb ASC
+      </when>
+      <when test="orderBy == 'dvr'">
+        daily.dividend_yields ASC
       </when>
       <otherwise>
           daily.${scoreBy} DESC

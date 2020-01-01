@@ -81,6 +81,14 @@ public class MqInfoQueryService {
 		return PageResult.fromList(list);
 	}
 
+	public PageResult getValList(MqShareListParam param) {
+		param.setDt(getLatestDt());
+		param.setScoreBy("val_score");
+		PageHelper.startPage(param.getPageNum(), param.getPageSize());
+		List<MqDailyBasic> list = dailyBasicDao.getScoreList(param);
+		return PageResult.fromList(list);
+	}
+
     private String getLatestDt() {
         return mqSysParamService.getString(SysParamKey.CAL_DAILY_DONE);
     }

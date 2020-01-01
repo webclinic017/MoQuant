@@ -25,8 +25,6 @@ public class MqDailyBasic {
 
     private String dprofitPeriod;
 
-    private BigDecimal dprofitEps;
-
     private BigDecimal quarterDprofitYoy;
 
     private BigDecimal dprofitPe;
@@ -34,4 +32,8 @@ public class MqDailyBasic {
     private BigDecimal dprofitPeg;
 
     private BigDecimal growScore;
+
+    private BigDecimal dividendYields;
+
+    private BigDecimal valScore;
 }
