@@ -21,10 +21,13 @@ class TsClient(object):
         if not hasattr(cls, '__inst'):
             cls.__inst = super(TsClient, cls).__new__(cls, *args, **kwargs)
             cls.__inst.__ts = ts
-            cls.__inst.__ts.set_token(get_env_value('TS_TOKEN'))
-            log.info('Init tushare token successfully')
-            cls.__inst.__pro = cls.__inst.__ts.pro_api()
+            cls.__inst.init_token()
         return cls.__inst
+
+    def init_token(self):
+        self.__ts.set_token(get_env_value('TS_TOKEN'))
+        log.info('Init tushare token successfully')
+        self.__pro = self.__ts.pro_api()
 
     def fetch_all_stock(self) -> DataFrame:
         return self.__pro.stock_basic()

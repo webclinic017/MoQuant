@@ -56,6 +56,7 @@ def common_fetch_data(ts_code: str, api_name: str, table: Table, date_field, cod
             except Exception as e:
                 log.exception('Calling TuShare too fast. Will sleep 1 minutes...')
                 time.sleep(60)
+                ts_client.init_token()
 
         if stock_data is None:
             return False

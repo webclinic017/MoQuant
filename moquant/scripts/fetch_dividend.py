@@ -26,6 +26,7 @@ def common_fetch_dividend(ts_code: str = None, dt: str = None):
         except Exception as e:
             log.error('Calling TuShare too fast. Will sleep 1 minutes...')
             time.sleep(60)
+            ts_client.init_token()
 
     if df is not None and not df.empty:
         db_client.store_dataframe(df, TsDividend.__tablename__)
