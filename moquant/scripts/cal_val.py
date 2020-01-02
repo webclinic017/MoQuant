@@ -4,6 +4,7 @@ from moquant.dbclient.mq_daily_basic import MqDailyBasic
 from moquant.dbclient.mq_quarter_basic import MqQuarterBasic
 from moquant.log import get_logger
 from moquant.utils.date_utils import get_quarter_num, period_delta
+from moquant.utils.decimal_utils import add, mul
 
 log = get_logger(__name__)
 
@@ -101,7 +102,7 @@ def cal_val_score(daily: MqDailyBasic, quarter: MqQuarterBasic, quarter_dict: di
 
         dividend_yoy_score = history_dividend_yoy_score(quarter_dict, quarter.report_period, 5)
 
-        score = dividend_score * 0.3 + dividend_yoy_score * 0.2 + \
-                (pe_score + pb_score + pepb_score) * 0.1 + grow_score * 0.2
+        score = add(mul(dividend_score, 0.3), mul(dividend_yoy_score, 0.2),
+                    mul((pe_score + pb_score + pepb_score), 0.1), mul(grow_score, 0.2))
 
     return max(score, 0)
