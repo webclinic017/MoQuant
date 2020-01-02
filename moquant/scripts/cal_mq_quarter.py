@@ -287,15 +287,20 @@ def cal_dividend(report_period, main_balance_arr, sub_balance_arr, mb_i, sb_i,
 
 
 def cal_other_info(quarter: MqQuarterBasic, income: TsIncome, balance: TsBalanceSheet):
-    quarter.eps = div(quarter.dprofit_ltm, balance.total_share)
+    if balance is not None:
+        quarter.eps = div(quarter.dprofit_ltm, balance.total_share)
 
-    total_receive = add(balance.notes_receiv, balance.accounts_receiv, balance.oth_receiv, balance.lt_rec)
-    revenue = quarter.revenue_ltm
-    quarter.receive_risk = div(total_receive, revenue)
-    quarter.liquidity_risk = div(balance.total_cur_liab, balance.total_cur_assets)
-    total_intangible_risk = add(balance.goodwill, balance.r_and_d, balance.intan_assets)
-    total_assests = sub(quarter.nassets, balance.oth_eqt_tools_p_shr)
-    quarter.intangible_risk = div(total_intangible_risk, total_assests)
+        total_receive = add(balance.notes_receiv, balance.accounts_receiv, balance.oth_receiv, balance.lt_rec)
+        revenue = quarter.revenue_ltm
+        quarter.receive_risk = div(total_receive, revenue)
+
+        quarter.liquidity_risk = div(balance.total_cur_liab, balance.total_cur_assets)
+
+        total_intangible = add(balance.goodwill, balance.r_and_d, balance.intan_assets)
+        total_assests = sub(quarter.nassets, balance.oth_eqt_tools_p_shr)
+        quarter.intangible_risk = div(total_intangible, total_assests)
+    else:
+        log.warn('Cant find balance sheet of %s %s' % (quarter.ts_code, quarter.report_period))
 
     return quarter
 
