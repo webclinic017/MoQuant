@@ -1,5 +1,7 @@
 from decimal import Decimal
 
+from moquant.utils.compare_utils import mini, maxi
+
 
 def add(*args):
     result = Decimal(0)
@@ -25,22 +27,22 @@ def sub(a, *args):
     return result
 
 
-def mul(a, b):
+def mul(a, b, err_default=0):
     if a is None or b is None:
-        return 0
+        return err_default
     if not isinstance(a, Decimal):
         a = Decimal(a)
-    if not isinstance(b ,Decimal):
+    if not isinstance(b, Decimal):
         b = Decimal(b)
     return a * b
 
 
-def div(a, b):
+def div(a, b, err_default=0):
     if a is None or b is None or b == 0:
-        return 0
+        return Decimal(err_default)
     if not isinstance(a, Decimal):
         a = Decimal(a)
-    if not isinstance(b ,Decimal):
+    if not isinstance(b, Decimal):
         b = Decimal(b)
     return a / b
 
@@ -50,3 +52,7 @@ def yoy(current, last_year):
         return None
     else:
         return (current - last_year) / abs(last_year)
+
+
+def valid_score(score, s=0, e=100):
+    return mini(maxi(score, s), e)

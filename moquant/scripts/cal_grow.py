@@ -3,6 +3,7 @@ from decimal import Decimal
 from moquant.dbclient.mq_daily_basic import MqDailyBasic
 from moquant.dbclient.mq_quarter_basic import MqQuarterBasic
 from moquant.log import get_logger
+from moquant.utils.decimal_utils import valid_score
 
 log = get_logger(__name__)
 
@@ -29,4 +30,4 @@ def cal_growing_score(share: MqDailyBasic, quarter: MqQuarterBasic,
     if score != -1:
         score = (1 - share.dprofit_peg / max_peg) * 100
 
-    return max(score, 0)
+    return valid_score(score)

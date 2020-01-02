@@ -4,7 +4,7 @@ from moquant.dbclient.mq_daily_basic import MqDailyBasic
 from moquant.dbclient.mq_quarter_basic import MqQuarterBasic
 from moquant.log import get_logger
 from moquant.utils.date_utils import get_quarter_num, period_delta
-from moquant.utils.decimal_utils import add, mul
+from moquant.utils.decimal_utils import add, mul, div, valid_score
 
 log = get_logger(__name__)
 
@@ -56,7 +56,7 @@ def history_profit_yoy_score(quarter_dict: dict, report_period: str, year: int) 
             result += score_per_one
         elif yoy <= 0:
             result -= score_per_one / 2
-    return max(result, 0)
+    return valid_score(result)
 
 
 def history_dividend_yoy_score(quarter_dict: dict, report_period: str, year: int) -> bool:
@@ -78,7 +78,7 @@ def history_dividend_yoy_score(quarter_dict: dict, report_period: str, year: int
             result += score_per_one
         elif yoy < 0:
             result -= score_per_one / 2
-    return max(result, 0)
+    return valid_score(result)
 
 
 def cal_val_score(daily: MqDailyBasic, quarter: MqQuarterBasic, quarter_dict: dict,
@@ -95,14 +95,19 @@ def cal_val_score(daily: MqDailyBasic, quarter: MqQuarterBasic, quarter_dict: di
 
     if score != -1:
         dividend_score = daily.dividend_yields * 10  # / 0.1 * 100
-        pe_score = max((1 - daily.dprofit_pe / max_pe) * 100, 0)
-        pb_score = max((1 - daily.pb / max_pb) * 100, 0)
-        pepb_score = max((1 - daily.dprofit_pe * daily.pb / max_pepb) * 100, 0)
-        grow_score = history_profit_yoy_score(quarter_dict, quarter.report_period, 5)
+        pe_score = valid_score((1 - div(daily.dprofit_pe, max_pe, err_default=1)) * 100)
+        pb_score = valid_score((1 - div(daily.pb, max_pb, err_default=1)) * 100)
+        pepb_score = valid_score((1 - div(mul(daily.dprofit_pe, daily.pb, err_default=100), max_pepb)) * 100)
 
+        profit_yoy_score = history_profit_yoy_score(quarter_dict, quarter.report_period, 5)
         dividend_yoy_score = history_dividend_yoy_score(quarter_dict, quarter.report_period, 5)
 
-        score = add(mul(dividend_score, 0.3), mul(dividend_yoy_score, 0.2),
-                    mul((pe_score + pb_score + pepb_score), 0.1), mul(grow_score, 0.2))
+        if profit_yoy_score == 0 or dividend_yoy_score == 0:
+            score = 0
+        elif pe_score == 0 and pb_score == 0 and pepb_score == 0:
+            score = 0
+        else:
+            score = add(mul(dividend_score, 0.3), mul(dividend_yoy_score, 0.2),
+                        mul((pe_score + pb_score + pepb_score), 0.1), mul(profit_yoy_score, 0.2))
 
-    return max(score, 0)
+    return valid_score(score)
