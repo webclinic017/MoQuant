@@ -15,6 +15,7 @@ log = get_logger(__name__)
 def fetch_from_date():
     session: Session = db_client.get_session()
     result = session.query(func.max(TsTradeCal.cal_date)).all()
+    session.close()
     from_date = fetch_data_start_date
     if len(result) > 0 and not result[0][0] is None:
         from_date = format_delta(result[0][0], day_num=1)
@@ -26,6 +27,7 @@ def fetch(to_date: str = get_current_dt()):
     log.info('Ready to fetch trade cal %s ~ %s' % (from_date, to_date))
     session: Session = db_client.get_session()
     session.query(TsTradeCal).filter(and_(TsTradeCal.cal_date >= from_date, TsTradeCal.cal_date <= to_date)).delete()
+    session.close()
     log.info('Delete old trade cal')
     df: DataFrame = ts_client.fetch_trade_cal(start_date=from_date, end_date=to_date)
     if not df.empty:

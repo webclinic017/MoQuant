@@ -8,6 +8,7 @@ from pandas import DataFrame
 from tushare.pro.client import DataApi
 
 from moquant.log import get_logger
+from moquant.utils.compare_utils import mini
 from moquant.utils.env_utils import get_env_value
 
 log = get_logger(__name__)
@@ -45,15 +46,21 @@ class TsClient(object):
     def fetch_income(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
         df1: DataFrame = self.__pro.income(ts_code=ts_code, start_date=start_date, end_date=end_date, report_type=1)
         df2: DataFrame = self.__pro.income(ts_code=ts_code, start_date=start_date, end_date=end_date, report_type=4)
-        return df1.append(df2)
+        df = df1.append(df2)
+        df['mq_ann_date'] = df.apply(lambda row: mini(row.ann_date, row.f_ann_date), axis=1)
+        return df
 
     def fetch_balance_sheet(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
         df1 = self.__pro.balancesheet(ts_code=ts_code, start_date=start_date, end_date=end_date, report_type=1)
         df2 = self.__pro.balancesheet(ts_code=ts_code, start_date=start_date, end_date=end_date, report_type=4)
-        return df1.append(df2)
+        df = df1.append(df2)
+        df['mq_ann_date'] = df.apply(lambda row: mini(row.ann_date, row.f_ann_date), axis=1)
+        return df
 
     def fetch_cash_flow(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
-        return self.__pro.cashflow(ts_code=ts_code, start_date=start_date, end_date=end_date)
+        df = self.__pro.cashflow(ts_code=ts_code, start_date=start_date, end_date=end_date)
+        df['mq_ann_date'] = df.apply(lambda row: mini(row.ann_date, row.f_ann_date), axis=1)
+        return df
 
     def fetch_forecast(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
         return self.__pro.forecast(ts_code=ts_code, start_date=start_date, end_date=end_date)

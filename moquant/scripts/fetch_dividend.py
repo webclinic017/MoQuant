@@ -52,6 +52,7 @@ def update_dividend_to(dt: str):
         param.param_value = now
         session.flush()
         now = format_delta(now, 1)
+    session.close()
 
 
 if __name__ == '__main__':

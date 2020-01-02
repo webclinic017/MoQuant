@@ -37,6 +37,7 @@ def fetch_from_date(date_column: Column, code_column: Column, ts_code: str):
     from_date = fetch_data_start_date
     if len(result) > 0 and not result[0][0] is None:
         from_date = format_delta(result[0][0], day_num=1)
+    session.close()
     return from_date
 
 
@@ -126,6 +127,7 @@ def fetch_data(to_date: str = get_current_dt()):
             row.last_fetch_date = to_date
             session.flush()
             do_after_fetch(ts_code=row.ts_code)
+    session.close()
 
 
 def do_after_fetch(ts_code: str):
@@ -164,6 +166,7 @@ def init_stock_basic():
     if len(to_add_obj) > 0:
         session.add_all(to_add_obj)
         session.flush()
+    session.close()
 
 
 def run(ts_code, to_date: str = get_current_dt()):
@@ -181,7 +184,8 @@ def run(ts_code, to_date: str = get_current_dt()):
             fetch_data_by_code(mq.ts_code, to_date)
             mq.last_fetch_date = to_date
             session.flush()
-            threadpool.submit(do_after_fetch, ts_code=mq.ts_code)
+            do_after_fetch(ts_code=mq.ts_code)
+        session.close()
     else:
         init_stock_basic()
         fetch_data(to_date)

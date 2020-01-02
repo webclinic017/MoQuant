@@ -5,6 +5,7 @@ log = get_logger(__name__)
 
 
 def clear_duplicate_report_sql(table: str, ts_code: str) -> str:
+    table_with_where = table if ts_code is None else '%s where ts_code = \'%s\'' % (table, ts_code)
     return """
     delete from %s
     where id in
@@ -15,18 +16,18 @@ def clear_duplicate_report_sql(table: str, ts_code: str) -> str:
                 ts.id
             from
             (
-                select ts_code, end_date, f_ann_date, report_type, max(id) as id
+                select ts_code, end_date, mq_ann_date, report_type, max(id) as id
                 from %s 
-                group by ts_code, end_date, f_ann_date, report_type having count(0) > 1
+                group by ts_code, end_date, mq_ann_date, report_type having count(0) > 1
             ) to_keep
-            left join %s ts
+            left join (select * from %s) ts
             on to_keep.ts_code = ts.ts_code and to_keep.end_date = ts.end_date 
-            and to_keep.f_ann_date = ts.f_ann_date
+            and to_keep.mq_ann_date = ts.mq_ann_date
             and to_keep.report_type = ts.report_type
             and to_keep.id != ts.id
         ) tmp
     )
-    """ % (table, table if ts_code is None else table + ' where ts_code = \'%s\'' % ts_code, table)
+    """ % (table, table_with_where, table_with_where)
 
 
 def clear_duplicate_forecast(table: str, ts_code: str) -> str:

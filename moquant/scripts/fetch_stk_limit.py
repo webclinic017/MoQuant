@@ -48,6 +48,7 @@ def update_stk_limit_to(dt: str = get_current_dt()):
         param.param_value = now
         session.flush()
         now = format_delta(now, 1)
+    session.close()
 
 
 if __name__ == '__main__':

@@ -77,6 +77,9 @@ def calculate(ts_code: str, share_name: str, to_date: str, fix_from: str = None)
         .order_by(MqQuarterBasic.update_date.asc(), MqQuarterBasic.report_period.asc(),
                   MqQuarterBasic.forecast_period.asc()) \
         .all()
+
+    session.close()
+
     if len(quarter_arr) > 0 and quarter_arr[0].update_date > from_date:
         from_date = quarter_arr[0].update_date
 
@@ -152,6 +155,7 @@ def calculate_and_insert(ts_code: str, share_name: str, to_date: str = get_curre
         for item in result_list:  # type: MqDailyBasic
             session.add(item)
         session.flush()
+        session.close()
         log.info("Insert mq daily data for %s: %s seconds" % (ts_code, time.time() - start_time))
     else:
         log.info('Nothing to insert %s' % ts_code)
@@ -161,6 +165,7 @@ def calculate_all():
     session: Session = db_client.get_session()
     now_date = get_current_dt()
     mq_list = session.query(MqStockMark).filter(MqStockMark.last_fetch_date == now_date).all()
+    session.close()
     for mq in mq_list:
         calculate_and_insert(mq.ts_code, mq.share_name, mq.last_fetch_date)
     update_done_record(now_date)
@@ -170,11 +175,13 @@ def update_done_record(to_date: str):
     session: Session = db_client.get_session()
     session.merge(MqSysParam(param_key=done_record_key, param_value=to_date), True)
     session.flush()
+    session.close()
 
 
 def is_done(dt: str) -> bool:
     session: Session = db_client.get_session()
     param_list: list = session.query(MqSysParam).filter(MqSysParam.param_key == done_record_key).all()
+    session.close()
     param: MqSysParam = None
     if len(param_list) > 0:
         param = param_list[0]
@@ -184,12 +191,14 @@ def is_done(dt: str) -> bool:
 def calculate_by_code(ts_code: str):
     session: Session = db_client.get_session()
     stock: MqStockMark = session.query(MqStockMark).filter(MqStockMark.ts_code == ts_code).one()
+    session.close()
     calculate_and_insert(ts_code, stock.share_name)
 
 
 def recalculate_by_code(ts_code: str):
     session: Session = db_client.get_session()
     session.query(MqDailyBasic).filter(MqDailyBasic.ts_code == ts_code).delete()
+    session.close()
     calculate_by_code(ts_code)
 
 

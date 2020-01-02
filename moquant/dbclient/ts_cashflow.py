@@ -6,8 +6,7 @@ from moquant.dbclient.base import Base
 class TsCashFlow(Base):
     __tablename__ = 'ts_cash_flow'
     __table_args__ = (
-        Index('code_date', 'ts_code', 'f_ann_date'),
-        Index('code_date2', 'ts_code', 'ann_date', 'end_date'),
+        Index('code_date', 'ts_code', 'mq_ann_date', 'end_date'),
         Index('code_period', 'ts_code', 'end_date'),
         {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
     )
@@ -16,6 +15,7 @@ class TsCashFlow(Base):
     ts_code = Column('ts_code', String(10), comment='TS股票代码')
     ann_date = Column('ann_date', String(10), comment='公告日期')
     f_ann_date = Column('f_ann_date', String(10), comment='实际公告日期')
+    mq_ann_date = Column('mq_ann_date', String(10), comment='MQ使用公告日期')
     end_date = Column('end_date', String(10), comment='报告期')
     comp_type = Column('comp_type', String(10), comment='公司类型')
     report_type = Column('report_type', String(10), comment='报表类型')

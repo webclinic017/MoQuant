@@ -1,6 +1,7 @@
 import sys
 import time
 from decimal import Decimal
+from functools import partial
 
 from sqlalchemy.orm import Session
 
@@ -64,7 +65,8 @@ class ForecastInfo(object):
 
     def init_with_forecast(self, period: str, forecast: TsForecast, income_arr, i_i, adjust_income_arr, ai_i):
         self.forecast_period = period
-        income_forecast_ly = find_previous_period(adjust_income_arr, ai_i, period, 4, sub_arr=income_arr, sub_pos=i_i)
+        income_forecast_ly = find_previous_period(adjust_income_arr, ai_i, period, 4,
+                                                  date_field='mq_ann_date', sub_arr=income_arr, sub_pos=i_i)
         forecast_min_nprofit = get_forecast_nprofit_ly(forecast, income_forecast_ly)
         if self.forecast_nprofit is None and forecast_min_nprofit is not None:
             self.forecast_nprofit = forecast_min_nprofit
@@ -195,7 +197,8 @@ def get_first_not_none(arr, field_name):
     return None
 
 
-def find_previous_period(arr: list, pos: int, period: str, num: int, sub_arr: list = None, sub_pos: int = None):
+def find_previous_period(arr: list, pos: int, period: str, num: int, date_field: str = 'ann_date',
+                         sub_arr: list = None, sub_pos: int = None):
     if num is None:
         return None
     year = int(period[0:4])
@@ -209,7 +212,7 @@ def find_previous_period(arr: list, pos: int, period: str, num: int, sub_arr: li
     to_find_period = '%d%02d%02d' % (year, month, day)
     if pos >= len(arr):
         pos = len(arr) - 1
-    while pos >= 0 and arr[pos].end_date != to_find_period and arr[pos].ann_date >= to_find_period:
+    while pos >= 0 and arr[pos].end_date != to_find_period and getattr(arr[pos], date_field) >= to_find_period:
         pos -= 1
     if pos >= 0 and arr[pos].end_date == to_find_period:
         return arr[pos]
@@ -218,7 +221,7 @@ def find_previous_period(arr: list, pos: int, period: str, num: int, sub_arr: li
         if sub_pos >= len(sub_arr):
             sub_pos = len(sub_arr) - 1
         while sub_pos >= 0 and sub_arr[sub_pos].end_date != to_find_period \
-                and sub_arr[sub_pos].ann_date >= to_find_period:
+                and getattr(sub_arr[sub_pos], date_field) >= to_find_period:
             sub_pos -= 1
         if sub_pos >= 0 and sub_arr[sub_pos].end_date == to_find_period:
             return sub_arr[sub_pos]
@@ -230,12 +233,12 @@ def same_period(arr, i: int, period: str) -> bool:
     return 0 <= i < len(arr) and arr[i].end_date == period
 
 
-def same_f_ann_date(arr, i, adjust_arr, ai) -> bool:
+def same_field(arr, i, adjust_arr, ai, field: str) -> bool:
     if i < 0 or i >= len(arr):
         return False
     if ai < 0 or ai >= len(adjust_arr):
         return False
-    return arr[i].f_ann_date == adjust_arr[ai].f_ann_date
+    return getattr(arr[i], field) == getattr(adjust_arr[ai], field)
 
 
 def cal_quarter_dividend(balance: TsBalanceSheet, dividend: TsDividend):
@@ -249,13 +252,13 @@ def cal_quarter_dividend(balance: TsBalanceSheet, dividend: TsDividend):
 def cal_dividend(report_period, main_balance_arr, sub_balance_arr, mb_i, sb_i,
                  dividend_arr, d_i):
     balance: TsBalanceSheet = find_previous_period(main_balance_arr, mb_i, report_period, 0,
-                                                   sub_arr=sub_balance_arr, sub_pos=sb_i)
+                                                   date_field='mq_ann_date', sub_arr=sub_balance_arr, sub_pos=sb_i)
     balance_l1: TsBalanceSheet = find_previous_period(main_balance_arr, mb_i, report_period, 1,
-                                                      sub_arr=sub_balance_arr, sub_pos=sb_i)
+                                                      date_field='mq_ann_date', sub_arr=sub_balance_arr, sub_pos=sb_i)
     balance_l2: TsBalanceSheet = find_previous_period(main_balance_arr, mb_i, report_period, 2,
-                                                      sub_arr=sub_balance_arr, sub_pos=sb_i)
+                                                      date_field='mq_ann_date', sub_arr=sub_balance_arr, sub_pos=sb_i)
     balance_l3: TsBalanceSheet = find_previous_period(main_balance_arr, mb_i, report_period, 3,
-                                                      sub_arr=sub_balance_arr, sub_pos=sb_i)
+                                                      date_field='mq_ann_date', sub_arr=sub_balance_arr, sub_pos=sb_i)
 
     dividend: TsDividend = find_previous_period(dividend_arr, d_i, report_period, 0)
     dividend_l1: TsDividend = find_previous_period(dividend_arr, d_i, report_period, 1)
@@ -502,7 +505,7 @@ def calculate_period(ts_code, share_name,
                      i_i, ai_i, b_i, ab_i, fi_i, d_i,
                      report_period, forecast_period,
                      forecast_info: ForecastInfo,
-                     f_ann_date, is_adjust
+                     ann_date, is_adjust
                      ):
     report_quarter = get_quarter_num(report_period)
     forecast_quarter = get_quarter_num(forecast_period)
@@ -519,26 +522,29 @@ def calculate_period(ts_code, share_name,
     sub_b_i = b_i if is_adjust else ab_i
 
     income: TsIncome = find_previous_period(main_income_arr, main_i_i, report_period, 0,
-                                            sub_arr=sub_income_arr, sub_pos=sub_i_i)
+                                            date_field='mq_ann_date', sub_arr=sub_income_arr, sub_pos=sub_i_i)
     income_l1: TsIncome = find_previous_period(main_income_arr, main_i_i, report_period, 1,
-                                               sub_arr=sub_income_arr, sub_pos=sub_i_i)
+                                               date_field='mq_ann_date', sub_arr=sub_income_arr, sub_pos=sub_i_i)
     income_l3: TsIncome = find_previous_period(main_income_arr, main_i_i, report_period, 3,
-                                               sub_arr=sub_income_arr, sub_pos=sub_i_i)
+                                               date_field='mq_ann_date', sub_arr=sub_income_arr, sub_pos=sub_i_i)
     income_l4: TsIncome = find_previous_period(main_income_arr, main_i_i, report_period, 4,
-                                               sub_arr=sub_income_arr, sub_pos=sub_i_i)
+                                               date_field='mq_ann_date', sub_arr=sub_income_arr, sub_pos=sub_i_i)
     income_l5: TsIncome = find_previous_period(main_income_arr, main_i_i, report_period, 5,
-                                               sub_arr=sub_income_arr, sub_pos=sub_i_i)
+                                               date_field='mq_ann_date', sub_arr=sub_income_arr, sub_pos=sub_i_i)
     income_lyy: TsIncome = find_previous_period(main_income_arr, main_i_i, report_period, report_quarter,
-                                                sub_arr=sub_income_arr, sub_pos=sub_i_i)
+                                                date_field='mq_ann_date', sub_arr=sub_income_arr, sub_pos=sub_i_i)
     income_forecast_lyy: TsIncome = find_previous_period(main_income_arr, main_i_i, forecast_period, forecast_quarter,
-                                                         sub_arr=sub_income_arr, sub_pos=sub_i_i)
+                                                         date_field='mq_ann_date', sub_arr=sub_income_arr, sub_pos=sub_i_i)
 
     balance: TsBalanceSheet = find_previous_period(main_bs_arr, main_b_i, report_period, 0,
-                                                   sub_arr=sub_bs_arr, sub_pos=sub_b_i)
+                                                   date_field='mq_ann_date', sub_arr=sub_bs_arr, sub_pos=sub_b_i)
 
-    adjust_income_l3: TsIncome = find_previous_period(adjust_income_arr, ai_i, report_period, 3)
-    adjust_income_l4: TsIncome = find_previous_period(adjust_income_arr, ai_i, report_period, 4)
-    adjust_income_l5: TsIncome = find_previous_period(adjust_income_arr, ai_i, report_period, 5)
+    adjust_income_l3: TsIncome = find_previous_period(adjust_income_arr, ai_i, report_period, 3,
+                                                      date_field='mq_ann_date')
+    adjust_income_l4: TsIncome = find_previous_period(adjust_income_arr, ai_i, report_period, 4,
+                                                      date_field='mq_ann_date')
+    adjust_income_l5: TsIncome = find_previous_period(adjust_income_arr, ai_i, report_period, 5,
+                                                      date_field='mq_ann_date')
 
     fina: TsFinaIndicator = find_previous_period(fina_arr, fi_i, report_period, 0)
     fina_l1: TsFinaIndicator = find_previous_period(fina_arr, fi_i, report_period, 1)
@@ -575,7 +581,7 @@ def calculate_period(ts_code, share_name,
     else:
         nassets = forecast_info.forecast_nassets
 
-    ret = MqQuarterBasic(ts_code=ts_code, share_name=share_name, update_date=format_delta(f_ann_date, -1),
+    ret = MqQuarterBasic(ts_code=ts_code, share_name=share_name, update_date=format_delta(ann_date, -1),
                          report_period=report_period, forecast_period=forecast_period,
                          revenue_period=revenue_period, revenue=revenue, revenue_ly=revenue_ly,
                          revenue_yoy=revenue_yoy, quarter_revenue=quarter_revenue, revenue_ltm=revenue_ltm,
@@ -620,22 +626,22 @@ def calculate(ts_code, share_name, fix_from: str = None):
     income_arr = session.query(TsIncome) \
         .filter(
         TsIncome.ts_code == ts_code, TsIncome.end_date >= period_to_get, TsIncome.report_type == 1) \
-        .order_by(TsIncome.f_ann_date.asc(), TsIncome.end_date.asc()).all()
+        .order_by(TsIncome.mq_ann_date.asc(), TsIncome.end_date.asc()).all()
 
     adjust_income_arr = session.query(TsIncome) \
         .filter(
         TsIncome.ts_code == ts_code, TsIncome.end_date >= period_to_get, TsIncome.report_type == 4) \
-        .order_by(TsIncome.f_ann_date.asc(), TsIncome.end_date.asc()).all()
+        .order_by(TsIncome.mq_ann_date.asc(), TsIncome.end_date.asc()).all()
 
     balance_arr = session.query(TsBalanceSheet) \
         .filter(TsBalanceSheet.ts_code == ts_code, TsBalanceSheet.end_date >= period_to_get,
                 TsBalanceSheet.report_type == 1) \
-        .order_by(TsBalanceSheet.f_ann_date.asc(), TsBalanceSheet.end_date.asc()).all()
+        .order_by(TsBalanceSheet.mq_ann_date.asc(), TsBalanceSheet.end_date.asc()).all()
 
     adjust_balance_arr = session.query(TsBalanceSheet) \
         .filter(TsBalanceSheet.ts_code == ts_code, TsBalanceSheet.end_date >= period_to_get,
                 TsBalanceSheet.report_type == 4) \
-        .order_by(TsBalanceSheet.f_ann_date.asc(), TsBalanceSheet.end_date.asc()).all()
+        .order_by(TsBalanceSheet.mq_ann_date.asc(), TsBalanceSheet.end_date.asc()).all()
 
     fina_arr = session.query(TsFinaIndicator) \
         .filter(TsFinaIndicator.ts_code == ts_code, TsFinaIndicator.end_date >= period_to_get,
@@ -659,6 +665,8 @@ def calculate(ts_code, share_name, fix_from: str = None):
         .filter(MqManualForecast.ts_code == ts_code, MqManualForecast.end_date >= period_to_get) \
         .order_by(MqManualForecast.end_date.asc(), MqManualForecast.forecast_type.asc()).all()
 
+    session.close()
+
     prepare_time = time.time()
     log.info("Prepare data for %s: %s seconds" % (ts_code, prepare_time - start_time))
 
@@ -677,18 +685,25 @@ def calculate(ts_code, share_name, fix_from: str = None):
 
     while from_period <= max_period:
         if same_period(income_arr, i_i, from_period) and same_period(adjust_income_arr, ai_i, from_period) and \
-                same_f_ann_date(income_arr, i_i, adjust_income_arr, ai_i):
+                same_field(income_arr, i_i, adjust_income_arr, ai_i, 'mq_ann_date'):
             i_i += 1
             b_i = get_index_by_end_date(balance_arr, period_delta(from_period, 1))
             continue
         if same_period(balance_arr, b_i, from_period) and same_period(adjust_balance_arr, ab_i, from_period) and \
-                same_f_ann_date(balance_arr, b_i, adjust_balance_arr, ab_i):
+                same_field(balance_arr, b_i, adjust_balance_arr, ab_i, 'mq_ann_date'):
             b_i += 1
             i_i = get_index_by_end_date(income_arr, period_delta(from_period, 1))
             continue
 
         report_period = None
         forecast_info = ForecastInfo()
+
+        call_cal = partial(calculate_period, ts_code=ts_code, share_name=share_name,
+                           income_arr=income_arr, adjust_income_arr=adjust_income_arr,
+                           balance_arr=balance_arr, adjust_balance_arr=adjust_balance_arr,
+                           fina_arr=fina_arr, dividend_arr=dividend_arr,
+                           i_i=i_i, ai_i=ai_i, b_i=b_i, ab_i=ab_i, fi_i=fi_i, d_i=d_i,
+                           forecast_info=forecast_info)
 
         if same_period(forecast_arr, f_i, from_period):
             forecast: TsForecast = forecast_arr[f_i]
@@ -716,12 +731,8 @@ def calculate(ts_code, share_name, fix_from: str = None):
                                 fm_i += 1
 
                 result_list.append(
-                    calculate_period(ts_code, share_name,
-                                     income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr,
-                                     dividend_arr,
-                                     i_i, ai_i, b_i, ab_i, fi_i, d_i,
-                                     report_period, forecast_period, forecast_info,
-                                     forecast.ann_date, False)
+                    call_cal(report_period=report_period, forecast_period=forecast_period,
+                             ann_date=forecast.ann_date, is_adjust=False)
                 )
             f_i = f_i + 1
         elif same_period(express_arr, e_i, from_period):
@@ -731,23 +742,16 @@ def calculate(ts_code, share_name, fix_from: str = None):
                 forecast_period = from_period
                 forecast_info.init_with_express(from_period, express)
                 result_list.append(
-                    calculate_period(ts_code, share_name,
-                                     income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr,
-                                     dividend_arr,
-                                     i_i, ai_i, b_i, ab_i, fi_i, d_i,
-                                     report_period, forecast_period, forecast_info,
-                                     express.ann_date, False)
+                    call_cal(report_period=report_period, forecast_period=forecast_period,
+                             ann_date=express.ann_date, is_adjust=False)
                 )
             e_i = e_i + 1
         elif same_period(adjust_income_arr, ai_i, period_delta(from_period, -4)):
             report_period = adjust_income_arr[ai_i].end_date
             forecast_period = report_period
             result_list.append(
-                calculate_period(ts_code, share_name,
-                                 income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr, dividend_arr,
-                                 i_i, ai_i, b_i, ab_i, fi_i, d_i,
-                                 report_period, forecast_period, forecast_info,
-                                 adjust_income_arr[ai_i].f_ann_date, True)
+                call_cal(report_period=report_period, forecast_period=forecast_period,
+                         ann_date=adjust_income_arr[ai_i].mq_ann_date, is_adjust=True)
             )
             ai_i = ai_i + 1
             if same_period(adjust_balance_arr, ab_i, period_delta(from_period, -4)):
@@ -758,11 +762,8 @@ def calculate(ts_code, share_name, fix_from: str = None):
             report_period = income_arr[i_i].end_date
             forecast_period = report_period
             result_list.append(
-                calculate_period(ts_code, share_name,
-                                 income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr, dividend_arr,
-                                 i_i, ai_i, b_i, ab_i, fi_i, d_i,
-                                 report_period, forecast_period, forecast_info,
-                                 balance_arr[b_i].f_ann_date, False)
+                call_cal(report_period=report_period, forecast_period=forecast_period,
+                         ann_date=income_arr[i_i].mq_ann_date, is_adjust=False)
             )
             i_i = i_i + 1
             if same_period(balance_arr, b_i, from_period):
@@ -777,11 +778,8 @@ def calculate(ts_code, share_name, fix_from: str = None):
             report_period = dividend_arr[d_i].end_date
             forecast_period = report_period
             result_list.append(
-                calculate_period(ts_code, share_name,
-                                 income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr, dividend_arr,
-                                 i_i, ai_i, b_i, ab_i, fi_i, d_i,
-                                 report_period, forecast_period, forecast_info,
-                                 dividend_arr[d_i].imp_ann_date, False)
+                call_cal(report_period=report_period, forecast_period=forecast_period,
+                         ann_date=dividend_arr[d_i].imp_ann_date, is_adjust=False)
             )
             d_i += 1
         else:
@@ -809,6 +807,7 @@ def calculate_and_insert(ts_code: str, share_name: str):
         for item in result_list:  # type: MqQuarterBasic
             session.add(item)
         session.flush()
+        session.close()
         log.info("Insert data for %s: %s seconds" % (ts_code, time.time() - start))
     else:
         log.info('Nothing to insert %s' % ts_code)
@@ -821,17 +820,20 @@ def calculate_all():
     for mq in mq_list:
         calculate_and_insert(mq.ts_code, mq.share_name)
     session.flush()
+    session.close()
 
 
 def calculate_by_code(ts_code: str):
     session: Session = db_client.get_session()
     stock: MqStockMark = session.query(MqStockMark).filter(MqStockMark.ts_code == ts_code).one()
+    session.close()
     calculate_and_insert(ts_code, stock.share_name)
 
 
 def recalculate_by_code(ts_code: str):
     session: Session = db_client.get_session()
     session.query(MqQuarterBasic).filter(MqQuarterBasic.ts_code == ts_code).delete()
+    session.close()
     calculate_by_code(ts_code)
 
 
