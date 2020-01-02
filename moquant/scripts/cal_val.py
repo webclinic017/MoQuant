@@ -84,7 +84,8 @@ def history_dividend_yoy_score(quarter_dict: dict, report_period: str, year: int
 def cal_val_score(daily: MqDailyBasic, quarter: MqQuarterBasic, quarter_dict: dict,
                   max_pe: Decimal = Decimal(15), max_pb: Decimal = Decimal(3), max_pepb: Decimal = Decimal(25)):
     score = 0
-    if quarter.receive_risk > 0.5 or \
+    if daily.dividend_yields <= 0.03 or \
+            quarter.receive_risk > 0.5 or \
             quarter.liquidity_risk >= 0.6 or \
             quarter.intangible_risk > 0.25 or \
             not earn_and_dividend_in_year(quarter_dict, quarter.report_period, 5) or \
@@ -94,7 +95,7 @@ def cal_val_score(daily: MqDailyBasic, quarter: MqQuarterBasic, quarter_dict: di
         score = -1
 
     if score != -1:
-        dividend_score = daily.dividend_yields * 10  # / 0.1 * 100
+        dividend_score = daily.dividend_yields * 1000  # * 100 / 10 * 100
         pe_score = valid_score((1 - div(daily.dprofit_pe, max_pe, err_default=1)) * 100)
         pb_score = valid_score((1 - div(daily.pb, max_pb, err_default=1)) * 100)
         pepb_score = valid_score((1 - div(mul(daily.dprofit_pe, daily.pb, err_default=100), max_pepb)) * 100)
