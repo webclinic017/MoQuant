@@ -125,13 +125,17 @@ def fetch_data(to_date: str = get_current_dt()):
         if fetch_data_by_code(row.ts_code, to_date):
             row.last_fetch_date = to_date
             session.flush()
-            threadpool.submit(do_after_fetch, ts_code=row.ts_code)
+            do_after_fetch(ts_code=row.ts_code)
 
 
 def do_after_fetch(ts_code: str):
     clear_after_fetch.clear(ts_code)
-    cal_mq_quarter.calculate_by_code(ts_code)
-    cal_mq_daily.calculate_by_code(ts_code)
+    threadpool.submit(mq_calculate, ts_code=ts_code)
+
+
+def mq_calculate(ts_code: str):
+    cal_mq_quarter.calculate_by_code(ts_code=ts_code)
+    cal_mq_daily.calculate_by_code(ts_code=ts_code)
 
 
 def init_stock_basic():
