@@ -71,7 +71,7 @@ def cal_val_score(daily: MqDailyBasic, quarter: MqQuarterBasic, quarter_dict: di
         score = -1
 
     if score != -1:
-        dividend_score = daily.dividend_yields / 0.1 * 100
+        dividend_score = daily.dividend_yields * 10  # / 0.1 * 100
         pe_score = max((1 - daily.dprofit_pe / max_pe) * 100, 0)
         pb_score = max((1 - daily.pb / max_pb) * 100, 0)
         pepb_score = max((1 - daily.dprofit_pe * daily.pb / max_pepb) * 100, 0)
