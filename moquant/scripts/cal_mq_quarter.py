@@ -692,12 +692,12 @@ def calculate(ts_code, share_name, fix_from: str = None):
         if same_period(income_arr, i_i, from_period) and same_period(adjust_income_arr, ai_i, from_period) and \
                 same_field(income_arr, i_i, adjust_income_arr, ai_i, 'mq_ann_date'):
             i_i += 1
-            b_i = get_index_by_end_date(balance_arr, period_delta(from_period, 1))
+            b_i = get_index_by_end_date(balance_arr, period_delta(from_period, 1), b_i)
             continue
         if same_period(balance_arr, b_i, from_period) and same_period(adjust_balance_arr, ab_i, from_period) and \
                 same_field(balance_arr, b_i, adjust_balance_arr, ab_i, 'mq_ann_date'):
             b_i += 1
-            i_i = get_index_by_end_date(income_arr, period_delta(from_period, 1))
+            i_i = get_index_by_end_date(income_arr, period_delta(from_period, 1), i_i)
             continue
 
         report_period = None
