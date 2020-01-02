@@ -55,7 +55,7 @@ def common_fetch_data(ts_code: str, api_name: str, table: Table, date_field, cod
                 stock_data = ts_client.fetch_data_frame(api_name, ts_code, to_date, from_date, **kwargs)
                 break
             except Exception as e:
-                log.exception('Calling TuShare too fast. Will sleep 1 minutes...')
+                log.exception('Calling TuShare too fast. Will sleep 1 minutes...', exc_info=e)
                 time.sleep(60)
                 ts_client.init_token()
 

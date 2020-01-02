@@ -16,7 +16,7 @@ def log_call(func, *args, **kwargs):
     try:
         func(*args, **kwargs)
     except Exception as e:
-        log.error('Execute fail [%s]' % func.__name__, exc_info=e)
+        log.exception('Execute fail [%s]' % func.__name__, exc_info=e)
     else:
         log.info('Execute ok [%s]' % func.__name__)
 
