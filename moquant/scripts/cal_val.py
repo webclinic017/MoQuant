@@ -36,7 +36,7 @@ def earn_in_period(quarter_dict: dict, report_period: str, quarter_num: int) -> 
     return True
 
 
-def get_grow_score_in_year(quarter_dict: dict, report_period: str, year: int) -> bool:
+def history_profit_yoy_score(quarter_dict: dict, report_period: str, year: int) -> bool:
     quarter_num = get_quarter_num(report_period)
     period = report_period if quarter_num == 4 else period_delta(report_period, -quarter_num)
     period = period_delta(period, 4)
@@ -55,7 +55,7 @@ def get_grow_score_in_year(quarter_dict: dict, report_period: str, year: int) ->
             result += score_per_one
         elif yoy <= 0:
             result -= score_per_one / 2
-    return result
+    return max(result, 0)
 
 
 def history_dividend_yoy_score(quarter_dict: dict, report_period: str, year: int) -> bool:
@@ -77,7 +77,7 @@ def history_dividend_yoy_score(quarter_dict: dict, report_period: str, year: int
             result += score_per_one
         elif yoy < 0:
             result -= score_per_one / 2
-    return result
+    return max(result, 0)
 
 
 def cal_val_score(daily: MqDailyBasic, quarter: MqQuarterBasic, quarter_dict: dict,
@@ -97,7 +97,7 @@ def cal_val_score(daily: MqDailyBasic, quarter: MqQuarterBasic, quarter_dict: di
         pe_score = max((1 - daily.dprofit_pe / max_pe) * 100, 0)
         pb_score = max((1 - daily.pb / max_pb) * 100, 0)
         pepb_score = max((1 - daily.dprofit_pe * daily.pb / max_pepb) * 100, 0)
-        grow_score = get_grow_score_in_year(quarter_dict, quarter.report_period, 5)
+        grow_score = history_profit_yoy_score(quarter_dict, quarter.report_period, 5)
 
         dividend_yoy_score = history_dividend_yoy_score(quarter_dict, quarter.report_period, 5)
 
