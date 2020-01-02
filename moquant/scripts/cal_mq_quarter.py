@@ -19,7 +19,7 @@ from moquant.dbclient.ts_income import TsIncome
 from moquant.log import get_logger
 from moquant.utils.date_utils import get_current_dt, format_delta, get_quarter_num, \
     next_period, period_delta, get_period
-from moquant.utils.decimal_utils import add, div, sub
+from moquant.utils.decimal_utils import add, div, sub, yoy
 
 log = get_logger(__name__)
 
@@ -259,16 +259,31 @@ def cal_dividend(report_period, main_balance_arr, sub_balance_arr, mb_i, sb_i,
                                                       date_field='mq_ann_date', sub_arr=sub_balance_arr, sub_pos=sb_i)
     balance_l3: TsBalanceSheet = find_previous_period(main_balance_arr, mb_i, report_period, 3,
                                                       date_field='mq_ann_date', sub_arr=sub_balance_arr, sub_pos=sb_i)
+    balance_l4: TsBalanceSheet = find_previous_period(main_balance_arr, mb_i, report_period, 4,
+                                                      date_field='mq_ann_date', sub_arr=sub_balance_arr, sub_pos=sb_i)
+    balance_l5: TsBalanceSheet = find_previous_period(main_balance_arr, mb_i, report_period, 5,
+                                                      date_field='mq_ann_date', sub_arr=sub_balance_arr, sub_pos=sb_i)
+    balance_l6: TsBalanceSheet = find_previous_period(main_balance_arr, mb_i, report_period, 6,
+                                                      date_field='mq_ann_date', sub_arr=sub_balance_arr, sub_pos=sb_i)
+    balance_l7: TsBalanceSheet = find_previous_period(main_balance_arr, mb_i, report_period, 7,
+                                                      date_field='mq_ann_date', sub_arr=sub_balance_arr, sub_pos=sb_i)
 
     dividend: TsDividend = find_previous_period(dividend_arr, d_i, report_period, 0)
     dividend_l1: TsDividend = find_previous_period(dividend_arr, d_i, report_period, 1)
     dividend_l2: TsDividend = find_previous_period(dividend_arr, d_i, report_period, 2)
     dividend_l3: TsDividend = find_previous_period(dividend_arr, d_i, report_period, 3)
+    dividend_l4: TsDividend = find_previous_period(dividend_arr, d_i, report_period, 4)
+    dividend_l5: TsDividend = find_previous_period(dividend_arr, d_i, report_period, 5)
+    dividend_l6: TsDividend = find_previous_period(dividend_arr, d_i, report_period, 6)
+    dividend_l7: TsDividend = find_previous_period(dividend_arr, d_i, report_period, 7)
 
-    current_dividend = cal_quarter_dividend(balance, dividend)
-    total_dividend = add(cal_quarter_dividend(balance, dividend), cal_quarter_dividend(balance_l1, dividend_l1),
-                         cal_quarter_dividend(balance_l2, dividend_l2), cal_quarter_dividend(balance_l3, dividend_l3))
-    return current_dividend, total_dividend
+    quarter_dividend = cal_quarter_dividend(balance, dividend)
+    dividend_ltm = add(cal_quarter_dividend(balance, dividend), cal_quarter_dividend(balance_l1, dividend_l1),
+                       cal_quarter_dividend(balance_l2, dividend_l2), cal_quarter_dividend(balance_l3, dividend_l3))
+    dividend_ltm_ly = add(cal_quarter_dividend(balance_l4, dividend_l4), cal_quarter_dividend(balance_l5, dividend_l5),
+                          cal_quarter_dividend(balance_l6, dividend_l6), cal_quarter_dividend(balance_l7, dividend_l7))
+
+    return quarter_dividend, dividend_ltm, yoy(dividend_ltm, dividend_ltm_ly)
 
 
 def cal_other_info(quarter: MqQuarterBasic, income: TsIncome, balance: TsBalanceSheet):
@@ -338,13 +353,8 @@ def cal_nprofit(report_period, forecast_period, forecast_info,
             nprofit_ltm = cal_ltm(forecast_info.forecast_nprofit, nprofit_ly, income_forecast_lyy.n_income_attr_p,
                                   nprofit_adjust, forecast_period)
 
-    nprofit_yoy = None
-    if nprofit is not None and nprofit_ly is not None and nprofit_ly != 0:
-        nprofit_yoy = (nprofit - nprofit_ly) / abs(nprofit_ly)
-
-    quarter_nprofit_yoy = None
-    if quarter_nprofit is not None and quarter_nprofit_ly is not None and quarter_nprofit_ly != 0:
-        quarter_nprofit_yoy = (quarter_nprofit - quarter_nprofit_ly) / abs(quarter_nprofit_ly)
+    nprofit_yoy = yoy(nprofit, nprofit_ly)
+    quarter_nprofit_yoy = yoy(quarter_nprofit, quarter_nprofit_ly)
 
     if nprofit is None:
         nprofit_period = None
@@ -416,13 +426,8 @@ def cal_dprofit(report_period, forecast_period, forecast_info,
             dprofit_ltm = cal_ltm(fina.profit_dedt, dprofit_ly, fina_lyy.profit_dedt, adjust,
                                   report_period)
 
-    dprofit_yoy = None
-    if dprofit is not None and dprofit_ly is not None and dprofit_ly != 0:
-        dprofit_yoy = (dprofit - dprofit_ly) / abs(dprofit_ly)
-
-    quarter_dprofit_yoy = None
-    if quarter_dprofit is not None and quarter_dprofit_ly is not None and quarter_dprofit_ly != 0:
-        quarter_dprofit_yoy = (quarter_dprofit - quarter_dprofit_ly) / abs(quarter_dprofit_ly)
+    dprofit_yoy = yoy(dprofit, dprofit_ly)
+    quarter_dprofit_yoy = yoy(quarter_dprofit, quarter_dprofit_ly)
 
     if dprofit is None:
         dprofit_period = None
@@ -485,13 +490,8 @@ def cal_revenue(report_period, forecast_period, forecast_info,
             revenue_ltm = cal_ltm(forecast_info.forecast_revenue, revenue_ly, income_forecast_lyy.revenue,
                                   revenue_adjust, forecast_period)
 
-    revenue_yoy = None
-    if revenue is not None and revenue_ly is not None and revenue_ly != 0:
-        revenue_yoy = (revenue - revenue_ly) / abs(revenue_ly)
-
-    quarter_revenue_yoy = None
-    if quarter_revenue is not None and quarter_revenue_ly is not None and quarter_revenue_ly != 0:
-        quarter_revenue_yoy = (quarter_revenue - quarter_revenue_ly) / abs(quarter_revenue_ly)
+    revenue_yoy = yoy(revenue, revenue_ly)
+    quarter_revenue_yoy = yoy(quarter_revenue, quarter_revenue_ly)
 
     if revenue is None:
         revenue_period = None
@@ -553,8 +553,8 @@ def calculate_period(ts_code, share_name,
     fina_l5: TsFinaIndicator = find_previous_period(fina_arr, fi_i, report_period, 5)
     fina_lyy: TsFinaIndicator = find_previous_period(fina_arr, fi_i, report_period, report_quarter)
 
-    dividend, dividend_ltm = cal_dividend(report_period, main_bs_arr, sub_bs_arr, main_b_i, sub_b_i,
-                                          dividend_arr, d_i)
+    dividend, dividend_ltm, dividend_ltm_yoy = cal_dividend(report_period, main_bs_arr, sub_bs_arr, main_b_i, sub_b_i,
+                                                            dividend_arr, d_i)
 
     nprofit_period, nprofit, nprofit_ly, quarter_nprofit, quarter_nprofit_ly, nprofit_adjust, nprofit_ltm, \
     nprofit_yoy, quarter_nprofit_yoy = \
@@ -593,7 +593,7 @@ def calculate_period(ts_code, share_name,
                          dprofit_ly=dprofit_ly, dprofit_yoy=dprofit_yoy, quarter_dprofit=quarter_dprofit,
                          quarter_dprofit_ly=quarter_dprofit_ly, quarter_dprofit_yoy=quarter_dprofit_yoy,
                          dprofit_ltm=dprofit_ltm, nassets=nassets,
-                         dividend=dividend, dividend_ltm=dividend_ltm)
+                         dividend=dividend, dividend_ltm=dividend_ltm, dividend_ltm_yoy=dividend_ltm_yoy)
     cal_other_info(ret, income, balance)
     return ret
 
