@@ -30,6 +30,23 @@ def clear_duplicate_report_sql(table: str, ts_code: str) -> str:
     """ % (table, table_with_where, table_with_where)
 
 
+def clear_duplicate_adjust_report_with(table: str, ts_code: str) -> str:
+    code_where = '1=1' if ts_code is None else 'ts_code = \'%s\'' % ts_code
+    table_with_where = table if ts_code is None else '%s where ts_code = \'%s\'' % (table, ts_code)
+    return """
+    delete a from %s a
+    left join
+    (
+    select ts_code as code, mq_ann_date, end_date
+    from %s
+    group by ts_code, mq_ann_date, end_date
+    having count(0) > 1
+    ) b
+    on a.ts_code=b.code and a.mq_ann_date=b.mq_ann_date and a.end_date=b.end_date
+    where %s and a.report_type=4 and b.code is not null
+    """ % (table, table_with_where, code_where)
+
+
 def clear_duplicate_forecast(table: str, ts_code: str) -> str:
     return """
     delete from %s
@@ -85,6 +102,8 @@ def clear_duplicate_dividend(ts_code):
 def clear(ts_code: str):
     db_client.execute_sql(clear_duplicate_report_sql('ts_income', ts_code))
     db_client.execute_sql(clear_duplicate_report_sql('ts_balance_sheet', ts_code))
+    db_client.execute_sql(clear_duplicate_adjust_report_with('ts_income', ts_code))
+    db_client.execute_sql(clear_duplicate_adjust_report_with('ts_balance_sheet', ts_code))
     db_client.execute_sql(clear_duplicate_report_sql('ts_cash_flow', ts_code))
     db_client.execute_sql(clear_duplicate_forecast('ts_forecast', ts_code))
     db_client.execute_sql(clear_duplicate_forecast('ts_express', ts_code))
