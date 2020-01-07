@@ -35,6 +35,7 @@
         <result column="nassets" jdbcType="DECIMAL" property="nassets"/>
         <result column="dividend" jdbcType="DECIMAL" property="dividend"/>
         <result column="dividend_ltm" jdbcType="DECIMAL" property="dividendLtm"/>
+        <result column="dividend_profit_ratio" jdbcType="DECIMAL" property="dividendProfitRatio"/>
         <result column="receive_risk" jdbcType="DECIMAL" property="receiveRisk"/>
         <result column="liquidity_risk" jdbcType="DECIMAL" property="liquidityRisk"/>
         <result column="intangible_risk" jdbcType="DECIMAL" property="intangibleRisk"/>

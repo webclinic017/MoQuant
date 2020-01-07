@@ -302,6 +302,8 @@ def cal_other_info(quarter: MqQuarterBasic, income: TsIncome, balance: TsBalance
     else:
         log.warn('Cant find balance sheet of %s %s' % (quarter.ts_code, quarter.report_period))
 
+    quarter.dividend_profit_ratio = div(quarter.dividend_ltm, quarter.dprofit_ltm)
+
     return quarter
 
 

@@ -83,5 +83,13 @@ public class MqShareDetail {
 
 	private BigDecimal dividendYields;
 
+	private BigDecimal dividendProfitRatio;
+
 	private BigDecimal valScore;
+
+	private BigDecimal receiveRisk;
+
+	private BigDecimal liquidityRisk;
+
+	private BigDecimal intangibleRisk;
 }

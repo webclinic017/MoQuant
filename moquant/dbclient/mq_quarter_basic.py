@@ -47,6 +47,7 @@ class MqQuarterBasic(Base):
     dividend = Column('dividend', DECIMAL(30, 10), comment='当期分红总额')
     dividend_ltm = Column('dividend_ltm', DECIMAL(30, 10), comment='LTM分红总额')
     dividend_ltm_yoy = Column('dividend_ltm_yoy', DECIMAL(30, 10), comment='LTM分红总额增速-同比')
+    dividend_profit_ratio = Column('dividend_profit_ratio', DECIMAL(30, 10), comment='分红率')
     receive_risk = Column('receive_risk', DECIMAL(30, 10), comment='应收风险=(应收账款/票据+其它/长期应收)/营收')
     liquidity_risk = Column('liquidity_risk', DECIMAL(30, 10), comment='流动性风险=流动负债/流动资产')
     intangible_risk = Column('intangible_risk', DECIMAL(30, 10), comment='无形风险=(商誉+开发支出+无形资产)/(净资产-优先股-永续债)')

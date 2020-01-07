@@ -73,6 +73,8 @@ public class MqQuarterBasic {
 
 	private BigDecimal dividendLtm;
 
+	private BigDecimal dividendProfitRatio;
+
 	private BigDecimal receiveRisk;
 
 	private BigDecimal liquidityRisk;
