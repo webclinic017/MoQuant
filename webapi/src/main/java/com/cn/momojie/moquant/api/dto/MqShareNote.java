@@ -14,6 +14,8 @@ public class MqShareNote {
 
 	private Date updateTime;
 
+	private String eventBrief;
+
 	private String noteDetail;
 
 	private String noteConclusion;

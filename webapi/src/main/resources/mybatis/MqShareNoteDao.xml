@@ -6,6 +6,7 @@
         <result column="ts_code" jdbcType="VARCHAR" property="tsCode"/>
         <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
         <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+        <result column="event_brief" jdbcType="VARCHAR" property="eventBrief"/>
         <result column="note_detail" jdbcType="VARCHAR" property="noteDetail"/>
         <result column="note_conclusion" jdbcType="VARCHAR" property="noteConclusion"/>
     </resultMap>

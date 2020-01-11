@@ -16,5 +16,6 @@ class MqShareNote(Base):
                          server_default=text('CURRENT_TIMESTAMP'))
     update_time = Column('update_time', TIMESTAMP, comment='更新时间',
                          server_default=text('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'))
+    event_brief = Column('event_brief', String(1000), comment='事件简述')
     note_detail = Column('note_detail', String(1000), comment='笔记详情')
     note_conclusion = Column('note_conclusion', String(100), comment='笔记总结')
