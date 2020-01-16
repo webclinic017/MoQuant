@@ -39,6 +39,10 @@
         <result column="receive_risk" jdbcType="DECIMAL" property="receiveRisk"/>
         <result column="liquidity_risk" jdbcType="DECIMAL" property="liquidityRisk"/>
         <result column="intangible_risk" jdbcType="DECIMAL" property="intangibleRisk"/>
+        <result column="roe" jdbcType="DECIMAL" property="roe"/>
+        <result column="dprofit_margin" jdbcType="DECIMAL" property="dprofitMargin"/>
+        <result column="turnover_rate" jdbcType="DECIMAL" property="turnoverRate"/>
+        <result column="equity_multiplier" jdbcType="DECIMAL" property="equityMultiplier"/>
     </resultMap>
 
     <select id="selectLatestByCode" resultMap="BaseResultMap">

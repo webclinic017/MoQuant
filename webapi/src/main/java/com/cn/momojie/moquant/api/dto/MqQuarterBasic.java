@@ -81,4 +81,12 @@ public class MqQuarterBasic {
 
 	private BigDecimal intangibleRisk;
 
+	private BigDecimal roe;
+
+	private BigDecimal dprofitMargin;
+
+	private BigDecimal turnoverRate;
+
+	private BigDecimal equityMultiplier;
+
 }

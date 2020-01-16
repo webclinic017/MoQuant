@@ -97,10 +97,14 @@ public class MqInfoQueryService {
 		MqShareDetail detail = new MqShareDetail();
 
 		MqDailyBasic daily = dailyBasicDao.selectLatestByCode(code);
-		BeanUtils.copyProperties(daily, detail);
+		if (daily != null) {
+			BeanUtils.copyProperties(daily, detail);
+		}
 
 		MqQuarterBasic quarter = quarterBasicDao.selectLatestByCode(code);
-		BeanUtils.copyProperties(quarter, detail);
+		if (quarter != null) {
+			BeanUtils.copyProperties(quarter, detail);
+		}
 
 		fillForecastInfo(detail);
 

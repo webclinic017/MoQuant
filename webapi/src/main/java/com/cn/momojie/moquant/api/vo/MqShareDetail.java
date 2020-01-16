@@ -92,4 +92,12 @@ public class MqShareDetail {
 	private BigDecimal liquidityRisk;
 
 	private BigDecimal intangibleRisk;
+
+	private BigDecimal roe;
+
+	private BigDecimal dprofitMargin;
+
+	private BigDecimal turnoverRate;
+
+	private BigDecimal equityMultiplier;
 }
