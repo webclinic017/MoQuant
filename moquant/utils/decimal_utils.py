@@ -56,3 +56,17 @@ def yoy(current, last_year):
 
 def valid_score(score, s=0, e=100):
     return mini(maxi(score, s), e)
+
+
+def avg_in_exists(*args):
+    total = Decimal(0)
+    count = Decimal(0)
+    for num in args:
+        if num is None:
+            continue
+        if isinstance(num, Decimal):
+            total += num
+        else:
+            total += Decimal(num)
+        count += 1
+    return div(total, count)

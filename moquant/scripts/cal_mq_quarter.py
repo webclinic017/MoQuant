@@ -17,9 +17,8 @@ from moquant.dbclient.ts_fina_indicator import TsFinaIndicator
 from moquant.dbclient.ts_forecast import TsForecast
 from moquant.dbclient.ts_income import TsIncome
 from moquant.log import get_logger
-from moquant.utils.date_utils import get_current_dt, format_delta, get_quarter_num, \
-    next_period, period_delta, get_period
-from moquant.utils.decimal_utils import add, div, sub, yoy
+from moquant.utils.date_utils import *
+from moquant.utils.decimal_utils import *
 
 log = get_logger(__name__)
 
@@ -30,17 +29,19 @@ class ForecastInfo(object):
     forecast_nprofit: Decimal
     forecast_dprofit: Decimal
     forecast_nassets: Decimal
+    forecast_total_assets: Decimal
     forecast_nprofit_ly: Decimal
     forecast_revenue_ly: Decimal
 
     def __init__(self, forecast_period=None, forecast_revenue=None, forecast_nprofit=None,
-                 forecast_dprofit=None, forecast_nassets=None,
+                 forecast_dprofit=None, forecast_nassets=None, forecast_total_assets=None,
                  forecast_nprofit_ly=None, forecast_revenue_ly=None):
         self.forecast_period = forecast_period
         self.forecast_revenue = forecast_revenue
         self.forecast_nprofit = forecast_nprofit
         self.forecast_dprofit = forecast_dprofit
         self.forecast_nassets = forecast_nassets
+        self.forecast_total_assets = forecast_total_assets
         self.forecast_nprofit_ly = forecast_nprofit_ly
         self.forecast_revenue_ly = forecast_revenue_ly
         pass
@@ -58,6 +59,8 @@ class ForecastInfo(object):
             self.forecast_dprofit = other.forecast_dprofit
         if other.forecast_nassets is not None:
             self.forecast_nassets = other.forecast_nassets
+        if other.forecast_total_assets is not None:
+            self.forecast_total_assets = other.forecast_total_assets
         if other.forecast_nprofit_ly is not None:
             self.forecast_nprofit_ly = other.forecast_nprofit_ly
         if other.forecast_revenue_ly is not None:
@@ -85,6 +88,8 @@ class ForecastInfo(object):
             self.forecast_nprofit_ly = express.yoy_net_profit
         if self.forecast_revenue_ly is None:
             self.forecast_revenue_ly = express.or_last_year
+        if self.forecast_total_assets is None:
+            self.forecast_total_assets = express.total_assets
 
     def update_with_manual(self, manual: MqManualForecast):
         if manual.revenue is not None:
@@ -507,6 +512,28 @@ def cal_revenue(report_period, forecast_period, forecast_info,
            revenue_yoy, quarter_revenue_yoy
 
 
+def cal_du_pont(quarter: MqQuarterBasic, forecast_info: ForecastInfo, balance_arr: list):
+    for i in range(4):
+        if balance_arr[i] is None:
+            balance_arr[i] = TsBalanceSheet()
+    avg_nasset = 0
+    avg_total_assets = 0
+    if forecast_info.forecast_nassets is not None:
+       avg_nasset = avg_in_exists(forecast_info.forecast_nassets, balance_arr[0].total_hldr_eqy_exc_min_int,
+                        balance_arr[1].total_hldr_eqy_exc_min_int, balance_arr[2].total_hldr_eqy_exc_min_int)
+       avg_total_assets = avg_in_exists(forecast_info.forecast_total_assets, balance_arr[0].total_assets,
+                        balance_arr[1].total_assets, balance_arr[2].total_assets)
+    else:
+        avg_nasset = avg_in_exists(balance_arr[0].total_hldr_eqy_exc_min_int, balance_arr[1].total_hldr_eqy_exc_min_int,
+                         balance_arr[2].total_hldr_eqy_exc_min_int, balance_arr[3].total_hldr_eqy_exc_min_int)
+        avg_total_assets = avg_in_exists(balance_arr[0].total_assets, balance_arr[1].total_assets,
+                               balance_arr[2].total_assets, balance_arr[3].total_assets)
+    quarter.roe = div(quarter.dprofit_ltm, avg_nasset)
+    quarter.dprofit_margin = div(quarter.dprofit_ltm, quarter.revenue_ltm)
+    quarter.turnover_rate = div(quarter.revenue_ltm, avg_total_assets)
+    quarter.equity_multiplier = div(avg_total_assets, avg_nasset)
+
+
 def calculate_period(ts_code, share_name,
                      income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr, dividend_arr,
                      i_i, ai_i, b_i, ab_i, fi_i, d_i,
@@ -544,6 +571,12 @@ def calculate_period(ts_code, share_name,
                                                          date_field='mq_ann_date', sub_arr=sub_income_arr, sub_pos=sub_i_i)
 
     balance: TsBalanceSheet = find_previous_period(main_bs_arr, main_b_i, report_period, 0,
+                                                   date_field='mq_ann_date', sub_arr=sub_bs_arr, sub_pos=sub_b_i)
+    balance_l1: TsBalanceSheet = find_previous_period(main_bs_arr, main_b_i, report_period, 1,
+                                                   date_field='mq_ann_date', sub_arr=sub_bs_arr, sub_pos=sub_b_i)
+    balance_l2: TsBalanceSheet = find_previous_period(main_bs_arr, main_b_i, report_period, 2,
+                                                   date_field='mq_ann_date', sub_arr=sub_bs_arr, sub_pos=sub_b_i)
+    balance_l3: TsBalanceSheet = find_previous_period(main_bs_arr, main_b_i, report_period, 3,
                                                    date_field='mq_ann_date', sub_arr=sub_bs_arr, sub_pos=sub_b_i)
 
     adjust_income_l3: TsIncome = find_previous_period(adjust_income_arr, ai_i, report_period, 3,
@@ -602,6 +635,7 @@ def calculate_period(ts_code, share_name,
                          dprofit_ltm=dprofit_ltm, nassets=nassets,
                          dividend=dividend, dividend_ltm=dividend_ltm, dividend_ltm_yoy=dividend_ltm_yoy)
     cal_other_info(ret, income, balance)
+    cal_du_pont(ret, forecast_info, [balance, balance_l1, balance_l2, balance_l3])
     return ret
 
 
