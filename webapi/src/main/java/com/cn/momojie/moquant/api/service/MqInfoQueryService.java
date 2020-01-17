@@ -140,7 +140,8 @@ public class MqInfoQueryService {
     	if (TrendType.PE.equals(trendType) || TrendType.PB.equals(trendType)) {
 			MqDailyBasicParam param = new MqDailyBasicParam();
 			param.setTsCode(tsCode);
-			param.setOnlyIndicator(true);
+			param.setForTrend(trendType);
+			param.setOrderByDate(true);
 			List<MqDailyBasic> dailyList = dailyBasicDao.selectByParam(param);
 
 			for (MqDailyBasic daily: dailyList) {
@@ -263,6 +264,62 @@ public class MqInfoQueryService {
 					BigDecimal y2 = quarter.getQuarterNprofitYoy();
 					addToTrend(trend, quarterStr, y1, y2);
 				}
+			}
+		} else if (TrendType.DIVIDEND.equals(trendType)) {
+			MqDailyBasicParam param = new MqDailyBasicParam();
+			param.setTsCode(tsCode);
+			param.setForTrend(trendType);
+			param.setOrderByDate(true);
+			List<MqDailyBasic> dailyList = dailyBasicDao.selectByParam(param);
+
+			for (MqDailyBasic daily: dailyList) {
+				if (daily.getDate().compareTo(basic.getListDate()) < 0) {
+					// Filter info before list. Impossible case
+					continue;
+				}
+				if (TrendType.DIVIDEND.equals(trendType) && daily.getDividendYields() != null) {
+					addToTrend(trend, daily.getDate(),  daily.getDividendYields(), null);
+				}
+			}
+		} else if (TrendType.DIVIDEND_PROFIT_YEAR.equals(trendType) || TrendType.DIVIDEND_PROFIT_QUARTER.equals(trendType)) {
+			MqQuarterBasicParam param = new MqQuarterBasicParam();
+			param.setTsCode(tsCode);
+			param.setTrendType(trendType);
+			List<MqQuarterBasic> quarterList = quarterBasicDao.selectTrendByParam(param);
+			Map<String, MqQuarterBasic> quarterMap = new HashMap<>();
+			Iterator<MqQuarterBasic> quarterIt = quarterList.iterator();
+			while (quarterIt.hasNext()) {
+				MqQuarterBasic quarter = quarterIt.next();
+				String period = quarter.getForecastPeriod();
+				if (quarter.getDividendProfitRatio() == null) {
+					continue;
+				}
+				if (TrendType.REVENUE_YEAR.equals(trendType)) {
+					if (isQ4(period) || !quarterIt.hasNext()) {
+						quarterMap.put(period, quarter);
+					}
+				} else {
+					quarterMap.put(period, quarter);
+				}
+			}
+
+			List<String> periodList = quarterMap.keySet().stream().sorted().collect(Collectors.toList());
+			for (String period: periodList) {
+				MqQuarterBasic quarter = quarterMap.get(period);
+				if (quarter == null) {
+					continue;
+				}
+				String quarterStr = DateTimeUtils.convertToQuarter(period);
+				if (quarterStr == null) {
+					continue;
+				}
+				if (!isQ4(quarterStr)) {
+					quarterStr = quarterStr + " LTM";
+				}
+				if (!quarter.getReportPeriod().equals(quarter.getForecastPeriod()) && period.equals(quarter.getForecastPeriod())) {
+					quarterStr = quarterStr + " (含预告)";
+				}
+				addToTrend(trend, quarterStr, quarter.getDividendProfitRatio(), null);
 			}
 		}
 

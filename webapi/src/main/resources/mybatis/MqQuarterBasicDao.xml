@@ -81,6 +81,9 @@
                 quarter_dprofit,
                 quarter_dprofit_yoy,
             </when>
+            <when test="trendType == 'DIVIDEND_PROFIT_YEAR' or trendType == 'DIVIDEND_PROFIT_QUARTER'">
+                dividend_profit_ratio,
+            </when>
         </choose>
         ts_code,
         update_date,

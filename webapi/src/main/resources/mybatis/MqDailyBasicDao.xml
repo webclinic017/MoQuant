@@ -24,8 +24,14 @@
           resultMap="BaseResultMap">
     SELECT
       <choose>
-      <when test="onlyIndicator">
-          date, dprofit_pe, pb
+      <when test="forTrend == 'PE'">
+        date, dprofit_pe
+      </when>
+      <when test="forTrend == 'PB'">
+        date, pb
+      </when>
+      <when test="forTrend == 'DIVIDEND'">
+        date, dividend_yields
       </when>
       <otherwise>*</otherwise>
       </choose>
@@ -41,7 +47,7 @@
     ORDER BY
     <choose>
       <when test="orderByDate">
-          date ASC
+        date ASC
       </when>
       <otherwise>
         ts_code ASC

@@ -7,7 +7,7 @@ public class MqDailyBasicParam extends MqCodePageParam {
 
     private Boolean orderByDate = false;
 
-    private Boolean onlyIndicator = false;
-
     private String dt;
+
+    private String forTrend;
 }

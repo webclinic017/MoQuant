@@ -17,4 +17,10 @@ public class TrendType {
 	public static final String NPROFIT_YEAR = "NPROFIT_YEAR";
 
 	public static final String NPROFIT_QUARTER = "NPROFIT_QUARTER";
+
+	public static final String DIVIDEND = "DIVIDEND";
+
+	public static final String DIVIDEND_PROFIT_YEAR = "DIVIDEND_PROFIT_YEAR";
+
+	public static final String DIVIDEND_PROFIT_QUARTER = "DIVIDEND_PROFIT_QUARTER";
 }
