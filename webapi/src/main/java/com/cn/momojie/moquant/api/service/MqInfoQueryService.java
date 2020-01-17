@@ -5,6 +5,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import com.cn.momojie.moquant.api.dao.MqShareNoteDao;
@@ -17,6 +19,7 @@ import com.cn.momojie.moquant.api.param.MqShareListParam;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import com.cn.momojie.moquant.api.constant.SysParamKey;
 import com.cn.momojie.moquant.api.constant.TrendType;
@@ -125,10 +128,107 @@ public class MqInfoQueryService {
     	detail.setForecastReason(forecast.getChangeReason());
 	}
 
-    public MqShareTrend getTrend(MqTrendParam input) {
+	public MqShareTrend getTrendFromDaily(MqTrendParam input, TsBasic basic,
+			Function<MqDailyBasic, BigDecimal> y1Get, Function<MqDailyBasic, BigDecimal> y2Get) {
+		MqShareTrend trend = new MqShareTrend();
 		String tsCode = input.getTsCode();
 		String trendType = input.getTrendType();
+		MqDailyBasicParam param = new MqDailyBasicParam();
+		param.setTsCode(tsCode);
+		param.setForTrend(trendType);
+		param.setOrderByDate(true);
+		List<MqDailyBasic> dailyList = dailyBasicDao.selectByParam(param);
+
+		for (MqDailyBasic daily: dailyList) {
+			if (daily.getDate().compareTo(basic.getListDate()) < 0) {
+				// Filter info before list. Impossible case
+				continue;
+			}
+			BigDecimal y1 = null, y2 = null;
+			if (y1Get != null) {
+				y1 = y1Get.apply(daily);
+			}
+			if (y2Get != null) {
+				y2 = y2Get.apply(daily);
+			}
+			if (y1 != null) {
+				addToTrend(trend, daily.getDate(), y1, y2);
+			}
+		}
+		return trend;
+	}
+
+    public MqShareTrend getTrendFromQuarter(MqTrendParam input, Function<MqQuarterBasic, String> quarterGet,
+			Function<MqQuarterBasic, BigDecimal> y1Get, Function<MqQuarterBasic, BigDecimal> y2Get,
+			Boolean calYoyOnY2InYear) {
 		MqShareTrend trend = new MqShareTrend();
+		String tsCode = input.getTsCode();
+		String trendType = input.getTrendType();
+		MqQuarterBasicParam param = new MqQuarterBasicParam();
+		param.setTsCode(tsCode);
+		param.setTrendType(trendType);
+		List<MqQuarterBasic> quarterList = quarterBasicDao.selectTrendByParam(param);
+		Map<String, MqQuarterBasic> quarterMap = new HashMap<>();
+		Iterator<MqQuarterBasic> quarterIt = quarterList.iterator();
+		while (quarterIt.hasNext()) {
+			MqQuarterBasic quarter = quarterIt.next();
+			String period = quarterGet.apply(quarter);
+			if (StringUtils.isEmpty(period)) {
+				continue;
+			}
+			if (TrendType.isYear(trendType)) {
+				if (isQ4(period) || !quarterIt.hasNext()) {
+					quarterMap.put(period, quarter);
+				}
+			} else {
+				quarterMap.put(period, quarter);
+			}
+		}
+
+		List<String> periodList = quarterMap.keySet().stream().sorted().collect(Collectors.toList());
+		MqQuarterBasic last = null;
+		for (String period: periodList) {
+			MqQuarterBasic quarter = quarterMap.get(period);
+			if (quarter == null) {
+				continue;
+			}
+			String quarterStr = DateTimeUtils.convertToQuarter(period);
+			if (quarterStr == null) {
+				continue;
+			}
+			if (TrendType.isYear(trendType) && !isQ4(quarterStr)) {
+				quarterStr = quarterStr + " LTM";
+			}
+			if (!quarter.getReportPeriod().equals(quarter.getForecastPeriod()) && period.equals(quarter.getForecastPeriod())) {
+				quarterStr = quarterStr + " (含预告)";
+			}
+			BigDecimal y1 = null, y2 = null;
+			if (y1Get != null) {
+				y1 = y1Get.apply(quarter);
+			}
+			if (y2Get != null) {
+				y2 = y2Get.apply(quarter);
+				if (TrendType.isYear(trendType) && calYoyOnY2InYear) {
+					if (last != null) {
+						BigDecimal lastValue = y2Get.apply(last);
+						y2 = BigDecimalUtils.yoy(y2, lastValue);
+					} else {
+						y2 = BigDecimal.ZERO;
+					}
+				}
+			}
+			if (y1 != null) {
+				addToTrend(trend, quarterStr, y1, y2);
+				last = quarter;
+			}
+		}
+		return trend;
+	}
+
+	public MqShareTrend getTrend(MqTrendParam input) {
+		MqShareTrend trend = new MqShareTrend();
+		String tsCode = input.getTsCode();
+		String trendType = input.getTrendType();
 		if (tsCode == null || trendType == null) {
 			return trend;
 		}
@@ -137,190 +237,43 @@ public class MqInfoQueryService {
     		log.error("Can't find share basic of {}", tsCode);
     		return trend;
 		}
-    	if (TrendType.PE.equals(trendType) || TrendType.PB.equals(trendType)) {
-			MqDailyBasicParam param = new MqDailyBasicParam();
-			param.setTsCode(tsCode);
-			param.setForTrend(trendType);
-			param.setOrderByDate(true);
-			List<MqDailyBasic> dailyList = dailyBasicDao.selectByParam(param);
-
-			for (MqDailyBasic daily: dailyList) {
-				if (daily.getDate().compareTo(basic.getListDate()) < 0) {
-					// Filter info before list. Impossible case
-					continue;
-				}
-				if (TrendType.PE.equals(trendType) && daily.getDprofitPe() != null) {
-					addToTrend(trend, daily.getDate(),  daily.getDprofitPe(), null);
-				} if (TrendType.PB.equals(trendType) && daily.getPb() != null) {
-					addToTrend(trend, daily.getDate(),  daily.getPb(), null);
-				}
-			}
-		} else if (TrendType.REVENUE_YEAR.equals(trendType) || TrendType.DPROFIT_YEAR.equals(trendType)
-				|| TrendType.NPROFIT_YEAR.equals(trendType)) {
-			MqQuarterBasicParam param = new MqQuarterBasicParam();
-			param.setTsCode(tsCode);
-			param.setTrendType(trendType);
-    		List<MqQuarterBasic> quarterList = quarterBasicDao.selectTrendByParam(param);
-    		Map<String, MqQuarterBasic> quarterMap = new HashMap<>();
-			Iterator<MqQuarterBasic> quarterIt = quarterList.iterator();
-			while (quarterIt.hasNext()) {
-				MqQuarterBasic quarter = quarterIt.next();
-				if (TrendType.REVENUE_YEAR.equals(trendType) && quarter.getRevenuePeriod() != null
-						&& (isQ4(quarter.getRevenuePeriod()) || !quarterIt.hasNext())) {
-					quarterMap.put(quarter.getRevenuePeriod(), quarter);
-				} else if (TrendType.DPROFIT_YEAR.equals(trendType) && quarter.getDprofitPeriod() != null
-						&& (isQ4(quarter.getDprofitPeriod()) || !quarterIt.hasNext())) {
-					quarterMap.put(quarter.getDprofitPeriod(), quarter);
-				} else if (TrendType.NPROFIT_YEAR.equals(trendType) && quarter.getNprofitPeriod() != null
-						&& (isQ4(quarter.getNprofitPeriod()) || !quarterIt.hasNext())) {
-					quarterMap.put(quarter.getNprofitPeriod(), quarter);
-				}
-			}
-
-			List<String> periodList = quarterMap.keySet().stream().sorted().collect(Collectors.toList());
-			MqQuarterBasic last = null;
-			for (String period: periodList) {
-				MqQuarterBasic quarter = quarterMap.get(period);
-				if (quarter == null) {
-					continue;
-				}
-				String quarterStr = DateTimeUtils.convertToQuarter(period);
-				if (quarterStr == null) {
-					continue;
-				}
-				if (!isQ4(quarterStr)) {
-					quarterStr = quarterStr + " LTM";
-				}
-				if (!quarter.getReportPeriod().equals(quarter.getForecastPeriod())
-						&& period.equals(quarter.getForecastPeriod())) {
-					quarterStr = quarterStr + " (含预告)";
-				}
-				if (TrendType.REVENUE_YEAR.equals(trendType)) {
-					BigDecimal y1 = quarter.getRevenue();
-					BigDecimal y2 = quarter.getRevenueYoy();
-					if (!isQ4(quarterStr)) {
-						y1 = quarter.getRevenueLtm();
-						y2 = BigDecimalUtils.yoy(quarter.getRevenueLtm(), last.getRevenue());
-					}
-					addToTrend(trend, quarterStr, y1, y2);
-				} else if (TrendType.DPROFIT_YEAR.equals(trendType)) {
-					BigDecimal y1 = quarter.getDprofit();
-					BigDecimal y2 = quarter.getDprofitYoy();
-					if (!isQ4(quarterStr)) {
-						y1 = quarter.getDprofitLtm();
-						y2 = BigDecimalUtils.yoy(quarter.getDprofitLtm(), last.getDprofit());
-					}
-					addToTrend(trend, quarterStr, y1, y2);
-				} else if (TrendType.NPROFIT_YEAR.equals(trendType)) {
-					BigDecimal y1 = quarter.getNprofit();
-					BigDecimal y2 = quarter.getNprofitYoy();
-					if (!isQ4(quarterStr)) {
-						y1 = quarter.getNprofitLtm();
-						y2 = BigDecimalUtils.yoy(quarter.getNprofitLtm(), last.getNprofit());
-					}
-					addToTrend(trend, quarterStr, y1, y2);
-				}
-				last = quarter;
-			}
-		} else if (TrendType.REVENUE_QUARTER.equals(trendType) || TrendType.DPROFIT_QUARTER.equals(trendType)
-				|| TrendType.NPROFIT_QUARTER.equals(trendType)) {
-			MqQuarterBasicParam param = new MqQuarterBasicParam();
-			param.setTsCode(tsCode);
-			param.setTrendType(trendType);
-			List<MqQuarterBasic> quarterList = quarterBasicDao.selectTrendByParam(param);
-			Map<String, MqQuarterBasic> quarterMap = new HashMap<>();
-			for (MqQuarterBasic quarter: quarterList) {
-				if (TrendType.REVENUE_QUARTER.equals(trendType) && quarter.getRevenuePeriod() != null) {
-					quarterMap.put(quarter.getRevenuePeriod(), quarter);
-				} else if (TrendType.DPROFIT_QUARTER.equals(trendType) && quarter.getDprofitPeriod() != null) {
-					quarterMap.put(quarter.getDprofitPeriod(), quarter);
-				} else if (TrendType.NPROFIT_QUARTER.equals(trendType) && quarter.getNprofitPeriod() != null) {
-					quarterMap.put(quarter.getNprofitPeriod(), quarter);
-				}
-			}
-			List<String> periodList = quarterMap.keySet().stream().sorted().collect(Collectors.toList());
-			for (String period: periodList) {
-				MqQuarterBasic quarter = quarterMap.get(period);
-				if (quarter == null) {
-					continue;
-				}
-				String quarterStr = DateTimeUtils.convertToQuarter(period);
-				if (quarterStr == null) {
-					continue;
-				}
-				if (!quarter.getReportPeriod().equals(quarter.getForecastPeriod()) && period.equals(quarter.getForecastPeriod())) {
-					quarterStr = quarterStr + " (含预告)";
-				}
-				if (TrendType.REVENUE_QUARTER.equals(trendType)) {
-					BigDecimal y1 = quarter.getQuarterRevenue();
-					BigDecimal y2 = quarter.getQuarterRevenueYoy();
-					addToTrend(trend, quarterStr, y1, y2);
-				} else if (TrendType.DPROFIT_QUARTER.equals(trendType)) {
-					BigDecimal y1 = quarter.getQuarterDprofit();
-					BigDecimal y2 = quarter.getQuarterDprofitYoy();
-					addToTrend(trend, quarterStr, y1, y2);
-				} else if (TrendType.NPROFIT_QUARTER.equals(trendType)) {
-					BigDecimal y1 = quarter.getQuarterNprofit();
-					BigDecimal y2 = quarter.getQuarterNprofitYoy();
-					addToTrend(trend, quarterStr, y1, y2);
-				}
-			}
+    	Boolean isYear = TrendType.isYear(trendType);
+    	if (TrendType.PE.equals(trendType)) {
+    		return getTrendFromDaily(input, basic, MqDailyBasic::getDprofitPe, null);
+		} else if (TrendType.PB.equals(trendType)) {
+			return getTrendFromDaily(input, basic, MqDailyBasic::getPb, null);
 		} else if (TrendType.DIVIDEND.equals(trendType)) {
-			MqDailyBasicParam param = new MqDailyBasicParam();
-			param.setTsCode(tsCode);
-			param.setForTrend(trendType);
-			param.setOrderByDate(true);
-			List<MqDailyBasic> dailyList = dailyBasicDao.selectByParam(param);
-
-			for (MqDailyBasic daily: dailyList) {
-				if (daily.getDate().compareTo(basic.getListDate()) < 0) {
-					// Filter info before list. Impossible case
-					continue;
-				}
-				if (TrendType.DIVIDEND.equals(trendType) && daily.getDividendYields() != null) {
-					addToTrend(trend, daily.getDate(),  daily.getDividendYields(), null);
-				}
-			}
-		} else if (TrendType.DIVIDEND_PROFIT_YEAR.equals(trendType) || TrendType.DIVIDEND_PROFIT_QUARTER.equals(trendType)) {
-			MqQuarterBasicParam param = new MqQuarterBasicParam();
-			param.setTsCode(tsCode);
-			param.setTrendType(trendType);
-			List<MqQuarterBasic> quarterList = quarterBasicDao.selectTrendByParam(param);
-			Map<String, MqQuarterBasic> quarterMap = new HashMap<>();
-			Iterator<MqQuarterBasic> quarterIt = quarterList.iterator();
-			while (quarterIt.hasNext()) {
-				MqQuarterBasic quarter = quarterIt.next();
-				String period = quarter.getForecastPeriod();
-				if (quarter.getDividendProfitRatio() == null) {
-					continue;
-				}
-				if (TrendType.REVENUE_YEAR.equals(trendType)) {
-					if (isQ4(period) || !quarterIt.hasNext()) {
-						quarterMap.put(period, quarter);
-					}
-				} else {
-					quarterMap.put(period, quarter);
-				}
-			}
-
-			List<String> periodList = quarterMap.keySet().stream().sorted().collect(Collectors.toList());
-			for (String period: periodList) {
-				MqQuarterBasic quarter = quarterMap.get(period);
-				if (quarter == null) {
-					continue;
-				}
-				String quarterStr = DateTimeUtils.convertToQuarter(period);
-				if (quarterStr == null) {
-					continue;
-				}
-				if (!isQ4(quarterStr)) {
-					quarterStr = quarterStr + " LTM";
-				}
-				if (!quarter.getReportPeriod().equals(quarter.getForecastPeriod()) && period.equals(quarter.getForecastPeriod())) {
-					quarterStr = quarterStr + " (含预告)";
-				}
-				addToTrend(trend, quarterStr, quarter.getDividendProfitRatio(), null);
-			}
+			return getTrendFromDaily(input, basic, MqDailyBasic::getDividendYields, null);
+		} else if (TrendType.REVENUE_YEAR.equals(trendType) || TrendType.REVENUE_QUARTER.equals(trendType)) {
+    		return getTrendFromQuarter(input, MqQuarterBasic::getRevenuePeriod,
+					isYear ? MqQuarterBasic::getRevenue : MqQuarterBasic::getQuarterRevenue,
+					isYear ? MqQuarterBasic::getRevenueLtm : MqQuarterBasic::getQuarterRevenueYoy,
+					isYear);
+		} else if (TrendType.DPROFIT_YEAR.equals(trendType) || TrendType.DPROFIT_QUARTER.equals(trendType)) {
+			return getTrendFromQuarter(input, MqQuarterBasic::getDprofitPeriod,
+					isYear ? MqQuarterBasic::getDprofit : MqQuarterBasic::getQuarterDprofit,
+					isYear ? MqQuarterBasic::getDprofitLtm : MqQuarterBasic::getQuarterDprofitYoy,
+					isYear);
+		} else if (TrendType.NPROFIT_YEAR.equals(trendType) || TrendType.NPROFIT_QUARTER.equals(trendType)) {
+			return getTrendFromQuarter(input, MqQuarterBasic::getNprofitPeriod,
+					isYear ? MqQuarterBasic::getNprofit : MqQuarterBasic::getQuarterNprofit,
+					isYear ? MqQuarterBasic::getNprofitLtm : MqQuarterBasic::getQuarterNprofitYoy,
+					isYear);
+		} else if (TrendType.DIVIDEND_PROFIT.equals(trendType)) {
+    		return getTrendFromQuarter(input, MqQuarterBasic::getForecastPeriod,
+					MqQuarterBasic::getDividendProfitRatio, null, false);
+		} else if (TrendType.ROE.equals(trendType)) {
+			return getTrendFromQuarter(input, MqQuarterBasic::getDprofitPeriod, MqQuarterBasic::getRoe,
+					null, false);
+		} else if (TrendType.DPROFIT_MARGIN.equals(trendType)) {
+			return getTrendFromQuarter(input, MqQuarterBasic::getDprofitPeriod, MqQuarterBasic::getDprofitMargin,
+					null, false);
+		} else if (TrendType.TURNOVER_RATE.equals(trendType)) {
+			return getTrendFromQuarter(input, MqQuarterBasic::getRevenuePeriod, MqQuarterBasic::getTurnoverRate,
+					null, false);
+		} else if (TrendType.EM.equals(trendType)) {
+			return getTrendFromQuarter(input, MqQuarterBasic::getForecastPeriod, MqQuarterBasic::getEquityMultiplier,
+					null, false);
 		}
 
     	return trend;

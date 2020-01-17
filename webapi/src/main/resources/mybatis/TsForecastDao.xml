@@ -26,5 +26,6 @@
         <if test="period != null">
             AND end_date = #{period}
         </if>
+        ORDER BY ann_date DESC LIMIT 1
     </select>
 </mapper>

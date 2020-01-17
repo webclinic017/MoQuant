@@ -81,8 +81,23 @@
                 quarter_dprofit,
                 quarter_dprofit_yoy,
             </when>
-            <when test="trendType == 'DIVIDEND_PROFIT_YEAR' or trendType == 'DIVIDEND_PROFIT_QUARTER'">
+            <when test="trendType == 'DIVIDEND_PROFIT'">
                 dividend_profit_ratio,
+            </when>
+            <when test="trendType == 'ROE'">
+                dprofit_period,
+                roe,
+            </when>
+            <when test="trendType == 'DPROFIT_MARGIN'">
+                dprofit_period,
+                dprofit_margin,
+            </when>
+            <when test="trendType == 'TURNOVER_RATE'">
+                revenue_period,
+                turnover_rate,
+            </when>
+            <when test="trendType == 'EM'">
+                equity_multiplier,
             </when>
         </choose>
         ts_code,
