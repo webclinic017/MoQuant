@@ -25,11 +25,4 @@ public class MqInfoQueryServiceTest extends SpringBaseTest {
 		PageResult result2 = service.getNotes(param);
 		Assert.assertTrue(result2.getTotal() > 0);
 	}
-
-	@Test
-	public void testDetail() {
-		MqShareDetail detail =service.getLatestByCode("600716.SH");
-		Assert.assertNotNull(detail.getForecastReason());
-		Assert.assertTrue(detail.getForecastReason().length() > 0);
-	}
 }

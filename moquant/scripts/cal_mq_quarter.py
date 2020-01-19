@@ -1,13 +1,12 @@
 import sys
 import time
-from decimal import Decimal
 from functools import partial
 
 from sqlalchemy.orm import Session
 
 from moquant.constants import mq_calculate_start_period
 from moquant.dbclient import db_client
-from moquant.dbclient.mq_manual_forecast import MqManualForecast
+from moquant.dbclient.mq_forecast_adjust import MqForecastAdjust
 from moquant.dbclient.mq_quarter_basic import MqQuarterBasic
 from moquant.dbclient.mq_stock_mark import MqStockMark
 from moquant.dbclient.ts_balance_sheet import TsBalanceSheet
@@ -32,6 +31,7 @@ class ForecastInfo(object):
     forecast_total_assets: Decimal
     forecast_nprofit_ly: Decimal
     forecast_revenue_ly: Decimal
+    one_time: bool
 
     def __init__(self, forecast_period=None, forecast_revenue=None, forecast_nprofit=None,
                  forecast_dprofit=None, forecast_nassets=None, forecast_total_assets=None,
@@ -44,6 +44,7 @@ class ForecastInfo(object):
         self.forecast_total_assets = forecast_total_assets
         self.forecast_nprofit_ly = forecast_nprofit_ly
         self.forecast_revenue_ly = forecast_revenue_ly
+        self.one_time = False
         pass
 
     def update_with(self, other):
@@ -91,13 +92,11 @@ class ForecastInfo(object):
         if self.forecast_total_assets is None:
             self.forecast_total_assets = express.total_assets
 
-    def update_with_manual(self, manual: MqManualForecast):
-        if manual.revenue is not None:
-            self.forecast_revenue = manual.revenue
-        if manual.nprofit is not None:
-            self.forecast_nprofit = manual.nprofit
+    def update_with_manual(self, manual: MqForecastAdjust):
         if manual.dprofit is not None:
             self.forecast_dprofit = manual.dprofit
+        if manual.one_time is not None and manual.one_time is True:
+            self.one_time = manual.one_time
 
 
 def get_index_by_end_date(arr, current_date: str, from_index: int = 0) -> int:
@@ -445,7 +444,7 @@ def cal_dprofit(report_period, forecast_period, forecast_info,
         dprofit_period = None
 
     return dprofit_period, dprofit, dprofit_ly, quarter_dprofit, quarter_dprofit_ly, dprofit_ltm, \
-           dprofit_yoy, quarter_dprofit_yoy
+           dprofit_yoy, quarter_dprofit_yoy, forecast_info.one_time
 
 
 def cal_revenue(report_period, forecast_period, forecast_info,
@@ -603,7 +602,7 @@ def calculate_period(ts_code, share_name,
                     adjust_income_l3, adjust_income_l4, adjust_income_l5, income_forecast_lyy)
 
     dprofit_period, dprofit, dprofit_ly, quarter_dprofit, quarter_dprofit_ly, dprofit_ltm, \
-    dprofit_yoy, quarter_dprofit_yoy = \
+    dprofit_yoy, quarter_dprofit_yoy, one_time = \
         cal_dprofit(report_period, forecast_period, forecast_info,
                     fina, fina_l1, fina_l3, fina_l4, fina_l5, fina_lyy,
                     income, nprofit_adjust)
@@ -632,7 +631,7 @@ def calculate_period(ts_code, share_name,
                          nprofit_ltm=nprofit_ltm, dprofit_period=dprofit_period, dprofit=dprofit,
                          dprofit_ly=dprofit_ly, dprofit_yoy=dprofit_yoy, quarter_dprofit=quarter_dprofit,
                          quarter_dprofit_ly=quarter_dprofit_ly, quarter_dprofit_yoy=quarter_dprofit_yoy,
-                         dprofit_ltm=dprofit_ltm, nassets=nassets,
+                         dprofit_ltm=dprofit_ltm, dprofit_forecast_one_time=one_time, nassets=nassets,
                          dividend=dividend, dividend_ltm=dividend_ltm, dividend_ltm_yoy=dividend_ltm_yoy)
     cal_other_info(ret, income, balance)
     cal_du_pont(ret, forecast_info, [balance, balance_l1, balance_l2, balance_l3])
@@ -702,9 +701,9 @@ def calculate(ts_code, share_name, fix_from: str = None):
                 TsDividend.div_proc == '实施') \
         .order_by(TsDividend.end_date.asc()).all()
 
-    forecast_manual_arr = session.query(MqManualForecast) \
-        .filter(MqManualForecast.ts_code == ts_code, MqManualForecast.end_date >= period_to_get) \
-        .order_by(MqManualForecast.end_date.asc(), MqManualForecast.forecast_type.asc()).all()
+    forecast_manual_arr = session.query(MqForecastAdjust) \
+        .filter(MqForecastAdjust.ts_code == ts_code, MqForecastAdjust.end_date >= period_to_get) \
+        .order_by(MqForecastAdjust.end_date.asc(), MqForecastAdjust.forecast_type.asc()).all()
 
     session.close()
 
@@ -753,7 +752,7 @@ def calculate(ts_code, share_name, fix_from: str = None):
                 forecast_period = from_period
                 forecast_info.init_with_forecast(from_period, forecast, income_arr, i_i, adjust_income_arr, ai_i)
                 if same_period(forecast_manual_arr, fm_i, from_period):
-                    forecast_manual: MqManualForecast = forecast_manual_arr[fm_i]
+                    forecast_manual: MqForecastAdjust = forecast_manual_arr[fm_i]
                     if forecast_manual.forecast_type == 0:
                         forecast_info.update_with_manual(forecast_manual)
                         fm_i += 1
@@ -766,7 +765,7 @@ def calculate(ts_code, share_name, fix_from: str = None):
                         forecast_info.update_with(express_info)
                         e_i = e_i + 1
                         if same_period(forecast_manual_arr, fm_i, from_period):
-                            forecast_manual: MqManualForecast = forecast_manual_arr[fm_i]
+                            forecast_manual: MqForecastAdjust = forecast_manual_arr[fm_i]
                             if forecast_manual.forecast_type == 1:
                                 forecast_info.update_with_manual(forecast_manual)
                                 fm_i += 1

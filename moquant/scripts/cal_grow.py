@@ -26,6 +26,8 @@ def cal_growing_score(share: MqDailyBasic, quarter: MqQuarterBasic,
         elif quarter.quarter_dprofit is None or quarter.dprofit_ltm is None or \
                 abs(quarter.quarter_dprofit / quarter.dprofit_ltm < 0.15):
             score = -1
+        elif quarter.dprofit_period != quarter.report_period and quarter.dprofit_forecast_one_time is True:
+            score = -1
 
     if score != -1:
         score = (1 - share.dprofit_peg / max_peg) * 100

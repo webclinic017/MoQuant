@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.cn.momojie.moquant.api.dao.TsBasicDao">
-  <resultMap id="BaseResultMap" type="com.cn.momojie.moquant.api.dto.TsBasic">
+  <resultMap id="BaseResultMap" type="com.cn.momojie.moquant.api.dto.ts.TsBasic">
     <id column="id" jdbcType="BIGINT" property="id" />
     <result column="ts_code" jdbcType="VARCHAR" property="tsCode" />
     <result column="symbol" jdbcType="VARCHAR" property="symbol" />

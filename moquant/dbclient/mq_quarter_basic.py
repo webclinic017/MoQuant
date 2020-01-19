@@ -42,6 +42,7 @@ class MqQuarterBasic(Base):
     quarter_dprofit_ly = Column('quarter_dprofit_ly', DECIMAL(30, 10), comment='去年同季归母扣非净利润')
     quarter_dprofit_yoy = Column('quarter_dprofit_yoy', DECIMAL(30, 10), comment='单季归母扣非净利润增速-同比')
     dprofit_ltm = Column('dprofit_ltm', DECIMAL(30, 10), comment='LTM归母扣非净利润')
+    dprofit_forecast_one_time = Column('dprofit_forecast_one_time', Boolean, server_default='0', comment='预报扣非净利为一次性')
     eps = Column('eps', DECIMAL(30, 10), comment='每股收益')
     nassets = Column('nassets', DECIMAL(30, 10), comment='归母净资产')
     dividend = Column('dividend', DECIMAL(30, 10), comment='当期分红总额')

@@ -77,8 +77,6 @@ public class MqShareDetail {
 
 	private BigDecimal nassets;
 
-	private String forecastReason;
-
 	private BigDecimal growScore;
 
 	private BigDecimal dividendYields;

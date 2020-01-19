@@ -1,6 +1,6 @@
 package com.cn.momojie.moquant.api.dao;
 
-import com.cn.momojie.moquant.api.dto.TsBasic;
+import com.cn.momojie.moquant.api.dto.ts.TsBasic;
 
 import java.util.List;
 

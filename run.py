@@ -1,41 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import getopt
-import sys
+from moquant.log import get_logger
+from moquant.scripts import clear_all_data, init_table, fetch_data, fetch_latest, recalculate
+from moquant.utils import env_utils
 
-from moquant.scripts import clear_all_data, init_table, fetch_data, cal_mq_daily, fetch_latest
-from moquant.strategy import loopback
-
-
-def usage():
-    print("-j job init_table, clear_all_data, fetch_data, cal_mq_basic")
-    print("-c ts_code Eg. 000001.SZ")
-
+log = get_logger(__name__)
 
 if __name__ == '__main__':
-    opts, args = getopt.getopt(sys.argv[1:], "hj:c:d:")
-    job_name = None
-    ts_code = None
-    to_date = None
-    for op, value in opts:
-        if op == "-j":
-            job_name = value
-        elif op == "-c":
-            ts_code = value
-        elif op == "-d":
-            to_date = value
-        elif op == "-h":
-            usage()
-            sys.exit()
-    if job_name == 'init_table':
+    args = env_utils.get_args()
+
+    if args.job == 'init':
         init_table.create_table()
-    elif job_name == 'clear_all_data':
-        clear_all_data.run(ts_code)
-    elif job_name == 'fetch_data':
-        fetch_data.run(ts_code, to_date)
-    elif job_name == 'fetch_latest':
+    elif args.job == 'clear':
+        clear_all_data.run(args.code)
+    elif args.job == 'fetch_daily':
+        fetch_data.run(args.code, args.to_date)
+    elif args.job == 'fetch_latest':
         fetch_latest.run()
-    elif job_name == 'sim_grow':
-        loopback.run_grow_strategy('20190101', '20191120')
+    elif args.job == 'recalculate':
+        recalculate.run(args.code)
     else:
-        print("unsupported job")
+        log.error("unsupported job [%s]" % args.job)

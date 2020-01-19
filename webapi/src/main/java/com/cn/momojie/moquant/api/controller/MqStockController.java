@@ -5,6 +5,7 @@ import com.cn.momojie.moquant.api.param.MqDailyBasicParam;
 import com.cn.momojie.moquant.api.param.MqShareListParam;
 import com.cn.momojie.moquant.api.param.MqTrendParam;
 import com.cn.momojie.moquant.api.service.MqInfoQueryService;
+import com.cn.momojie.moquant.api.vo.MqForecastInfo;
 import com.cn.momojie.moquant.api.vo.MqShareDetail;
 import com.cn.momojie.moquant.api.vo.MqShareTrend;
 import com.cn.momojie.moquant.api.vo.PageResult;
@@ -57,4 +58,9 @@ public class MqStockController {
     public PageResult getNoteList(@RequestBody MqCodePageParam param) {
         return mqInfoQueryService.getNotes(param);
     }
+
+	@RequestMapping(path = "getForecastInfo", method = RequestMethod.POST)
+	public MqForecastInfo getForecastInfo(@RequestBody String tsCode) {
+		return mqInfoQueryService.getForecastInfo(tsCode);
+	}
 }

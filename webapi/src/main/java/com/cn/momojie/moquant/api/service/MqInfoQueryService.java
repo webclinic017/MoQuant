@@ -5,15 +5,17 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import com.cn.momojie.moquant.api.constant.MqForecastAdjustType;
+import com.cn.momojie.moquant.api.dao.MqForecastAdjustDao;
 import com.cn.momojie.moquant.api.dao.MqShareNoteDao;
 import com.cn.momojie.moquant.api.dao.MqStockMarkDao;
 import com.cn.momojie.moquant.api.dao.TsForecastDao;
+import com.cn.momojie.moquant.api.dto.MqForecastAdjust;
 import com.cn.momojie.moquant.api.dto.MqShareNote;
-import com.cn.momojie.moquant.api.dto.TsForecast;
+import com.cn.momojie.moquant.api.dto.ts.TsForecast;
 import com.cn.momojie.moquant.api.param.MqCodePageParam;
 import com.cn.momojie.moquant.api.param.MqShareListParam;
 import org.springframework.beans.BeanUtils;
@@ -28,18 +30,18 @@ import com.cn.momojie.moquant.api.dao.MqQuarterBasicDao;
 import com.cn.momojie.moquant.api.dao.TsBasicDao;
 import com.cn.momojie.moquant.api.dto.MqDailyBasic;
 import com.cn.momojie.moquant.api.dto.MqQuarterBasic;
-import com.cn.momojie.moquant.api.dto.TsBasic;
+import com.cn.momojie.moquant.api.dto.ts.TsBasic;
 import com.cn.momojie.moquant.api.param.MqDailyBasicParam;
 import com.cn.momojie.moquant.api.param.MqQuarterBasicParam;
 import com.cn.momojie.moquant.api.param.MqTrendParam;
 import com.cn.momojie.moquant.api.util.BigDecimalUtils;
 import com.cn.momojie.moquant.api.util.DateTimeUtils;
 import com.cn.momojie.moquant.api.util.PinYinUtil;
+import com.cn.momojie.moquant.api.vo.MqForecastInfo;
 import com.cn.momojie.moquant.api.vo.MqShareDetail;
 import com.cn.momojie.moquant.api.vo.MqShareTrend;
 import com.cn.momojie.moquant.api.vo.PageResult;
 import com.cn.momojie.moquant.api.vo.ShareListItem;
-import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
 
 import lombok.extern.slf4j.Slf4j;
@@ -65,6 +67,9 @@ public class MqInfoQueryService {
 
     @Autowired
     private TsForecastDao forecastDao;
+
+    @Autowired
+    private MqForecastAdjustDao forecastAdjustDao;
 
     @Autowired
     private MqSysParamService mqSysParamService;
@@ -109,24 +114,8 @@ public class MqInfoQueryService {
 			BeanUtils.copyProperties(quarter, detail);
 		}
 
-		fillForecastInfo(detail);
-
 		return detail;
     }
-
-    private void fillForecastInfo(MqShareDetail detail) {
-    	if (detail.getReportPeriod() == null || detail.getForecastPeriod() == null) {
-    		return ;
-		}
-    	if (detail.getReportPeriod().equals(detail.getForecastPeriod())) {
-    		return ;
-		}
-		TsForecast forecast = forecastDao.selectOne(detail.getTsCode(), detail.getForecastPeriod());
-    	if (forecast == null) {
-    		return ;
-		}
-    	detail.setForecastReason(forecast.getChangeReason());
-	}
 
 	public MqShareTrend getTrendFromDaily(MqTrendParam input, TsBasic basic,
 			Function<MqDailyBasic, BigDecimal> y1Get, Function<MqDailyBasic, BigDecimal> y2Get) {
@@ -312,5 +301,34 @@ public class MqInfoQueryService {
 	public PageResult<MqShareNote> getNotes(MqCodePageParam param) {
 		PageHelper.startPage(param.getPageNum(), param.getPageSize());
 		return PageResult.fromList(noteDao.getByCode(param.getTsCode()));
+	}
+
+	public MqForecastInfo getForecastInfo(String code) {
+		MqForecastInfo result = new MqForecastInfo();
+
+		MqQuarterBasic quarter = quarterBasicDao.selectLatestByCode(code);
+
+		if (quarter.getReportPeriod() == null || quarter.getForecastPeriod() == null) {
+			return result;
+		}
+		if (quarter.getReportPeriod().equals(quarter.getForecastPeriod())) {
+			return result;
+		}
+		result.setPeriod(quarter.getForecastPeriod());
+		result.setDprofit(quarter.getDprofit());
+		result.setLatest(true);
+		TsForecast forecast = forecastDao.selectOne(quarter.getTsCode(), quarter.getForecastPeriod());
+		if (forecast != null) {
+			result.setForecastReason(forecast.getChangeReason());
+		}
+
+		MqForecastAdjust forecastAdjust = forecastAdjustDao.selectOne(quarter.getTsCode(), quarter.getForecastPeriod(),
+				MqForecastAdjustType.FORECAST);
+		if (forecastAdjust != null) {
+			result.setAdjustReason(forecastAdjust.getRemark());
+			result.setOneTime(forecastAdjust.getOneTime());
+		}
+
+		return result;
 	}
 }

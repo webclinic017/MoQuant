@@ -1,4 +1,4 @@
-package com.cn.momojie.moquant.api.dto;
+package com.cn.momojie.moquant.api.dto.ts;
 
 public class TsBasic {
     private Long id;
