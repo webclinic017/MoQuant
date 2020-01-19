@@ -68,6 +68,9 @@ class TsClient(object):
     def fetch_forecast(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
         return self.__pro.forecast(ts_code=ts_code, start_date=start_date, end_date=end_date)
 
+    def fetch_forecast_by_date(self, ann_date: str) -> DataFrame:
+        return self.__pro.forecast(ann_date=ann_date)
+
     def fetch_express(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
         return self.__pro.express(ts_code=ts_code, start_date=start_date, end_date=end_date)
 
@@ -82,12 +85,10 @@ class TsClient(object):
     def fetch_disclosure_date(self, date: str) -> DataFrame:
         return self.__pro.disclosure_date(pre_date=date)
 
-    def fetch_forecast_by_ann(self, ann_date: str) -> DataFrame:
-        return self.__pro.forecast(ann_date=ann_date)
-
     def fetch_trade_cal(self, start_date=None, end_date=None, is_open=None) -> DataFrame:
         df1: DataFrame = self.__pro.trade_cal(exchange='SSE', start_date=start_date, end_date=end_date, is_open=is_open)
-        df2: DataFrame = self.__pro.trade_cal(exchange='SZSE', start_date=start_date, end_date=end_date, is_open=is_open)
+        df2: DataFrame = self.__pro.trade_cal(exchange='SZSE', start_date=start_date, end_date=end_date,
+                                              is_open=is_open)
         return df1.append(df2)
 
     def fetch_dividend(self, ts_code: str = None, ann_date: str = None) -> DataFrame:
@@ -99,3 +100,7 @@ class TsClient(object):
 
 
 ts_client = TsClient()
+
+if __name__ == '__main__':
+    df = ts_client.fetch_forecast('600570.SH', '20200120', '20200117')
+    log.info(df)

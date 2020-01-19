@@ -22,8 +22,9 @@ def fetch_from_date():
     return from_date
 
 
-def fetch(to_date: str = get_current_dt()):
+def fetch():
     from_date = fetch_from_date()
+    to_date: str = format_delta(from_date, 10)
     log.info('Ready to fetch trade cal %s ~ %s' % (from_date, to_date))
     session: Session = db_client.get_session()
     session.query(TsTradeCal).filter(and_(TsTradeCal.cal_date >= from_date, TsTradeCal.cal_date <= to_date)).delete()

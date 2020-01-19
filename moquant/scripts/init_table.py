@@ -5,6 +5,7 @@
 import moquant.dbclient as client
 from moquant.dbclient.base import Base
 from moquant.dbclient.mq_daily_basic import MqDailyBasic
+from moquant.dbclient.mq_fetch_latest_record import MqFetchLatestRecord
 from moquant.dbclient.mq_forecast_adjust import MqForecastAdjust
 from moquant.dbclient.mq_quarter_basic import MqQuarterBasic
 from moquant.dbclient.mq_share_note import MqShareNote
@@ -28,13 +29,9 @@ from moquant.dbclient.ts_trade_cal import TsTradeCal
 def create_table():
     engine = client.db_client.get_engine()
     all_table = [MqSysParam, MqStockMark, MqDailyBasic, MqQuarterBasic, MqForecastAdjust, MqShareNote,
+                 MqFetchLatestRecord,
                  TsBasic, TsDailyBasic, TsDailyTradeInfo, StockAdjFactor,
                  TsIncome, TsBalanceSheet, TsCashFlow, TsForecast, TsExpress,
                  TsFinaIndicator, TsDividend, TsStkLimit, TsTradeCal]
 
-    # Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
-
-
-if __name__ == '__main__':
-    create_table()

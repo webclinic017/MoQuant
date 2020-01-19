@@ -1,53 +1,31 @@
-import sys
-
 from pandas import DataFrame, Series
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 from moquant.dbclient import db_client
-from moquant.dbclient.mq_daily_basic import MqDailyBasic
-from moquant.dbclient.mq_quarter_basic import MqQuarterBasic
-from moquant.dbclient.mq_stock_mark import MqStockMark
-from moquant.dbclient.ts_balance_sheet import TsBalanceSheet
-from moquant.dbclient.ts_cashflow import TsCashFlow
-from moquant.dbclient.ts_fina_indicator import TsFinaIndicator
+from moquant.dbclient.mq_fetch_latest_record import MqFetchLatestRecord
+from moquant.dbclient.ts_forecast import TsForecast
 from moquant.dbclient.ts_income import TsIncome
+from moquant.dbclient.ts_trade_cal import TsTradeCal
 from moquant.log import get_logger
-from moquant.scripts import fetch_data, cal_mq_quarter, cal_mq_daily, cal_grow
+from moquant.scripts import fetch_data, cal_mq_daily, recalculate, clear_after_fetch
 from moquant.tsclient import ts_client
-from moquant.utils import threadpool
-from moquant.utils.date_utils import get_current_dt, format_delta
+from moquant.utils import threadpool, env_utils
+from moquant.utils.date_utils import get_current_dt
 
 log = get_logger(__name__)
 
-
-def recal_after_report(ts_code: str, dt: str, period: str):
+def get_fetch_record(fetch_type: str, dt: str):
     session: Session = db_client.get_session()
-    basic: MqStockMark = session.query(MqStockMark).filter(MqStockMark.ts_code == ts_code).one()
-    quarter_list = cal_mq_quarter.calculate(ts_code, basic.share_name, fix_from=period)
-    for quarter in quarter_list:  # type: MqQuarterBasic
-        session.merge(quarter, True)
-    session.flush()
-    daily_list = cal_mq_daily.calculate(ts_code, basic.share_name, dt, fix_from=dt)
-    new_grow_score = 0
-    for daily in daily_list:  # type: MqDailyBasic
-        session.merge(daily, True)
-        new_grow_score = cal_grow.cal_growing_score(daily)
-        basic.grow_score = new_grow_score
-    session.flush()
+    record_arr = session.query(MqFetchLatestRecord).filter(MqFetchLatestRecord.ann_date == dt,
+                                                           MqFetchLatestRecord.fetch_type == fetch_type).all()
+    session.close()
 
 
-def run(dt: str = get_current_dt()):
-    if dt is None:
-        dt = get_current_dt()
-
-    if not cal_mq_daily.is_done(dt):
-        log.info('Daily calculation is not done. Skip fetching latest')
-        return
-
+def check_report(dt: str):
     session: Session = db_client.get_session()
     # Check new report
-    to_check: DataFrame = ts_client.fetch_disclosure_date(format_delta(dt, 1))
+    to_check: DataFrame = ts_client.fetch_disclosure_date(dt)
     end_date_column: Series = to_check['end_date']
     end_date_column = end_date_column.drop_duplicates().sort_values(ascending=True)
     log.info('%s periods to check in %s' % (len(end_date_column), dt))
@@ -70,22 +48,43 @@ def run(dt: str = get_current_dt()):
             .drop_duplicates(['ts_code', 'end_date'])
         log.info('%s to recalculate for %s' % (len(success), period))
         for index, row in success.iterrows():
-            # recal_after_report(ts_code=row.ts_code, to_date=dt, period=period)
-            threadpool.submit(recal_after_report, ts_code=row.ts_code, to_date=dt, period=period)
+            if env_utils.parallel():
+                threadpool.submit(recalculate.run, ts_code=row.ts_code)
+            else:
+                recalculate.run(row.ts_code)
         threadpool.join()
 
-    # Check forecast
+
+def check_forecast(dt: str):
+    df: DataFrame = ts_client.fetch_forecast_by_date(dt)
+    if df.empty:
+        log.info('Not new forecast in %s' % dt)
+        return
+
+    record_arr = get_fetch_record('forecast', dt)
+    existed_code = set([i.ts_code for i in record_arr])
+    dt = dt[~dt['ts_code'].isin(existed_code)]
+
+    db_client.store_dataframe(df, TsForecast.__tablename__)
+    for index, data in df.iterrows():
+        clear_after_fetch.clear_duplicate_forecast(TsForecast.__tablename__, data['ts_code'])
+        recalculate.run(data['ts_code'])
+
+def run():
+    dt = get_current_dt()
+
+    if not cal_mq_daily.is_done(dt):
+        log.info('Daily calculation is not done. Skip fetching latest')
+        return
+
+    dt = get_next_trade_dt(get_current_dt())
+
+    check_report(dt)
+    check_forecast(dt)
 
 
-def clear_report_by_date(dt: str):
+def get_next_trade_dt(dt: str):
     session: Session = db_client.get_session()
-    session.query(TsIncome).filter(TsIncome.f_ann_date == format_delta(dt, 1)).delete()
-    session.query(TsBalanceSheet).filter(TsBalanceSheet.f_ann_date == format_delta(dt, 1)).delete()
-    session.query(TsCashFlow).filter(TsCashFlow.f_ann_date == format_delta(dt, 1)).delete()
-    session.query(TsFinaIndicator).filter(TsFinaIndicator.ann_date == format_delta(dt, 1)).delete()
-
-
-if __name__ == '__main__':
-    to_date = sys.argv[1] if len(sys.argv) > 1 else None
-    # clear_report_by_date(to_date)
-    run(to_date)
+    cal_arr = session.query(TsTradeCal).filter(TsTradeCal.is_open == '1', TsTradeCal.cal_date >= dt) \
+        .order_by(TsTradeCal.cal_date.asc()).limit(1).all()
+    return cal_arr[0].cal_date

@@ -175,7 +175,7 @@ def run(ts_code, to_date: str = get_current_dt()):
 
     threadpool.submit(fetch_dividend.update_dividend_to, dt=to_date)
     threadpool.submit(fetch_stk_limit.update_stk_limit_to, dt=to_date)
-    threadpool.submit(fetch_trade_cal.fetch, to_date=to_date)
+    threadpool.submit(fetch_trade_cal.fetch)
 
     if ts_code is not None and ts_code != '':
         session: Session = db_client.get_session()
