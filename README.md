@@ -13,7 +13,8 @@ Key|Value|Desc
 |LOG_FILE_NAME|/your-log-path/xx.log|日志保存路径|
 |ECHO_SQL|1|输出Sql
 |PASS_FETCH_BASIC|1|跳过获取股票基本信息
-|SIM_ORDER_FILE_NAME|/your-path/xx.json|回测交易记录
+|SIM_ORDER_FILE_NAME|/your-path/xx.json|回测交易记录|
+|FORECAST_SAVED_PATH|/your-path/|预报保存位置，其中应该有forecast.html，为Choice导出的预报列表|
 
 
 

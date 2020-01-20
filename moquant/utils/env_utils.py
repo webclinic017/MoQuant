@@ -24,5 +24,13 @@ def to_echo_sql() -> bool:
     return get_env_value('ECHO_SQL') == '1'
 
 
+def forecast_html_path() -> str:
+    return os.path.join(forecast_saved_path(), 'forecast.html')
+
+
+def forecast_saved_path() -> str:
+    return get_env_value('FORECAST_SAVED_PATH')
+
+
 def pass_fetch_basic() -> bool:
     return get_env_value('PASS_FETCH_BASIC') == '1'
