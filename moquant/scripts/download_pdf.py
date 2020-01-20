@@ -16,6 +16,16 @@ def full_file_path_name(dt, file_name):
     file_path = os.path.join(parent_dir, file_name)
     return file_path
 
+def split_name_code(name_code: str):
+    name_code_arr = name_code.split('(')
+    return name_code_arr[0], name_code_arr[1][:-1]
+
+def format_file_name(name: str, code: str, col_val: str):
+    short_name = col_val[col_val.index(name) + len(name):]
+    if short_name.startswith(':'):
+        short_name = short_name[1:]
+    return '%s-%s-%s.pdf' % (code, name, short_name)
+
 
 def forecast():
     html_path = env_utils.forecast_html_path()
@@ -28,8 +38,8 @@ def forecast():
     for row in rows:
         columns = row.xpath('td')
         dt = columns[1].text
-        code = columns[2].xpath('a')[0].attrib['code']
-        file_name = '%s-%s.pdf' % (code, columns[3].attrib['title'])
+        corp_name, code = split_name_code(columns[2].attrib['title'])
+        file_name = format_file_name(corp_name, code, columns[3].attrib['title'])
         full = full_file_path_name(dt, file_name)
         download_url = columns[4].xpath('img')[0].attrib['url']
         if os.path.exists(full):
