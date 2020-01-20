@@ -8,6 +8,7 @@ from moquant.utils import env_utils
 
 log = get_logger(__name__)
 
+
 def full_file_path_name(dt, file_name):
     parent_dir = os.path.join(env_utils.forecast_saved_path(), dt)
     if not os.path.exists(parent_dir):
@@ -17,7 +18,10 @@ def full_file_path_name(dt, file_name):
 
 
 def forecast():
-    html_file = open(env_utils.forecast_html_path(), 'r', encoding='utf-8')
+    html_path = env_utils.forecast_html_path()
+    if os.path.exists(html_path):
+        log.warn('File not found: %s' % html_path)
+    html_file = open(html_path, 'r', encoding='utf-8')
     html_str = html_file.read()
     html = etree.HTML(html_str)
     rows = html.xpath('//body//table[@id="FavoriteTable"]/tbody/tr')

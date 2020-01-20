@@ -15,6 +15,7 @@ from moquant.utils.date_utils import get_current_dt
 
 log = get_logger(__name__)
 
+
 def get_fetch_record(fetch_type: str, dt: str):
     session: Session = db_client.get_session()
     record_arr = session.query(MqFetchLatestRecord).filter(MqFetchLatestRecord.ann_date == dt,
@@ -69,6 +70,7 @@ def check_forecast(dt: str):
     for index, data in df.iterrows():
         clear_after_fetch.clear_duplicate_forecast(TsForecast.__tablename__, data['ts_code'])
         recalculate.run(data['ts_code'])
+
 
 def run():
     dt = get_current_dt()
