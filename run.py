@@ -14,7 +14,7 @@ if __name__ == '__main__':
     elif args.job == 'clear':
         clear_all_data.run(args.code)
     elif args.job == 'fetch_daily':
-        fetch_data.run(args.code, args.to_date)
+        fetch_data.run(args.code, args.date)
     elif args.job == 'fetch_latest':
         fetch_latest.run()
     elif args.job == 'recalculate':
