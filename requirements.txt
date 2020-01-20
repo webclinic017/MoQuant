@@ -14,7 +14,6 @@ lxml==4.4.1
 multidict==4.5.2
 numpy==1.17.2
 pandas==0.25.1
-pdfminer.six==20200104
 pycryptodome==3.9.4
 PyMySQL==0.9.3
 python-dateutil==2.8.0
