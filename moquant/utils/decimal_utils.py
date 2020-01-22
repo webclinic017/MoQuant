@@ -29,7 +29,7 @@ def sub(a, *args):
 
 def mul(a, b, err_default=0):
     if a is None or b is None:
-        return err_default
+        return Decimal(err_default) if err_default is not None else None
     if not isinstance(a, Decimal):
         a = Decimal(a)
     if not isinstance(b, Decimal):
@@ -39,7 +39,7 @@ def mul(a, b, err_default=0):
 
 def div(a, b, err_default=0):
     if a is None or b is None or b == 0:
-        return Decimal(err_default)
+        return Decimal(err_default) if err_default is not None else None
     if not isinstance(a, Decimal):
         a = Decimal(a)
     if not isinstance(b, Decimal):
@@ -47,9 +47,9 @@ def div(a, b, err_default=0):
     return a / b
 
 
-def yoy(current, last_year):
+def yoy(current, last_year, err_default=None):
     if current is None or last_year is None or last_year == 0:
-        return None
+        return Decimal(err_default) if err_default is not None else None
     else:
         return (current - last_year) / abs(last_year)
 
