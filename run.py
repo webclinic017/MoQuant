@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from moquant.log import get_logger
-from moquant.scripts import clear_all_data, init_table, fetch_data, fetch_latest, recalculate, download_pdf
+from moquant.scripts import clear_all_data, init_table, fetch_data, fetch_latest, download_pdf, calculate
 from moquant.utils import env_utils
 
 log = get_logger(__name__)
@@ -18,7 +18,7 @@ if __name__ == '__main__':
     elif args.job == 'fetch_latest':
         fetch_latest.run()
     elif args.job == 'recalculate':
-        recalculate.run(args.code)
+        calculate.recalculate(args.code)
     elif args.job == 'df':
         download_pdf.forecast()
     else:

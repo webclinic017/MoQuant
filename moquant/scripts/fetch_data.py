@@ -21,8 +21,9 @@ from moquant.dbclient.ts_fina_indicator import TsFinaIndicator
 from moquant.dbclient.ts_forecast import TsForecast
 from moquant.dbclient.ts_income import TsIncome
 from moquant.log import get_logger
-from moquant.scripts import clear_after_fetch, cal_mq_quarter, cal_mq_daily, fetch_dividend, fetch_stk_limit, \
-    fetch_trade_cal
+from moquant.scripts import clear_after_fetch, fetch_dividend, fetch_stk_limit, \
+    fetch_trade_cal, calculate
+from moquant.scripts.calculate import cal_mq_daily
 from moquant.tsclient import ts_client
 from moquant.utils import threadpool
 from moquant.utils.date_utils import format_delta, get_current_dt
@@ -132,12 +133,7 @@ def fetch_data(to_date: str = get_current_dt()):
 
 def do_after_fetch(ts_code: str):
     clear_after_fetch.clear(ts_code)
-    threadpool.submit(mq_calculate, ts_code=ts_code)
-
-
-def mq_calculate(ts_code: str):
-    cal_mq_quarter.calculate_by_code(ts_code=ts_code)
-    cal_mq_daily.calculate_by_code(ts_code=ts_code)
+    threadpool.submit(calculate.run, ts_code=ts_code)
 
 
 def init_stock_basic():

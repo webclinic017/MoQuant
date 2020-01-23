@@ -91,6 +91,7 @@ def update_with_manual(agg: MqForecastAgg, manual: MqManualReport, margin_info: 
     agg.ts_code = manual.ts_code
     agg.ann_date = manual.ann_date
     agg.end_date = manual.end_date
+    agg.forecast_type = manual.report_type
     agg.revenue = manual.revenue
     agg.revenue_ly = manual.revenue_ly
     agg.nprofit = manual.nprofit
@@ -100,6 +101,7 @@ def update_with_manual(agg: MqForecastAgg, manual: MqManualReport, margin_info: 
     agg.changed_reason = manual.changed_reason
     agg.manual_adjust_reason = manual.manual_adjust_reason
     agg.from_manual = True
+    agg.one_time = manual.one_time
     cal_with_margin(agg, margin_info)
 
 
@@ -141,11 +143,13 @@ def update_with_forecast(agg: MqForecastAgg, forecast: TsForecast, income: TsInc
     agg.ts_code = forecast.ts_code
     agg.ann_date = forecast.ann_date
     agg.end_date = forecast.end_date
+    agg.forecast_type = 1
     forecast_min_nprofit = get_forecast_nprofit_ly(forecast, income)
     if forecast_min_nprofit is not None:
         agg.nprofit = forecast_min_nprofit
     if forecast.last_parent_net is not None:
         agg.nprofit_ly = forecast.last_parent_net * 10000
+    agg.changed_reason = forecast.change_reason
     agg.from_manual = False
     update_with_adjust(agg, adjust)
     cal_with_margin(agg, margin_info)
@@ -155,11 +159,22 @@ def update_with_express(agg: MqForecastAgg, express: TsExpress, margin_info: set
     agg.ts_code = express.ts_code
     agg.ann_date = express.ann_date
     agg.end_date = express.end_date
+    agg.forecast_type = 2
     agg.nprofit = express.n_income
     agg.revenue = express.revenue
     agg.nprofit_ly = express.yoy_net_profit
     agg.revenue_ly = express.or_last_year
     cal_with_margin(agg, margin_info)
+
+
+def is_valid(agg: MqForecastAgg) -> bool:
+    if agg is None:
+        return False
+    if agg.ts_code is None or agg.ann_date is None or agg.end_date is None or agg.forecast_type is None:
+        return False
+    if agg.revenue is None and agg.nprofit is None and agg.dprofit is None:
+        return False
+    return True
 
 
 def calculate(ts_code, share_name):
@@ -199,7 +214,7 @@ def calculate(ts_code, share_name):
 
     forecast_manual_arr = session.query(MqManualReport) \
         .filter(MqManualReport.ts_code == ts_code, MqManualReport.ann_date >= from_date,
-                MqManualReport.end_date >= from_period, MqManualReport.report_type == 0) \
+                MqManualReport.end_date >= from_period, MqManualReport.report_type != 3) \
         .order_by(MqManualReport.ann_date.asc(), MqManualReport.end_date.asc()).all()
 
     income_arr = session.query(TsIncome) \
@@ -245,7 +260,7 @@ def calculate(ts_code, share_name):
         f_i = get_index_by_end_date(forecast_arr, from_period, f_i)
         e_i = get_index_by_end_date(express_arr, from_period, e_i)
         fm_i = get_index_by_end_date(forecast_manual_arr, from_period, fm_i)
-        if agg.end_date is not None:
+        if is_valid(agg):
             result_list.append(agg)
 
     calculate_time = time.time()

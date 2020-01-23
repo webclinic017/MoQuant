@@ -16,8 +16,8 @@ from moquant.dbclient.mq_sys_param import MqSysParam
 from moquant.dbclient.ts_basic import TsBasic
 from moquant.dbclient.ts_daily_basic import TsDailyBasic
 from moquant.log import get_logger
-from moquant.scripts.cal_grow import cal_growing_score
-from moquant.scripts.cal_val import cal_val_score
+from moquant.scripts.calculate.cal_grow import cal_growing_score
+from moquant.scripts.calculate.cal_val import cal_val_score
 from moquant.utils.date_utils import format_delta, get_current_dt
 from moquant.utils.decimal_utils import div
 

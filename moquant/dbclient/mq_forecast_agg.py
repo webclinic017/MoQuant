@@ -12,6 +12,7 @@ class MqForecastAgg(Base):
     ts_code = Column('ts_code', String(10), primary_key=True, comment='TS股票代码')
     ann_date = Column('ann_date', String(10), primary_key=True, comment='公共日期')
     end_date = Column('end_date', String(10), primary_key=True, comment='报告期')
+    forecast_type = Column('forecast_type', INT, comment='类型 1-预报 2-快报')
     revenue = Column('revenue', DECIMAL(30, 10), comment='累计营业收入')
     revenue_ly = Column('revenue_ly', DECIMAL(30, 10), comment='累计营业收入-去年同期')
     nprofit = Column('nprofit', DECIMAL(30, 10), comment='累计归母净利润')

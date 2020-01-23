@@ -8,16 +8,6 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import com.cn.momojie.moquant.api.constant.MqForecastAdjustType;
-import com.cn.momojie.moquant.api.dao.MqForecastAdjustDao;
-import com.cn.momojie.moquant.api.dao.MqShareNoteDao;
-import com.cn.momojie.moquant.api.dao.MqStockMarkDao;
-import com.cn.momojie.moquant.api.dao.TsForecastDao;
-import com.cn.momojie.moquant.api.dto.MqForecastAdjust;
-import com.cn.momojie.moquant.api.dto.MqShareNote;
-import com.cn.momojie.moquant.api.dto.ts.TsForecast;
-import com.cn.momojie.moquant.api.param.MqCodePageParam;
-import com.cn.momojie.moquant.api.param.MqShareListParam;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -26,13 +16,22 @@ import org.springframework.util.StringUtils;
 import com.cn.momojie.moquant.api.constant.SysParamKey;
 import com.cn.momojie.moquant.api.constant.TrendType;
 import com.cn.momojie.moquant.api.dao.MqDailyBasicDao;
+import com.cn.momojie.moquant.api.dao.MqForecastAggDao;
+import com.cn.momojie.moquant.api.dao.MqMessageDao;
 import com.cn.momojie.moquant.api.dao.MqQuarterBasicDao;
+import com.cn.momojie.moquant.api.dao.MqShareNoteDao;
 import com.cn.momojie.moquant.api.dao.TsBasicDao;
 import com.cn.momojie.moquant.api.dto.MqDailyBasic;
+import com.cn.momojie.moquant.api.dto.MqForecastAgg;
+import com.cn.momojie.moquant.api.dto.MqMessage;
 import com.cn.momojie.moquant.api.dto.MqQuarterBasic;
+import com.cn.momojie.moquant.api.dto.MqShareNote;
 import com.cn.momojie.moquant.api.dto.ts.TsBasic;
+import com.cn.momojie.moquant.api.param.MqCodePageParam;
 import com.cn.momojie.moquant.api.param.MqDailyBasicParam;
+import com.cn.momojie.moquant.api.param.MqMessageParam;
 import com.cn.momojie.moquant.api.param.MqQuarterBasicParam;
+import com.cn.momojie.moquant.api.param.MqShareListParam;
 import com.cn.momojie.moquant.api.param.MqTrendParam;
 import com.cn.momojie.moquant.api.util.BigDecimalUtils;
 import com.cn.momojie.moquant.api.util.DateTimeUtils;
@@ -60,16 +59,13 @@ public class MqInfoQueryService {
     private MqQuarterBasicDao quarterBasicDao;
 
     @Autowired
-    private MqStockMarkDao mqStockMarkDao;
-
-    @Autowired
     private MqShareNoteDao noteDao;
 
     @Autowired
-    private TsForecastDao forecastDao;
+    private MqForecastAggDao forecastAggDao;
 
     @Autowired
-    private MqForecastAdjustDao forecastAdjustDao;
+    private MqMessageDao messageDao;
 
     @Autowired
     private MqSysParamService mqSysParamService;
@@ -317,18 +313,20 @@ public class MqInfoQueryService {
 		result.setPeriod(quarter.getForecastPeriod());
 		result.setDprofit(quarter.getDprofit());
 		result.setLatest(true);
-		TsForecast forecast = forecastDao.selectOne(quarter.getTsCode(), quarter.getForecastPeriod());
-		if (forecast != null) {
-			result.setForecastReason(forecast.getChangeReason());
-		}
 
-		MqForecastAdjust forecastAdjust = forecastAdjustDao.selectOne(quarter.getTsCode(), quarter.getForecastPeriod(),
-				MqForecastAdjustType.FORECAST);
-		if (forecastAdjust != null) {
-			result.setAdjustReason(forecastAdjust.getRemark());
-			result.setOneTime(forecastAdjust.getOneTime());
+		MqForecastAgg forecast = forecastAggDao.selectLatest(quarter.getTsCode());
+		if (forecast != null) {
+			result.setForecastReason(forecast.getChangedReason());
+			result.setAdjustReason(forecast.getManualAdjustReason());
+			result.setOneTime(forecast.getOneTime());
+			result.setFromManual(forecast.getFromManual());
 		}
 
 		return result;
+	}
+
+	public PageResult<MqMessage> getLatestReportList(MqMessageParam param) {
+		PageHelper.startPage(param.getPageNum(), param.getPageSize());
+		return PageResult.fromList(messageDao.getLatestByType(param.getMsgType()));
 	}
 }

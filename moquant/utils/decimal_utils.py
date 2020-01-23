@@ -70,3 +70,36 @@ def avg_in_exists(*args):
             total += Decimal(num)
         count += 1
     return div(total, count)
+
+
+def cut_format(num: Decimal):
+    if num is None:
+        return '0'
+    elif not isinstance(num, Decimal):
+        num = Decimal(num)
+    if num >= 100:
+        return num.quantize(Decimal('0.0'))
+    else:
+        return num.quantize(Decimal('0.00'))
+
+
+def unit_format(num):
+    if num is None:
+        return '0'
+    elif not isinstance(num, Decimal):
+        num = Decimal(num)
+    abs_val = num.copy_abs()
+    if abs_val >= pow(10, 8):
+        return '%s亿' % cut_format(div(num, pow(10, 8)))
+    elif abs_val >= pow(10, 4):
+        return '%s万' % cut_format(div(num, pow(10, 4)))
+    else:
+        return '%s' % cut_format(num)
+
+
+def percent_format(num):
+    if num is None:
+        num = 0
+    if not isinstance(num, Decimal):
+        num = Decimal(num)
+    return '%s%%' % cut_format(num * 100)

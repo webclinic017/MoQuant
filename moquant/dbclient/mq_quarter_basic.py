@@ -2,7 +2,7 @@
 计算逻辑备忘
 1. 对于调整：年中财报有对去年进行调整的，计算ltm时在去年Q4上加上调整值
 """
-from sqlalchemy import Column, String, DECIMAL, Boolean, Index
+from sqlalchemy import Column, String, DECIMAL, Boolean, Index, INT
 
 from moquant.dbclient.base import Base
 
@@ -17,7 +17,9 @@ class MqQuarterBasic(Base):
     share_name = Column('share_name', String(20), comment='股票名称')
     update_date = Column('update_date', String(10), primary_key=True, comment='更新日期，财报、预报、快报、调整、分红发布日期')
     report_period = Column('report_period', String(10), primary_key=True, comment='最近一个已披露财报报告期 yyyyMMdd')
+    adjust_ly = Column('adjust_ly', Boolean, server_default='0', comment='调整往年')
     forecast_period = Column('forecast_period', String(10), primary_key=True, comment='最近一个已披露预报、快报报告期 yyyyMMdd')
+    forecast_type = Column('forecast_type', INT, comment='类型 1-预报 2-快报')
     revenue_period = Column('revenue_period', String(10), comment='营业收入所属报告期 yyyyMMdd')
     revenue = Column('revenue', DECIMAL(30, 10), comment='累计营业收入')
     revenue_ly = Column('revenue_ly', DECIMAL(30, 10), comment='去年累计营业收入')

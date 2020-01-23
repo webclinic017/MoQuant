@@ -18,4 +18,6 @@ public class MqForecastInfo {
 	private String adjustReason;
 
 	private Boolean oneTime;
+
+	private Boolean fromManual;
 }

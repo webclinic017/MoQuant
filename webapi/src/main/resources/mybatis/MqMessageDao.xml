@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cn.momojie.moquant.api.dao.MqMessageDao">
+  <resultMap id="BaseResultMap" type="com.cn.momojie.moquant.api.dto.MqMessage">
+    <id column="id" jdbcType="BIGINT" property="id" />
+    <result column="ts_code" jdbcType="VARCHAR" property="tsCode" />
+    <result column="msg_type" jdbcType="INTEGER" property="msgType" />
+    <result column="message" jdbcType="VARCHAR" property="message" />
+    <result column="pub_date" jdbcType="VARCHAR" property="pubDate" />
+  </resultMap>
+
+    <select id="getLatestByType" resultMap="BaseResultMap">
+        SELECT * FROM mq_message
+        WHERE pub_date >= DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 1 MONTH),'%Y%m%D')
+        AND msg_type = #{msg_type}
+        ORDER BY pub_date DESC
+    </select>
+</mapper>

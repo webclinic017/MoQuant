@@ -494,7 +494,8 @@ def calculate_period(ts_code, share_name,
     nassets = balance.total_hldr_eqy_exc_min_int if balance is not None else None
 
     ret = MqQuarterBasic(ts_code=ts_code, share_name=share_name, update_date=format_delta(ann_date, -1),
-                         report_period=report_period, forecast_period=forecast_period,
+                         report_period=report_period, adjust_ly=is_adjust,
+                         forecast_period=forecast_period, forecast_type=forecast_info.forecast_type,
                          revenue_period=revenue_period, revenue=revenue, revenue_ly=revenue_ly,
                          revenue_yoy=revenue_yoy, quarter_revenue=quarter_revenue, revenue_ltm=revenue_ltm,
                          quarter_revenue_ly=quarter_revenue_ly, quarter_revenue_yoy=quarter_revenue_yoy,

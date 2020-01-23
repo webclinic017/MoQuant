@@ -2,6 +2,7 @@ package com.cn.momojie.moquant.api.controller;
 
 import com.cn.momojie.moquant.api.param.MqCodePageParam;
 import com.cn.momojie.moquant.api.param.MqDailyBasicParam;
+import com.cn.momojie.moquant.api.param.MqMessageParam;
 import com.cn.momojie.moquant.api.param.MqShareListParam;
 import com.cn.momojie.moquant.api.param.MqTrendParam;
 import com.cn.momojie.moquant.api.service.MqInfoQueryService;
@@ -62,5 +63,10 @@ public class MqStockController {
 	@RequestMapping(path = "getForecastInfo", method = RequestMethod.POST)
 	public MqForecastInfo getForecastInfo(@RequestBody String tsCode) {
 		return mqInfoQueryService.getForecastInfo(tsCode);
+	}
+
+	@RequestMapping(path = "getLatestReportList", method = RequestMethod.POST)
+	public PageResult getLatestReportList(@RequestBody MqMessageParam param) {
+    	return mqInfoQueryService.getLatestReportList(param);
 	}
 }

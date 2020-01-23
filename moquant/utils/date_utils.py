@@ -61,3 +61,9 @@ def period_delta(d_str: str, delta: int) -> str:
             month = 3
             year = year + 1
     return get_period(year, month)
+
+
+def q_format_period(period: str) -> str:
+    year = period[0:4]
+    q = get_quarter_num(period)
+    return '%sQ%d' % (year, q)

@@ -8,7 +8,8 @@ from moquant.dbclient.ts_forecast import TsForecast
 from moquant.dbclient.ts_income import TsIncome
 from moquant.dbclient.ts_trade_cal import TsTradeCal
 from moquant.log import get_logger
-from moquant.scripts import fetch_data, cal_mq_daily, recalculate, clear_after_fetch
+from moquant.scripts import fetch_data, clear_after_fetch
+from moquant.scripts.calculate import cal_mq_daily, recalculate
 from moquant.tsclient import ts_client
 from moquant.utils import threadpool, env_utils
 from moquant.utils.date_utils import get_current_dt
@@ -50,9 +51,9 @@ def check_report(dt: str):
         log.info('%s to recalculate for %s' % (len(success), period))
         for index, row in success.iterrows():
             if env_utils.parallel():
-                threadpool.submit(recalculate.run, ts_code=row.ts_code)
+                threadpool.submit(recalculate, ts_code=row.ts_code)
             else:
-                recalculate.run(row.ts_code)
+                recalculate(row.ts_code)
         threadpool.join()
 
 
