@@ -100,7 +100,3 @@ class TsClient(object):
 
 
 ts_client = TsClient()
-
-if __name__ == '__main__':
-    df = ts_client.fetch_forecast('600570.SH', '20200120', '20200117')
-    log.info(df)

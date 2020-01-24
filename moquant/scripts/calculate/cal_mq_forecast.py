@@ -1,5 +1,4 @@
 import time
-
 from sqlalchemy.orm import Session
 
 from moquant.constants import mq_calculate_start_period, mq_calculate_start_date
@@ -7,9 +6,9 @@ from moquant.dbclient import db_client
 from moquant.dbclient.mq_forecast_adjust import MqForecastAdjust
 from moquant.dbclient.mq_forecast_agg import MqForecastAgg
 from moquant.dbclient.mq_manual_report import MqManualReport
-from moquant.dbclient.mq_quarter_basic import MqQuarterBasic
 from moquant.dbclient.mq_stock_mark import MqStockMark
 from moquant.dbclient.ts_express import TsExpress
+from moquant.dbclient.ts_fina_indicator import TsFinaIndicator
 from moquant.dbclient.ts_forecast import TsForecast
 from moquant.dbclient.ts_income import TsIncome
 from moquant.log import get_logger
@@ -20,29 +19,46 @@ from moquant.utils.decimal_utils import *
 log = get_logger(__name__)
 
 
-def get_margin(ts_code):
-    session = db_client.get_session()
-    quarter_arr = session.query(MqQuarterBasic).filter(MqForecastAgg.ts_code == ts_code,
-                                                       MqQuarterBasic.report_period == MqQuarterBasic.forecast_period) \
-        .order_by(MqQuarterBasic.report_period.desc()).limit(5)
+def get_margin(income_arr, i_i, fina_arr, fi_i, period):
+    min_period = None
+    ind = {}
+    while i_i < len(income_arr) and income_arr[i_i].end_date <= period:
+        income: TsIncome = income_arr[i_i]
+        if income.end_date not in ind:
+            ind[income.end_date] = {}
+        ind[income.end_date]['revenue'] = income.total_revenue
+        ind[income.end_date]['nprofit'] = income.n_income_attr_p
+        min_period = mini(min_period, income.end_date)
+        i_i += 1
+
+    while fi_i < len(fina_arr) and fina_arr[fi_i].end_date <= period:
+        fina: TsFinaIndicator = fina_arr[fi_i]
+        if fina.end_date not in ind:
+            ind[fina.end_date] = {}
+        ind[fina.end_date]['dprofit'] = fina.profit_dedt
+        min_period = mini(min_period, fina.end_date)
+        fi_i += 1
+
     nprofit_margin = None
     dprofit_margin = None
     dn_rate = 1
     nprofit_margin_ly = None
     dprofit_margin_ly = None
     dn_rate_ly = 1
-    i = 0
-    for quarter in quarter_arr:  # type: MqQuarterBasic
-        if i == 0:
-            nprofit_margin = div(quarter.nprofit_ltm, quarter.revenue_ltm)
-            dprofit_margin = div(quarter.dprofit_ltm, quarter.revenue_ltm)
-            dn_rate = div(quarter.dprofit_ltm, quarter.nprofit_ltm, 1)
-        if get_quarter_num(quarter.report_period) == 4:
-            nprofit_margin_ly = div(quarter.nprofit_ltm, quarter.revenue_ltm)
-            dprofit_margin_ly = div(quarter.dprofit_ltm, quarter.revenue_ltm)
-            dn_rate_ly = div(quarter.dprofit_ltm, quarter.nprofit_ltm, 1)
-        if nprofit_margin_ly is not None:
-            break
+
+    while min_period <= period:
+        if min_period in ind and 'revenue' in ind[min_period] and ind[min_period]['revenue'] is not None and \
+                'nprofit' in ind[min_period] and ind[min_period]['nprofit'] is not None and \
+                'dprofit' in ind[min_period] and ind[min_period]['dprofit'] is not None:
+            nprofit_margin = div(ind[min_period]['nprofit'], ind[min_period]['revenue'])
+            dprofit_margin = div(ind[min_period]['dprofit'], ind[min_period]['revenue'])
+            dn_rate = div(dprofit_margin, nprofit_margin, 1)
+            if get_quarter_num(min_period) == 4:
+                nprofit_margin_ly = nprofit_margin
+                dprofit_margin_ly = dprofit_margin
+                dn_rate_ly = dn_rate
+        min_period = next_period(min_period)
+
     if nprofit_margin_ly is None:
         nprofit_margin_ly = nprofit_margin
     if dprofit_margin_ly is None:
@@ -218,13 +234,18 @@ def calculate(ts_code, share_name):
         TsIncome.ts_code == ts_code, TsIncome.end_date >= period_delta(from_period, -4), TsIncome.report_type == 1) \
         .order_by(TsIncome.mq_ann_date.asc(), TsIncome.end_date.asc()).all()
 
+    fina_arr = session.query(TsFinaIndicator) \
+        .filter(
+        TsFinaIndicator.ts_code == ts_code, TsFinaIndicator.end_date >= period_delta(from_period, -4)) \
+        .order_by(TsFinaIndicator.ann_date.asc(), TsFinaIndicator.end_date.asc()).all()
+
     session.close()
-    margin_info = get_margin(ts_code)
 
     prepare_time = time.time()
     log.info("Prepare data for %s: %s seconds" % (ts_code, prepare_time - start_time))
 
     i_i = get_index_by_end_date(income_arr, period_delta(from_period, -4))
+    fi_i = get_index_by_end_date(fina_arr, period_delta(from_period, -4))
     f_i = get_index_by_end_date(forecast_arr, from_period)
     e_i = get_index_by_end_date(express_arr, from_period)
     fa_i = get_index_by_end_date(forecast_adjust_arr, from_period)
@@ -235,6 +256,7 @@ def calculate(ts_code, share_name):
     result_list = []
     while from_period <= max_period:
         agg = MqForecastAgg()
+        margin_info = get_margin(income_arr, i_i, fina_arr, fi_i, from_period)
         if same_period(forecast_manual_arr, fm_i, from_period):
             update_with_manual(agg, forecast_manual_arr[fm_i])
             fa_i += 1
@@ -253,6 +275,7 @@ def calculate(ts_code, share_name):
         else:
             from_period = next_period(from_period)
         i_i = get_index_by_end_date(income_arr, period_delta(from_period, -4), i_i)
+        fi_i = get_index_by_end_date(fina_arr, period_delta(from_period, -4), fi_i)
         f_i = get_index_by_end_date(forecast_arr, from_period, f_i)
         e_i = get_index_by_end_date(express_arr, from_period, e_i)
         fm_i = get_index_by_end_date(forecast_manual_arr, from_period, fm_i)
@@ -269,7 +292,7 @@ def calculate_and_insert(ts_code: str, share_name: str):
     if len(result_list) > 0:
         session: Session = db_client.get_session()
         start = time.time()
-        for item in result_list:  # type: MqQuarterBasic
+        for item in result_list:  # type: MqForecastAgg
             session.add(item)
         session.flush()
         session.close()
@@ -297,6 +320,7 @@ def recalculate_by_code(ts_code: str):
     session.query(MqForecastAgg).filter(MqForecastAgg.ts_code == ts_code).delete()
     session.close()
     calculate_by_code(ts_code)
+
 
 if __name__ == '__main__':
     calculate_by_code('300222.SZ')
