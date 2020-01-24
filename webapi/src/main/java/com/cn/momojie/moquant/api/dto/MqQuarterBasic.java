@@ -89,4 +89,8 @@ public class MqQuarterBasic {
 
 	private BigDecimal equityMultiplier;
 
+	private BigDecimal cashDebtRate;
+
+	private BigDecimal nprofitToCf;
+
 }

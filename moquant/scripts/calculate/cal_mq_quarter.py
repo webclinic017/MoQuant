@@ -10,6 +10,7 @@ from moquant.dbclient.mq_forecast_agg import MqForecastAgg
 from moquant.dbclient.mq_quarter_basic import MqQuarterBasic
 from moquant.dbclient.mq_stock_mark import MqStockMark
 from moquant.dbclient.ts_balance_sheet import TsBalanceSheet
+from moquant.dbclient.ts_cashflow import TsCashFlow
 from moquant.dbclient.ts_dividend import TsDividend
 from moquant.dbclient.ts_fina_indicator import TsFinaIndicator
 from moquant.dbclient.ts_income import TsIncome
@@ -175,7 +176,13 @@ def cal_dividend(report_period, main_balance_arr, sub_balance_arr, mb_i, sb_i,
     return quarter_dividend, dividend_ltm, yoy(dividend_ltm, dividend_ltm_ly)
 
 
-def cal_other_info(quarter: MqQuarterBasic, income: TsIncome, balance: TsBalanceSheet):
+def cal_other_info(quarter: MqQuarterBasic, income: TsIncome, balance: TsBalanceSheet, cf: TsCashFlow):
+    total_nprofit = None
+    run_cf = None
+
+    if income is not None:
+        total_nprofit = income.n_income
+
     if balance is not None:
         quarter.eps = div(quarter.dprofit_ltm, balance.total_share)
 
@@ -188,9 +195,17 @@ def cal_other_info(quarter: MqQuarterBasic, income: TsIncome, balance: TsBalance
         total_intangible = add(balance.goodwill, balance.r_and_d, balance.intan_assets)
         total_assests = sub(quarter.nassets, balance.oth_eqt_tools_p_shr)
         quarter.intangible_risk = div(total_intangible, total_assests)
+        quarter.cash_debt_rate = div(add(balance.money_cap, balance.oth_cur_assets),
+                                     add(balance.lt_borr, balance.st_borr))
     else:
         log.warn('Cant find balance sheet of %s %s' % (quarter.ts_code, quarter.report_period))
 
+    if cf is not None:
+        run_cf = cf.n_cashflow_act
+    else:
+        log.warn('Cant find cash flow sheet of %s %s' % (quarter.ts_code, quarter.report_period))
+
+    quarter.nprofit_to_cf = div(total_nprofit, run_cf)
     quarter.dividend_profit_ratio = div(quarter.dividend_ltm, quarter.dprofit_ltm)
 
     return quarter
@@ -411,8 +426,10 @@ def cal_du_pont(quarter: MqQuarterBasic, balance_arr: list):
 
 
 def calculate_period(ts_code, share_name,
-                     income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, fina_arr, dividend_arr,
-                     i_i, ai_i, b_i, ab_i, fi_i, d_i,
+                     income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, cash_arr, adjust_cash_arr,
+                     fina_arr, dividend_arr,
+                     i_i, ai_i, b_i, ab_i, c_i, ac_i,
+                     fi_i, d_i,
                      report_period, forecast_period,
                      forecast_info: MqForecastAgg,
                      ann_date, is_adjust
@@ -430,6 +447,11 @@ def calculate_period(ts_code, share_name,
     sub_bs_arr = balance_arr if is_adjust else adjust_balance_arr
     main_b_i = ab_i if is_adjust else b_i
     sub_b_i = b_i if is_adjust else ab_i
+
+    main_cf_arr = adjust_cash_arr if is_adjust else cash_arr
+    sub_cf_arr = cash_arr if is_adjust else adjust_cash_arr
+    main_c_i = ac_i if is_adjust else c_i
+    sub_c_i = c_i if is_adjust else ac_i
 
     income: TsIncome = find_previous_period(main_income_arr, main_i_i, report_period, 0,
                                             date_field='mq_ann_date', sub_arr=sub_income_arr, sub_pos=sub_i_i)
@@ -455,6 +477,9 @@ def calculate_period(ts_code, share_name,
                                                       date_field='mq_ann_date', sub_arr=sub_bs_arr, sub_pos=sub_b_i)
     balance_l3: TsBalanceSheet = find_previous_period(main_bs_arr, main_b_i, report_period, 3,
                                                       date_field='mq_ann_date', sub_arr=sub_bs_arr, sub_pos=sub_b_i)
+
+    cash: TsCashFlow = find_previous_period(main_cf_arr, main_c_i, report_period, 0,
+                                            date_field='mq_ann_date', sub_arr=sub_cf_arr, sub_pos=sub_c_i)
 
     adjust_income_l3: TsIncome = find_previous_period(adjust_income_arr, ai_i, report_period, 3,
                                                       date_field='mq_ann_date')
@@ -507,7 +532,7 @@ def calculate_period(ts_code, share_name,
                          quarter_dprofit_ly=quarter_dprofit_ly, quarter_dprofit_yoy=quarter_dprofit_yoy,
                          dprofit_ltm=dprofit_ltm, dprofit_forecast_one_time=one_time, nassets=nassets,
                          dividend=dividend, dividend_ltm=dividend_ltm, dividend_ltm_yoy=dividend_ltm_yoy)
-    cal_other_info(ret, income, balance)
+    cal_other_info(ret, income, balance, cash)
     cal_du_pont(ret, [balance, balance_l1, balance_l2, balance_l3])
     return ret
 
@@ -557,6 +582,16 @@ def calculate(ts_code, share_name, fix_from: str = None):
                 TsBalanceSheet.report_type == 4) \
         .order_by(TsBalanceSheet.mq_ann_date.asc(), TsBalanceSheet.end_date.asc()).all()
 
+    cash_arr = session.query(TsCashFlow) \
+        .filter(TsCashFlow.ts_code == ts_code, TsCashFlow.end_date >= period_to_get,
+                TsCashFlow.report_type == 1) \
+        .order_by(TsCashFlow.mq_ann_date.asc(), TsCashFlow.end_date.asc()).all()
+
+    adjust_cash_arr = session.query(TsCashFlow) \
+        .filter(TsCashFlow.ts_code == ts_code, TsCashFlow.end_date >= period_to_get,
+                TsCashFlow.report_type == 4) \
+        .order_by(TsCashFlow.mq_ann_date.asc(), TsCashFlow.end_date.asc()).all()
+
     fina_arr = session.query(TsFinaIndicator) \
         .filter(TsFinaIndicator.ts_code == ts_code, TsFinaIndicator.end_date >= period_to_get,
                 TsFinaIndicator.ann_date != None) \
@@ -580,6 +615,8 @@ def calculate(ts_code, share_name, fix_from: str = None):
     ab_i = get_index_by_end_date(adjust_balance_arr, period_delta(from_period, -4))
     i_i = get_index_by_end_date(income_arr, from_period)
     ai_i = get_index_by_end_date(adjust_income_arr, period_delta(from_period, -4))
+    c_i = get_index_by_end_date(cash_arr, from_period)
+    ac_i = get_index_by_end_date(adjust_cash_arr, period_delta(from_period, -4))
     fi_i = get_index_by_end_date(fina_arr, from_period)
     f_i = get_index_by_end_date(forecast_arr, from_period)
     d_i = get_index_by_end_date(dividend_arr, from_period)
@@ -588,22 +625,13 @@ def calculate(ts_code, share_name, fix_from: str = None):
     log.info("Find index for %s: %s seconds" % (ts_code, find_index_time - prepare_time))
 
     while from_period <= max_period:
-        if same_period(income_arr, i_i, from_period) and same_period(adjust_income_arr, ai_i, from_period) and \
-                same_field(income_arr, i_i, adjust_income_arr, ai_i, 'mq_ann_date'):
-            i_i += 1
-            b_i = get_index_by_end_date(balance_arr, period_delta(from_period, 1), b_i)
-            continue
-        if same_period(balance_arr, b_i, from_period) and same_period(adjust_balance_arr, ab_i, from_period) and \
-                same_field(balance_arr, b_i, adjust_balance_arr, ab_i, 'mq_ann_date'):
-            b_i += 1
-            i_i = get_index_by_end_date(income_arr, period_delta(from_period, 1), i_i)
-            continue
-
         call_cal = partial(calculate_period, ts_code=ts_code, share_name=share_name,
                            income_arr=income_arr, adjust_income_arr=adjust_income_arr,
                            balance_arr=balance_arr, adjust_balance_arr=adjust_balance_arr,
+                           cash_arr=cash_arr, adjust_cash_arr=adjust_cash_arr,
                            fina_arr=fina_arr, dividend_arr=dividend_arr,
-                           i_i=i_i, ai_i=ai_i, b_i=b_i, ab_i=ab_i, fi_i=fi_i, d_i=d_i)
+                           i_i=i_i, ai_i=ai_i, b_i=b_i, ab_i=ab_i, c_i=c_i, ac_i=ac_i,
+                           fi_i=fi_i, d_i=d_i)
 
         if same_period(forecast_arr, f_i, from_period):
             forecast: MqForecastAgg = forecast_arr[f_i]
@@ -657,6 +685,8 @@ def calculate(ts_code, share_name, fix_from: str = None):
             ab_i = get_index_by_end_date(adjust_balance_arr, period_delta(from_period, -4), ab_i)
             i_i = get_index_by_end_date(income_arr, from_period, i_i)
             ai_i = get_index_by_end_date(adjust_income_arr, period_delta(from_period, -4), ai_i)
+            c_i = get_index_by_end_date(cash_arr, from_period, c_i)
+            ac_i = get_index_by_end_date(adjust_cash_arr, period_delta(from_period, -4), ac_i)
             fi_i = get_index_by_end_date(fina_arr, from_period, fi_i)
             f_i = get_index_by_end_date(forecast_arr, from_period, f_i)
             d_i = get_index_by_end_date(dividend_arr, from_period, d_i)

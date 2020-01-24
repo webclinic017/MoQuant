@@ -58,3 +58,5 @@ class MqQuarterBasic(Base):
     dprofit_margin = Column('dprofit_margin', DECIMAL(30, 10), comment='净利率=LTM扣非净利/LTM营收')
     turnover_rate = Column('turnover_rate', DECIMAL(30, 10), comment='周转率=LTM营收/平均总资产')
     equity_multiplier = Column('equity_multiplier', DECIMAL(30, 10), comment='权益乘数=平均总资产/平均净资产')
+    cash_debt_rate = Column('cash_debt_rate', DECIMAL(30, 10), comment='存贷比=(货币资金+其他流动资产)/(短期借款+长期借款)')
+    nprofit_to_cf = Column('nprofit_to_cf', DECIMAL(30, 10), comment='利润现金流比=净利润/经营活动现金流')

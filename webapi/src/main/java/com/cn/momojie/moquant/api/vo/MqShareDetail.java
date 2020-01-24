@@ -98,4 +98,8 @@ public class MqShareDetail {
 	private BigDecimal turnoverRate;
 
 	private BigDecimal equityMultiplier;
+
+	private BigDecimal cashDebtRate;
+
+	private BigDecimal nprofitToCf;
 }

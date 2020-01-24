@@ -60,7 +60,9 @@ class TsClient(object):
         return df
 
     def fetch_cash_flow(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
-        df = self.__pro.cashflow(ts_code=ts_code, start_date=start_date, end_date=end_date)
+        df1 = self.__pro.cashflow(ts_code=ts_code, start_date=start_date, end_date=end_date, report_type=1)
+        df2 = self.__pro.cashflow(ts_code=ts_code, start_date=start_date, end_date=end_date, report_type=4)
+        df = df1.append(df2)
         if not df.empty:
             df['mq_ann_date'] = df.apply(lambda row: mini(row.ann_date, row.f_ann_date), axis=1)
         return df

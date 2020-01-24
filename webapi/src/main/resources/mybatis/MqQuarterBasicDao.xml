@@ -43,6 +43,8 @@
         <result column="dprofit_margin" jdbcType="DECIMAL" property="dprofitMargin"/>
         <result column="turnover_rate" jdbcType="DECIMAL" property="turnoverRate"/>
         <result column="equity_multiplier" jdbcType="DECIMAL" property="equityMultiplier"/>
+        <result column="cash_debt_rate" jdbcType="DECIMAL" property="cashDebtRate"/>
+        <result column="nprofit_to_cf" jdbcType="DECIMAL" property="nprofitToCf"/>
     </resultMap>
 
     <select id="selectLatestByCode" resultMap="BaseResultMap">
