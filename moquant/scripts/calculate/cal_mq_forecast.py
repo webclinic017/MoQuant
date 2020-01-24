@@ -8,102 +8,16 @@ from moquant.dbclient.mq_forecast_agg import MqForecastAgg
 from moquant.dbclient.mq_manual_report import MqManualReport
 from moquant.dbclient.mq_stock_mark import MqStockMark
 from moquant.dbclient.ts_express import TsExpress
-from moquant.dbclient.ts_fina_indicator import TsFinaIndicator
 from moquant.dbclient.ts_forecast import TsForecast
 from moquant.dbclient.ts_income import TsIncome
 from moquant.log import get_logger
 from moquant.scripts import *
 from moquant.utils.date_utils import *
-from moquant.utils.decimal_utils import *
 
 log = get_logger(__name__)
 
 
-def get_margin(income_arr, i_i, fina_arr, fi_i, period):
-    min_period = None
-    ind = {}
-    while i_i < len(income_arr) and income_arr[i_i].end_date <= period:
-        income: TsIncome = income_arr[i_i]
-        if income.end_date not in ind:
-            ind[income.end_date] = {}
-        ind[income.end_date]['revenue'] = income.total_revenue
-        ind[income.end_date]['nprofit'] = income.n_income_attr_p
-        min_period = mini(min_period, income.end_date)
-        i_i += 1
-
-    while fi_i < len(fina_arr) and fina_arr[fi_i].end_date <= period:
-        fina: TsFinaIndicator = fina_arr[fi_i]
-        if fina.end_date not in ind:
-            ind[fina.end_date] = {}
-        ind[fina.end_date]['dprofit'] = fina.profit_dedt
-        min_period = mini(min_period, fina.end_date)
-        fi_i += 1
-
-    nprofit_margin = None
-    dprofit_margin = None
-    dn_rate = 1
-    nprofit_margin_ly = None
-    dprofit_margin_ly = None
-    dn_rate_ly = 1
-
-    while min_period <= period:
-        if min_period in ind and 'revenue' in ind[min_period] and ind[min_period]['revenue'] is not None and \
-                'nprofit' in ind[min_period] and ind[min_period]['nprofit'] is not None and \
-                'dprofit' in ind[min_period] and ind[min_period]['dprofit'] is not None:
-            nprofit_margin = div(ind[min_period]['nprofit'], ind[min_period]['revenue'])
-            dprofit_margin = div(ind[min_period]['dprofit'], ind[min_period]['revenue'])
-            dn_rate = div(dprofit_margin, nprofit_margin, 1)
-            if get_quarter_num(min_period) == 4:
-                nprofit_margin_ly = nprofit_margin
-                dprofit_margin_ly = dprofit_margin
-                dn_rate_ly = dn_rate
-        min_period = next_period(min_period)
-
-    if nprofit_margin_ly is None:
-        nprofit_margin_ly = nprofit_margin
-    if dprofit_margin_ly is None:
-        dprofit_margin_ly = dprofit_margin
-    if dn_rate_ly == 1:
-        dn_rate_ly = dn_rate
-    return {'nm': nprofit_margin, 'dm': dprofit_margin, 'dn': dn_rate,
-            'nmly': nprofit_margin_ly, 'dmly': dprofit_margin_ly, 'dnly': dn_rate_ly}
-
-
-def cal_with_margin(agg: MqForecastAgg, margin_info: set):
-    if agg.revenue is not None:
-        if agg.nprofit is None:
-            agg.nprofit = mul(agg.revenue, margin_info['nm'], None)
-        if agg.dprofit is None:
-            agg.dprofit = mul(agg.revenue, margin_info['dm'], None)
-    if agg.nprofit is not None:
-        if agg.revenue is None:
-            agg.revenue = div(agg.nprofit, margin_info['nm'], None)
-        if agg.dprofit is None:
-            agg.dprofit = mul(agg.nprofit, margin_info['dn'], None)
-    if agg.dprofit is not None:
-        if agg.revenue is None:
-            agg.revenue = div(agg.dprofit, margin_info['dm'], None)
-        if agg.nprofit is None:
-            agg.nprofit = div(agg.dprofit, margin_info['dn'], None)
-
-    if agg.revenue_ly is not None:
-        if agg.nprofit_ly is None:
-            agg.nprofit_ly = mul(agg.revenue_ly, margin_info['nmly'], None)
-        if agg.dprofit_ly is None:
-            agg.dprofit_ly = mul(agg.revenue_ly, margin_info['dmly'], None)
-    if agg.nprofit_ly is not None:
-        if agg.revenue_ly is None:
-            agg.revenue_ly = div(agg.nprofit_ly, margin_info['nmly'], None)
-        if agg.dprofit_ly is None:
-            agg.dprofit_ly = mul(agg.nprofit_ly, margin_info['dnly'], None)
-    if agg.dprofit_ly is not None:
-        if agg.revenue_ly is None:
-            agg.revenue_ly = div(agg.dprofit_ly, margin_info['dmly'], None)
-        if agg.nprofit_ly is None:
-            agg.nprofit_ly = div(agg.dprofit_ly, margin_info['dnly'], None)
-
-
-def update_with_manual(agg: MqForecastAgg, manual: MqManualReport, margin_info: set):
+def update_with_manual(agg: MqForecastAgg, manual: MqManualReport):
     agg.ts_code = manual.ts_code
     agg.ann_date = manual.ann_date
     agg.end_date = manual.end_date
@@ -118,7 +32,6 @@ def update_with_manual(agg: MqForecastAgg, manual: MqManualReport, margin_info: 
     agg.manual_adjust_reason = manual.manual_adjust_reason
     agg.from_manual = True
     agg.one_time = manual.one_time
-    cal_with_margin(agg, margin_info)
 
 
 def get_forecast_nprofit_ly(forecast: TsForecast, income_ly: TsIncome):
@@ -155,7 +68,7 @@ def update_with_adjust(agg: MqForecastAgg, manual: MqForecastAdjust):
 
 
 def update_with_forecast(agg: MqForecastAgg, forecast: TsForecast, income_ly: TsIncome,
-                         adjust: MqForecastAdjust, margin_info: set):
+                         adjust: MqForecastAdjust):
     agg.ts_code = forecast.ts_code
     agg.ann_date = forecast.ann_date
     agg.end_date = forecast.end_date
@@ -168,10 +81,9 @@ def update_with_forecast(agg: MqForecastAgg, forecast: TsForecast, income_ly: Ts
     agg.changed_reason = forecast.change_reason
     agg.from_manual = False
     update_with_adjust(agg, adjust)
-    cal_with_margin(agg, margin_info)
 
 
-def update_with_express(agg: MqForecastAgg, express: TsExpress, margin_info: set):
+def update_with_express(agg: MqForecastAgg, express: TsExpress):
     agg.ts_code = express.ts_code
     agg.ann_date = express.ann_date
     agg.end_date = express.end_date
@@ -180,7 +92,6 @@ def update_with_express(agg: MqForecastAgg, express: TsExpress, margin_info: set
     agg.revenue = express.revenue
     agg.nprofit_ly = express.yoy_net_profit
     agg.revenue_ly = express.or_last_year
-    cal_with_margin(agg, margin_info)
 
 
 def is_valid(agg: MqForecastAgg) -> bool:
@@ -234,18 +145,12 @@ def calculate(ts_code, share_name):
         TsIncome.ts_code == ts_code, TsIncome.end_date >= period_delta(from_period, -4), TsIncome.report_type == 1) \
         .order_by(TsIncome.mq_ann_date.asc(), TsIncome.end_date.asc()).all()
 
-    fina_arr = session.query(TsFinaIndicator) \
-        .filter(
-        TsFinaIndicator.ts_code == ts_code, TsFinaIndicator.end_date >= period_delta(from_period, -4)) \
-        .order_by(TsFinaIndicator.ann_date.asc(), TsFinaIndicator.end_date.asc()).all()
-
     session.close()
 
     prepare_time = time.time()
     log.info("Prepare data for %s: %s seconds" % (ts_code, prepare_time - start_time))
 
     i_i = get_index_by_end_date(income_arr, period_delta(from_period, -4))
-    fi_i = get_index_by_end_date(fina_arr, period_delta(from_period, -4))
     f_i = get_index_by_end_date(forecast_arr, from_period)
     e_i = get_index_by_end_date(express_arr, from_period)
     fa_i = get_index_by_end_date(forecast_adjust_arr, from_period)
@@ -256,7 +161,6 @@ def calculate(ts_code, share_name):
     result_list = []
     while from_period <= max_period:
         agg = MqForecastAgg()
-        margin_info = get_margin(income_arr, i_i, fina_arr, fi_i, from_period)
         if same_period(forecast_manual_arr, fm_i, from_period):
             update_with_manual(agg, forecast_manual_arr[fm_i])
             fa_i += 1
@@ -266,16 +170,15 @@ def calculate(ts_code, share_name):
             if not (same_period(express_arr, e_i, from_period) and express_arr[e_i].ann_date == forecast.ann_date):
                 income_ly = income_arr[i_i] if same_period(income_arr, i_i, period_delta(from_period, -4)) else None
                 adjust = forecast_adjust_arr[fa_i] if same_period(forecast_adjust_arr, fa_i, from_period) else None
-                update_with_forecast(agg, forecast, income_ly, adjust, margin_info)
+                update_with_forecast(agg, forecast, income_ly, adjust)
             f_i = f_i + 1
         elif same_period(express_arr, e_i, from_period):
             express: TsExpress = express_arr[e_i]
-            update_with_express(agg, express, margin_info)
+            update_with_express(agg, express)
             e_i = e_i + 1
         else:
             from_period = next_period(from_period)
         i_i = get_index_by_end_date(income_arr, period_delta(from_period, -4), i_i)
-        fi_i = get_index_by_end_date(fina_arr, period_delta(from_period, -4), fi_i)
         f_i = get_index_by_end_date(forecast_arr, from_period, f_i)
         e_i = get_index_by_end_date(express_arr, from_period, e_i)
         fm_i = get_index_by_end_date(forecast_manual_arr, from_period, fm_i)
