@@ -362,6 +362,8 @@ class SimContext(object):
                       (order.get_order_type(), order.get_ts_code(), order.get_msg()))
 
     """##################################### get info part #####################################"""
+    def get_simulate_period(self):
+        return self.__sd, self.__ed
 
     def get_holding(self):
         return self.__shares
@@ -383,7 +385,6 @@ class SimContext(object):
 
     def analyse(self):
         self.info('-------------------Analyse start-------------------')
-        self.output_done_order()
         d = self.__sd
         max_mv = self.__init_cash
         last_mv = self.__init_cash
@@ -401,24 +402,6 @@ class SimContext(object):
             d = format_delta(d, 1)
         self.info('Final market value is %s' % last_mv)
         self.info('Max retrieve: %s' % max_retrieve)
-
-    def output_done_order(self):
-        file_name = get_env_value('SIM_ORDER_FILE_NAME')
-        if file_name is None:
-            return
-        f = open(file_name, "w")
-        ojson = {}
-        dt = self.__sd
-        while dt <= self.__ed:
-            if dt in self.__orders:
-                ojson[dt] = []
-                for order in self.__orders[dt]:  # type: SimOrder
-                    if order.is_deal():
-                        ojson[dt].append({'code': order.get_ts_code(), 'num': order.get_num(),
-                                          'price': order.get_price(), 'type': order.get_order_type()})
-            dt = format_delta(dt, 1)
-        f.write(json.dumps(ojson, cls=MqEncoder))
-        f.close()
 
     """##################################### log part #####################################"""
 

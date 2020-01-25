@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from moquant.dbclient import db_client
 from moquant.dbclient.mq_daily_basic import MqDailyBasic
+from moquant.dbclient.mq_quarter_basic import MqQuarterBasic
 from moquant.log import get_logger
 from moquant.simulator.sim_context import SimContext
 from moquant.simulator.sim_handler import SimHandler
@@ -15,22 +16,40 @@ log = get_logger(__name__)
 
 class GrowStrategyHandler(SimHandler):
     __ban: dict
+    __quarter: dict
 
     def __init__(self):
         self.__ban = {}
+        self.__quarter = {}
 
     def auction_before_trade(self, context: SimContext):
         session: Session = db_client.get_session()
         dt = context.get_dt()
         data_dt = format_delta(dt, -1)
-        grow_list: list = session.query(MqDailyBasic).filter(
-            and_(MqDailyBasic.date == data_dt, MqDailyBasic.grow_score != -1)) \
+        grow_list: list = session.query(MqDailyBasic)\
+            .filter(MqDailyBasic.date == data_dt, MqDailyBasic.grow_score != -1) \
             .order_by(MqDailyBasic.grow_score.desc()).all()
-        code_col: list = []
+        quarter_list: list = session.query(MqQuarterBasic).filter(MqQuarterBasic.update_date == data_dt).all()
+        session.close()
+        for quarter in quarter_list: # type: MqQuarterBasic
+            if quarter.ts_code not in self.__quarter:
+                self.__quarter[quarter.ts_code] = quarter
+
+        to_buy = set()
         period_map: dict = {}
         for daily in grow_list:  # type: MqDailyBasic
-            code_col.append(daily.ts_code)
+            to_buy.add(daily.ts_code)
             period_map[daily.ts_code] = daily.dprofit_period
+
+        to_sell = set()
+        for ts_code in self.__quarter:
+            quarter: MqQuarterBasic = self.__quarter[ts_code]
+            if quarter.receive_risk > 0.5:
+                to_sell.add(ts_code)
+            if quarter.liquidity_risk > 0.6:
+                to_sell.add(ts_code)
+            if quarter.intangible_risk > 0.25:
+                to_sell.add(ts_code)
 
         holding: dict = context.get_holding()
 
@@ -38,7 +57,7 @@ class GrowStrategyHandler(SimHandler):
             share: SimShareHold = holding[ts_code]
             if share.get_can_sell() == 0:
                 continue
-            if ts_code not in code_col:
+            if ts_code not in to_buy or ts_code in to_sell:
                 # sell not in grow list
                 context.sell_share(share.get_ts_code(), share.get_num())
             elif share.achieve_win() or share.achieve_lose():
@@ -50,6 +69,8 @@ class GrowStrategyHandler(SimHandler):
             if self.__is_ban(stock):
                 continue
             if stock.ts_code in holding:
+                continue
+            if stock.ts_code in to_sell:
                 continue
             max_buy = 55000
             cash = context.get_cash()
