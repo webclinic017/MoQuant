@@ -291,7 +291,8 @@ def cal_dprofit(report_period, forecast_period, forecast_info: MqForecastAgg,
         if dprofit is None:
             dprofit = forecast_info.nprofit
             if fina is not None and income is not None \
-                    and income.n_income_attr_p is not None and fina.profit_dedt is not None:
+                    and income.n_income_attr_p is not None and fina.profit_dedt is not None\
+                    and get_quarter_num(fina.end_date) != 4 and get_quarter_num(income.end_date) != 4:
                 dprofit = dprofit - (income.n_income_attr_p - fina.profit_dedt)
         dprofit_ly_l1 = None
         if fina is not None:

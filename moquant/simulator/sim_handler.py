@@ -3,6 +3,9 @@ from moquant.simulator.sim_context import SimContext
 
 class SimHandler(object):
 
+    def init(self, context: SimContext):
+        pass
+
     def auction_before_trade(self, context: SimContext):
         pass
 

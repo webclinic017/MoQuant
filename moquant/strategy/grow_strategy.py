@@ -22,12 +22,24 @@ class GrowStrategyHandler(SimHandler):
         self.__ban = {}
         self.__quarter = {}
 
+    def init(self, context: SimContext):
+        st, ed = context.get_simulate_period()
+        from_date = format_delta(st, -90)
+        session: Session = db_client.get_session()
+        quarter_list: list = session.query(MqQuarterBasic)\
+            .filter(MqQuarterBasic.update_date >= from_date, MqQuarterBasic.adjust_ly == '0')\
+            .order_by(MqQuarterBasic.update_date.asc(), MqQuarterBasic.report_period.asc()).all()
+        session.close()
+        for quarter in quarter_list: # type: MqQuarterBasic
+            if quarter.ts_code not in self.__quarter:
+                self.__quarter[quarter.ts_code] = quarter
+
     def auction_before_trade(self, context: SimContext):
         session: Session = db_client.get_session()
         dt = context.get_dt()
         data_dt = format_delta(dt, -1)
         grow_list: list = session.query(MqDailyBasic)\
-            .filter(MqDailyBasic.date == data_dt, MqDailyBasic.grow_score != -1) \
+            .filter(MqDailyBasic.date == data_dt, MqDailyBasic.grow_score != -1, MqQuarterBasic.adjust_ly == '0') \
             .order_by(MqDailyBasic.grow_score.desc()).all()
         quarter_list: list = session.query(MqQuarterBasic).filter(MqQuarterBasic.update_date == data_dt).all()
         session.close()
@@ -44,11 +56,11 @@ class GrowStrategyHandler(SimHandler):
         to_sell = set()
         for ts_code in self.__quarter:
             quarter: MqQuarterBasic = self.__quarter[ts_code]
-            if quarter.receive_risk > 0.5:
+            if quarter.receive_risk is not None and quarter.receive_risk > 0.5:
                 to_sell.add(ts_code)
-            if quarter.liquidity_risk > 0.6:
+            if quarter.liquidity_risk is not None and quarter.liquidity_risk > 0.6:
                 to_sell.add(ts_code)
-            if quarter.intangible_risk > 0.25:
+            if quarter.intangible_risk is not None and quarter.intangible_risk > 0.25:
                 to_sell.add(ts_code)
 
         holding: dict = context.get_holding()
