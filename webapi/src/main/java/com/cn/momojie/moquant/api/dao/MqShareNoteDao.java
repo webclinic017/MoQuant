@@ -1,12 +1,14 @@
 package com.cn.momojie.moquant.api.dao;
 
-import java.util.List;
-
+import com.cn.momojie.moquant.api.vo.MqShareNoteRelationVo;
+import com.cn.momojie.moquant.api.vo.MqShareNoteVo;
 import org.apache.ibatis.annotations.Param;
 
-import com.cn.momojie.moquant.api.dto.MqShareNote;
+import java.util.List;
 
 public interface MqShareNoteDao {
 
-	List<MqShareNote> getByCode(@Param("ts_code") String tsCode);
+	List<MqShareNoteVo> getByCode(@Param("ts_code") String tsCode);
+
+	List<MqShareNoteRelationVo> getRelated(@Param("list") List<Long> idList);
 }

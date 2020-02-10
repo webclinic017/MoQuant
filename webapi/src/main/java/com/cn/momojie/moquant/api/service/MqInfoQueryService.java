@@ -1,49 +1,29 @@
 package com.cn.momojie.moquant.api.service;
 
-import java.math.BigDecimal;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
+import com.cn.momojie.moquant.api.constant.SysParamKey;
+import com.cn.momojie.moquant.api.constant.TrendType;
+import com.cn.momojie.moquant.api.dao.*;
+import com.cn.momojie.moquant.api.dto.MqDailyBasic;
+import com.cn.momojie.moquant.api.dto.MqForecastAgg;
+import com.cn.momojie.moquant.api.dto.MqMessage;
+import com.cn.momojie.moquant.api.dto.MqQuarterBasic;
+import com.cn.momojie.moquant.api.dto.ts.TsBasic;
+import com.cn.momojie.moquant.api.param.*;
+import com.cn.momojie.moquant.api.util.BigDecimalUtils;
+import com.cn.momojie.moquant.api.util.DateTimeUtils;
+import com.cn.momojie.moquant.api.util.PinYinUtil;
+import com.cn.momojie.moquant.api.vo.*;
+import com.github.pagehelper.PageHelper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import com.cn.momojie.moquant.api.constant.SysParamKey;
-import com.cn.momojie.moquant.api.constant.TrendType;
-import com.cn.momojie.moquant.api.dao.MqDailyBasicDao;
-import com.cn.momojie.moquant.api.dao.MqForecastAggDao;
-import com.cn.momojie.moquant.api.dao.MqMessageDao;
-import com.cn.momojie.moquant.api.dao.MqQuarterBasicDao;
-import com.cn.momojie.moquant.api.dao.MqShareNoteDao;
-import com.cn.momojie.moquant.api.dao.TsBasicDao;
-import com.cn.momojie.moquant.api.dto.MqDailyBasic;
-import com.cn.momojie.moquant.api.dto.MqForecastAgg;
-import com.cn.momojie.moquant.api.dto.MqMessage;
-import com.cn.momojie.moquant.api.dto.MqQuarterBasic;
-import com.cn.momojie.moquant.api.dto.MqShareNote;
-import com.cn.momojie.moquant.api.dto.ts.TsBasic;
-import com.cn.momojie.moquant.api.param.MqCodePageParam;
-import com.cn.momojie.moquant.api.param.MqDailyBasicParam;
-import com.cn.momojie.moquant.api.param.MqMessageParam;
-import com.cn.momojie.moquant.api.param.MqQuarterBasicParam;
-import com.cn.momojie.moquant.api.param.MqShareListParam;
-import com.cn.momojie.moquant.api.param.MqTrendParam;
-import com.cn.momojie.moquant.api.util.BigDecimalUtils;
-import com.cn.momojie.moquant.api.util.DateTimeUtils;
-import com.cn.momojie.moquant.api.util.PinYinUtil;
-import com.cn.momojie.moquant.api.vo.MqForecastInfo;
-import com.cn.momojie.moquant.api.vo.MqShareDetail;
-import com.cn.momojie.moquant.api.vo.MqShareTrend;
-import com.cn.momojie.moquant.api.vo.PageResult;
-import com.cn.momojie.moquant.api.vo.ShareListItem;
-import com.github.pagehelper.PageHelper;
-
-import lombok.extern.slf4j.Slf4j;
+import java.math.BigDecimal;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -294,9 +274,22 @@ public class MqInfoQueryService {
 		}).collect(Collectors.toList());
 	}
 
-	public PageResult<MqShareNote> getNotes(MqCodePageParam param) {
+	public PageResult<MqShareNoteVo> getNotes(MqCodePageParam param) {
 		PageHelper.startPage(param.getPageNum(), param.getPageSize());
-		return PageResult.fromList(noteDao.getByCode(param.getTsCode()));
+		if ("all".equals(param.getTsCode())) {
+			param.setTsCode(null);
+		}
+		List<MqShareNoteVo> noteList = noteDao.getByCode(param.getTsCode());
+		List<Long> noteIdList = noteList.stream().map(MqShareNoteVo::getId).collect(Collectors.toList());
+		List<MqShareNoteRelationVo> relationList = noteDao.getRelated(noteIdList);
+		Map<Long, List<MqShareNoteRelationVo>> relationMap = relationList.stream().collect(Collectors.groupingBy(MqShareNoteRelationVo::getNoteId));
+		for (MqShareNoteVo note: noteList) {
+			note.setRelatedShareList(relationMap.get(note.getId()));
+			if (note.getRelatedShareList() == null) {
+				note.setRelatedShareList(new ArrayList<>());
+			}
+		}
+		return PageResult.fromList(noteList);
 	}
 
 	public MqForecastInfo getForecastInfo(String code) {

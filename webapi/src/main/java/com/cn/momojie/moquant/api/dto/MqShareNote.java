@@ -8,8 +8,6 @@ import lombok.Data;
 public class MqShareNote {
 	private Long id;
 
-	private String tsCode;
-
 	private Date createTime;
 
 	private Date updateTime;
