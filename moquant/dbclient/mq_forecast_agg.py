@@ -19,8 +19,8 @@ class MqForecastAgg(Base):
     nprofit_ly = Column('nprofit_ly', DECIMAL(30, 10), comment='累计归母净利润-去年同期')
     dprofit = Column('dprofit', DECIMAL(30, 10), comment='累计归母扣非净利润')
     dprofit_ly = Column('dprofit_ly', DECIMAL(30, 10), comment='累计归母扣非净利润-去年同期')
-    changed_reason = Column('changed_reason', String(1000), comment='业绩变动原因')
-    manual_adjust_reason = Column('manual_adjust_reason', String(1000), comment='人工调整原因')
+    changed_reason = Column('changed_reason', String(5000), comment='业绩变动原因')
+    manual_adjust_reason = Column('manual_adjust_reason', String(5000), comment='人工调整原因')
     from_manual = Column('from_manual', Boolean, server_default='0', comment='来自人工导入')
     one_time = Column('one_time', Boolean, server_default='0', comment='是否一次性的利润变动')
 

@@ -644,18 +644,6 @@ def calculate(ts_code, share_name, fix_from: str = None):
                              ann_date=forecast.ann_date, is_adjust=False, forecast_info=forecast)
                 )
             f_i = f_i + 1
-        elif same_period(adjust_income_arr, ai_i, period_delta(from_period, -4)):
-            report_period = adjust_income_arr[ai_i].end_date
-            forecast_period = report_period
-            result_list.append(
-                call_cal(report_period=report_period, forecast_period=forecast_period,
-                         ann_date=adjust_income_arr[ai_i].mq_ann_date, is_adjust=True, forecast_info=MqForecastAgg())
-            )
-            ai_i = ai_i + 1
-            if same_period(adjust_balance_arr, ab_i, period_delta(from_period, -4)):
-                ab_i = ab_i + 1
-            else:
-                ab_i = get_index_by_end_date(adjust_balance_arr, period_delta(from_period, -3))
         elif same_period(income_arr, i_i, from_period):
             report_period = income_arr[i_i].end_date
             forecast_period = report_period
@@ -663,6 +651,10 @@ def calculate(ts_code, share_name, fix_from: str = None):
                 call_cal(report_period=report_period, forecast_period=forecast_period,
                          ann_date=income_arr[i_i].mq_ann_date, is_adjust=False, forecast_info=MqForecastAgg())
             )
+            if same_period(dividend_arr, d_i, from_period) and \
+                dividend_arr[d_i].imp_ann_date == income_arr[i_i].mq_ann_date:
+                    d_i += 1
+
             i_i = i_i + 1
             if same_period(balance_arr, b_i, from_period):
                 b_i += 1
@@ -672,6 +664,22 @@ def calculate(ts_code, share_name, fix_from: str = None):
                 fi_i = fi_i + 1
             else:
                 fi_i = get_index_by_end_date(fina_arr, period_delta(from_period, 1))
+        elif same_period(adjust_income_arr, ai_i, from_period):
+            report_period = adjust_income_arr[ai_i].end_date
+            forecast_period = report_period
+            result_list.append(
+                call_cal(report_period=report_period, forecast_period=forecast_period,
+                         ann_date=adjust_income_arr[ai_i].mq_ann_date, is_adjust=True, forecast_info=MqForecastAgg())
+            )
+            if same_period(dividend_arr, d_i, from_period) and \
+                    dividend_arr[d_i].imp_ann_date == adjust_income_arr[ai_i].mq_ann_date:
+                d_i += 1
+
+            ai_i = ai_i + 1
+            if same_period(adjust_balance_arr, ab_i, period_delta(from_period, -4)):
+                ab_i = ab_i + 1
+            else:
+                ab_i = get_index_by_end_date(adjust_balance_arr, period_delta(from_period, -3))
         elif same_period(dividend_arr, d_i, from_period):
             report_period = dividend_arr[d_i].end_date
             forecast_period = report_period
