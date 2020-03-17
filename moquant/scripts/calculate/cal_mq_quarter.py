@@ -636,7 +636,7 @@ def calculate(ts_code, share_name, fix_from: str = None):
 
         if same_period(forecast_arr, f_i, from_period):
             forecast: MqForecastAgg = forecast_arr[f_i]
-            if forecast_update_date != forecast.ann_date:
+            if forecast_update_date < forecast.ann_date:
                 report_period = period_delta(from_period, -1)
                 forecast_period = from_period
                 result_list.append(
