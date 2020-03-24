@@ -547,7 +547,7 @@ def calculate(ts_code, share_name, fix_from: str = None):
 
     session = db_client.get_session()
     last_basic_arr = session.query(MqQuarterBasic).filter(MqQuarterBasic.ts_code == ts_code) \
-        .order_by(MqQuarterBasic.update_date.desc()).limit(1).all()
+        .order_by(MqQuarterBasic.forecast_period.desc()).limit(1).all()
     last_basic: MqQuarterBasic = None
     if len(last_basic_arr) > 0:
         last_basic = last_basic_arr[0]
@@ -744,6 +744,6 @@ def recalculate_by_code(ts_code: str):
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:
-        recalculate_by_code(sys.argv[1])
+        calculate_by_code(sys.argv[1])
     else:
         calculate_all()

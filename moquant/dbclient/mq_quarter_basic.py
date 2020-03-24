@@ -10,6 +10,10 @@ from moquant.dbclient.base import Base
 class MqQuarterBasic(Base):
     __tablename__ = 'mq_quarter_basic'
     __table_args__ = (
+        Index('code', 'ts_code'),
+        Index('update', 'update_date'),
+        Index('report', 'report_period'),
+        Index('forecast', 'forecast_period'),
         {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
     )
 
