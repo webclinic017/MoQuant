@@ -62,8 +62,6 @@ class AvlTree(object):
         else:
             return current
 
-
-
     def get_height(self, p: AvlTreeNode):
         if p is None:
             return 0
@@ -97,3 +95,17 @@ class AvlTree(object):
         self.update_height(p)
         self.update_height(r)
         return r
+
+    def find_max_under(self, val):
+        return self._find_max_under(self.root, val)
+
+    def _find_max_under(self, current: AvlTreeNode, val):
+        if current is None:
+            return None
+        elif current.value == val:
+            return current
+        elif current.value < val:
+            right_max = self._find_max_under(current.right, val)
+            return right_max if right_max is not None else current
+        else:
+            return self._find_max_under(current.left, val)
