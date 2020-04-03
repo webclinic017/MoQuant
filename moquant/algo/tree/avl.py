@@ -96,10 +96,10 @@ class AvlTree(object):
         self.update_height(r)
         return r
 
-    def find_max_under(self, val):
+    def find_max_under(self, val) -> AvlTreeNode:
         return self._find_max_under(self.root, val)
 
-    def _find_max_under(self, current: AvlTreeNode, val):
+    def _find_max_under(self, current: AvlTreeNode, val) -> AvlTreeNode:
         if current is None:
             return None
         elif current.value == val:
@@ -109,3 +109,16 @@ class AvlTree(object):
             return right_max if right_max is not None else current
         else:
             return self._find_max_under(current.left, val)
+
+    def find_equal(self, val) -> AvlTreeNode:
+        return self._find_equal(self.root, val)
+
+    def _find_equal(self, current: AvlTreeNode, val) -> AvlTreeNode:
+        if current is None:
+            return None
+        elif current.value == val:
+            return current
+        elif current.value < val:
+            return self._find_equal(current.right, val)
+        else:
+            return self._find_equal(current.left, val)

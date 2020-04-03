@@ -19,7 +19,7 @@ class TsIncome(Base):
     f_ann_date = Column('f_ann_date', String(10), comment='实际公告日期')
     mq_ann_date = Column('mq_ann_date', String(10), comment='MQ使用公告日期')
     end_date = Column('end_date', String(10), comment='报告期')
-    report_type = Column('report_type', String(10), comment='报告类型 1合并报表')
+    report_type = Column('report_type', String(10), comment='报告类型 1合并报表, 4调整合并')
     comp_type = Column('comp_type', String(10), comment='公司类型(1一般工商业2银行3保险4证券)')
     basic_eps = Column('basic_eps', DECIMAL(30, 10), comment='基本每股收益')
     diluted_eps = Column('diluted_eps', DECIMAL(30, 10), comment='稀释每股收益')
