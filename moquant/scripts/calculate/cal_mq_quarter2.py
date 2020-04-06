@@ -5,7 +5,7 @@ from functools import partial
 from sqlalchemy.orm import Session
 
 from moquant.constants import mq_calculate_start_date, mq_report_type, mq_quarter_indicator_enum
-from moquant.dbclient import db_client
+from moquant.dbclient import db_client, mq_quarter_index
 from moquant.dbclient.mq_forecast_agg import MqForecastAgg
 from moquant.dbclient.mq_quarter_index import MqQuarterIndex
 from moquant.dbclient.mq_stock_mark import MqStockMark
@@ -16,7 +16,7 @@ from moquant.dbclient.ts_fina_indicator import TsFinaIndicator
 from moquant.dbclient.ts_income import TsIncome
 from moquant.log import get_logger
 from moquant.service.mq_quarter_store import MqQuarterStore
-from moquant.utils.date_utils import format_delta, get_current_dt
+from moquant.utils.date_utils import format_delta, get_current_dt, period_delta, get_quarter_num
 
 log = get_logger(__name__)
 
@@ -92,6 +92,10 @@ def fit_update_date(date: str, arr: list, field_name: str) -> bool:
 def common_add(result_list: list, store: MqQuarterStore, to_add: MqQuarterIndex):
     store.add(to_add)
     result_list.append(to_add)
+
+
+def common_log_err(ts_code: str, period: str, update_date: str, name: str):
+    log.error('Fail to cal %s of %s, %s, %s' % (name, ts_code, period, update_date))
 
 
 def add_nx(ts_code: str, report_type: int, period: str, update_date: str,
@@ -187,17 +191,112 @@ def copy_from_latest(result_list: list, store: MqQuarterStore, period_set: set, 
             call_copy(period=period, name=i)
 
 
-def cal_ltm(find: partial, add: partial):
-    pass
+def cal_ltm(result_list: list, store: MqQuarterStore, period: str, ts_code: str, update_date: str):
+    call_find = partial(store.find_period_exact, ts_code=ts_code, update_date=update_date)
+    call_add = partial(common_add, result_list=result_list, store=store)
+
+    q = get_quarter_num(period)
+    for k in mq_quarter_indicator_enum.cal_ltm_list:
+        i1 = call_find(period=period, name=k)
+        i2 = call_find(period=period_delta(period, -1), name=k)
+        lyy = call_find(period=period_delta(period, -q), name=k)
+        ly = call_find(period=period_delta(period, -4), name=k)
+        quarter = mq_quarter_index.cal_quarter(i1, i2)
+        if quarter is None:
+            common_log_err('%s_quarter' % k, ts_code, period, update_date)
+        else:
+            call_add(to_add=quarter)
+
+        ltm = mq_quarter_index.cal_ltm(i1, lyy, ly)
+        if ltm is None:
+            common_log_err('%s_ltm' % k, ts_code, period, update_date)
+        else:
+            call_add(to_add=ltm)
 
 
-def cal_peg(result_list: list, store: MqQuarterStore, period: str, ts_code: str, update_date: str):
-    pass
+def cal_avg(result_list: list, store: MqQuarterStore, period: str, ts_code: str, update_date: str):
+    call_find = partial(store.find_period_exact, ts_code=ts_code, update_date=update_date)
+    call_add = partial(common_add, result_list=result_list, store=store)
+    for k in mq_quarter_indicator_enum.cal_avg_list:
+        i1 = call_find(period=period, name=k)
+        i2 = call_find(period=period_delta(period, -1), name=k)
+        i3 = call_find(period=period_delta(period, -2), name=k)
+        i4 = call_find(period=period_delta(period, -3), name=k)
+        avg = mq_quarter_index.cal_ltm_avg(i1, i2, i3, i4)
+        if avg is None:
+            common_log_err('%s_ltm_avg' % k, ts_code, period, update_date)
+        else:
+            call_add(to_add=avg)
+
+
+def common_dividend(call_add: partial, call_log: partial, i1: MqQuarterIndex, i2: MqQuarterIndex, name: str):
+    i = mq_quarter_index.dividend(i1, i2, name)
+    if i is None:
+        call_log(name=name)
+    else:
+        call_add(to_add=i)
+
+
+def cal_du_pont(result_list: list, store: MqQuarterStore, period: str, ts_code: str, update_date: str):
+    call_find = partial(store.find_period_exact, ts_code=ts_code, period=period, update_date=update_date)
+    call_add = partial(common_add, result_list=result_list, store=store)
+    call_log = partial(common_log_err, ts_code=ts_code, period=period, update_date=update_date)
+    dprofit_ltm = call_find(name='dprofit_ltm')
+    revenue_ltm = call_find(name='revenue_ltm')
+    nasset_ltm_avg = call_find(name='nasset_ltm_avg')
+    total_assets_ltm_avg = call_find(name='total_assets_ltm_avg')
+
+    common_dividend(call_add, call_log, dprofit_ltm, nasset_ltm_avg, 'roe')
+    common_dividend(call_add, call_log, dprofit_ltm, revenue_ltm, 'dprofit_margin')
+    common_dividend(call_add, call_log, revenue_ltm, total_assets_ltm_avg, 'turnover_rate')
+    common_dividend(call_add, call_log, total_assets_ltm_avg, nasset_ltm_avg, 'equity_multiplier')
+
+
+def cal_risk(result_list: list, store: MqQuarterStore, period: str, ts_code: str, update_date: str):
+    call_find = partial(store.find_period_exact, ts_code=ts_code, period=period, update_date=update_date)
+    call_add = partial(common_add, result_list=result_list, store=store)
+    call_log = partial(common_log_err, ts_code=ts_code, period=period, update_date=update_date)
+    notes_receiv = call_find(name='notes_receiv')
+    accounts_receiv = call_find(name='accounts_receiv')
+    oth_receiv = call_find(name='oth_receiv')
+    lt_rec = call_find(name='lt_rec')
+    total_receive = mq_quarter_index.add_up('total_receive', [notes_receiv, accounts_receiv, oth_receiv, lt_rec])
+    revenue = call_find(name='revenue_ltm')
+    common_dividend(call_add, call_log, total_receive, revenue, 'receive_risk')
+
+    total_cur_liab = call_find(name='total_cur_liab')
+    total_cur_assets = call_find(name='total_cur_assets')
+    common_dividend(call_add, call_log, total_cur_liab, total_cur_assets, 'liquidity_risk')
+
+    goodwill = call_find(name='goodwill')
+    r_and_d = call_find(name='r_and_d')
+    intan_assets = call_find(name='intan_assets')
+    total_intangible = mq_quarter_index.add_up('total_intangible', [goodwill, r_and_d, intan_assets])
+    nassets = call_find(name='nassets')
+    oth_eqt_tools_p_shr = call_find(name='oth_eqt_tools_p_shr')
+    nassets1 = mq_quarter_index.sub_from(nassets, oth_eqt_tools_p_shr)
+    common_dividend(call_add, call_log, total_intangible, nassets1, 'intangible_risk')
+
+    money_cap = call_find(name='money_cap')
+    oth_cur_assets = call_find(name='oth_cur_assets')
+    lt_borr = call_find(name='lt_borr')
+    st_borr = call_find(name='st_borr')
+    cur = mq_quarter_index.add_up('cur', [money_cap, oth_cur_assets])
+    borr = mq_quarter_index.add_up('borr', [lt_borr, st_borr])
+    common_dividend(call_add, call_log, cur, borr, 'cash_debt_rate')
 
 
 def cal_indicator(result_list: list, store: MqQuarterStore, period: str, ts_code: str, update_date: str):
-    call_find = partial(store.find_period_exact, ts_code=ts_code, period=period, update_date=update_date)
-    call_add = partial(common_add, result_list=result_list, store=store)
+    cal_ltm(result_list, store, period, ts_code, update_date)
+    cal_avg(result_list, store, period, ts_code, update_date)
+    cal_du_pont(result_list, store, period, ts_code, update_date)
+    cal_risk(result_list, store, period, ts_code, update_date)
+
+
+def cal_complex(result_list: list, store: MqQuarterStore, period_set: set, ts_code: str, update_date: str):
+    period_list = list(period_set).sort()
+    for period in period_list:
+        cal_indicator(result_list, store, period, ts_code, update_date)
 
 
 def calculate(ts_code: str, share_name: str, from_date: str = None, to_date: str = get_current_dt()):
