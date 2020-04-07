@@ -17,6 +17,7 @@ from moquant.dbclient.ts_income import TsIncome
 from moquant.log import get_logger
 from moquant.service.mq_quarter_store import MqQuarterStore
 from moquant.utils.date_utils import format_delta, get_current_dt, period_delta, get_quarter_num
+from moquant.utils.decimal_utils import yoy
 
 log = get_logger(__name__)
 
@@ -299,6 +300,21 @@ def cal_complex(result_list: list, store: MqQuarterStore, period_set: set, ts_co
         cal_indicator(result_list, store, period, ts_code, update_date)
 
 
+def cal_inc_rate(n: MqQuarterIndex, l: MqQuarterIndex):
+    if n is None or l is None:
+        return None
+    else:
+        return yoy(n.value, l.value)
+
+
+def cal_yoy_mom(result_list: list, store: MqQuarterStore, period_set: set, ts_code: str, update_date: str):
+    for i in result_list:  # type: MqQuarterIndex
+        lm = store.find_period_latest(i.ts_code, i.name, format_delta(i.period, -1))
+        i.mom = cal_inc_rate(i, lm)
+        ly = store.find_period_latest(i.ts_code, i.name, format_delta(i.period, -4))
+        i.yoy = cal_inc_rate(i, ly)
+
+
 def calculate(ts_code: str, share_name: str, from_date: str = None, to_date: str = get_current_dt()):
     session: Session = db_client.get_session()
     if from_date is None:
@@ -340,7 +356,10 @@ def calculate(ts_code: str, share_name: str, from_date: str = None, to_date: str
 
         # TODO 人工预测
         copy_from_latest(result_list, store, period_set, ts_code, from_date)
-        cal_indicator(result_list, store, period_set, ts_code, from_date)
+        cal_complex(result_list, store, period_set, ts_code, from_date)
+        cal_yoy_mom(result_list, store, period_set, ts_code, from_date)
+
+        from_date = format_delta(from_date, 1)
 
 
 def calculate_and_insert(ts_code: str, share_name: str):
@@ -362,3 +381,10 @@ def calculate_by_code(ts_code: str):
     stock: MqStockMark = session.query(MqStockMark).filter(MqStockMark.ts_code == ts_code).one()
     session.close()
     calculate_and_insert(ts_code, stock.share_name)
+
+
+def recalculate_by_code(ts_code: str):
+    session: Session = db_client.get_session()
+    session.query(MqQuarterIndex).filter(MqQuarterIndex.ts_code == ts_code).delete()
+    session.close()
+    calculate_by_code(ts_code)
