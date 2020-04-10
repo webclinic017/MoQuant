@@ -33,7 +33,7 @@ lt_borr = MqQuarterIndicator('lt_borr', '长期借款')
 st_borr = MqQuarterIndicator('st_borr', '短期借款')
 
 extract_from_bs_list = [total_share, notes_receiv, accounts_receiv, oth_receiv, lt_rec, total_cur_liab,
-                        total_cur_assets, goodwill, r_and_d, intan_assets, nassets, oth_eqt_tools_p_shr,
+                        total_cur_assets, goodwill, r_and_d, intan_assets, nassets, total_assets, oth_eqt_tools_p_shr,
                         money_cap, oth_cur_assets, lt_borr, st_borr]
 
 # cash flow

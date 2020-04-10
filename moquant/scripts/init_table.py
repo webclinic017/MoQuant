@@ -11,6 +11,7 @@ from moquant.dbclient.mq_forecast_agg import MqForecastAgg
 from moquant.dbclient.mq_manual_report import MqManualReport
 from moquant.dbclient.mq_message import MqMessage
 from moquant.dbclient.mq_quarter_basic import MqQuarterBasic
+from moquant.dbclient.mq_quarter_indicator import MqQuarterIndicator
 from moquant.dbclient.mq_share_note import MqShareNote
 from moquant.dbclient.mq_share_note_relation import MqShareNoteRelation
 from moquant.dbclient.mq_stock_mark import MqStockMark
@@ -33,7 +34,7 @@ from moquant.dbclient.ts_trade_cal import TsTradeCal
 def create_table():
     engine = client.db_client.get_engine()
     all_table = [MqSysParam, MqStockMark, MqDailyBasic, MqQuarterBasic, MqForecastAdjust,
-                 MqShareNote, MqShareNoteRelation,
+                 MqShareNote, MqShareNoteRelation, MqQuarterIndicator,
                  MqFetchLatestRecord, MqManualReport, MqForecastAgg, MqMessage,
                  TsBasic, TsDailyBasic, TsDailyTradeInfo, StockAdjFactor,
                  TsIncome, TsBalanceSheet, TsCashFlow, TsForecast, TsExpress,
