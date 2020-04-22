@@ -17,8 +17,8 @@ from moquant.dbclient.ts_fina_indicator import TsFinaIndicator
 from moquant.dbclient.ts_income import TsIncome
 from moquant.log import get_logger
 from moquant.service.mq_quarter_store import MqQuarterStore
+from moquant.utils import decimal_utils
 from moquant.utils.date_utils import format_delta, get_current_dt, period_delta, get_quarter_num
-from moquant.utils.decimal_utils import yoy
 
 log = get_logger(__name__)
 
@@ -103,6 +103,8 @@ def common_log_err(ts_code: str, period: str, update_date: str, name: str):
 def add_nx(ts_code: str, report_type: int, period: str, update_date: str,
            name: str, value: Decimal,
            result_list: list, store: MqQuarterStore, period_set: set):
+    if value is None:
+        return
     exist = store.find_period_latest(ts_code, name, period)
     if exist is not None and exist.update_date == update_date:
         return
@@ -311,14 +313,17 @@ def cal_inc_rate(n: MqQuarterIndicator, l: MqQuarterIndicator):
     if n is None or l is None:
         return None
     else:
-        return yoy(n.value, l.value)
+        if mq_quarter_indicator_enum.is_percent_indicator(n.name):
+            return decimal_utils.sub(n.value, l.value)
+        else:
+            return decimal_utils.yoy(n.value, l.value)
 
 
 def cal_yoy_mom(result_list: list, store: MqQuarterStore):
     for i in result_list:  # type: MqQuarterIndicator
-        lm = store.find_period_latest(i.ts_code, i.name, format_delta(i.period, -1), update_date=i.update_date)
+        lm = store.find_period_latest(i.ts_code, i.name, period_delta(i.period, -1))
         i.mom = cal_inc_rate(i, lm)
-        ly = store.find_period_latest(i.ts_code, i.name, format_delta(i.period, -4), update_date=i.update_date)
+        ly = store.find_period_latest(i.ts_code, i.name, period_delta(i.period, -4))
         i.yoy = cal_inc_rate(i, ly)
 
 

@@ -63,7 +63,8 @@ def cal_ltm(i1: MqQuarterIndicator, lyy: MqQuarterIndicator, ly: MqQuarterIndica
                                   name=i1.name + '_ltm', value=add(i1.value, sub(lyy.value, ly.value)))
 
 
-def cal_ltm_avg(i1: MqQuarterIndicator, i2: MqQuarterIndicator, i3: MqQuarterIndicator, i4: MqQuarterIndicator) -> MqQuarterIndicator:
+def cal_ltm_avg(i1: MqQuarterIndicator, i2: MqQuarterIndicator, i3: MqQuarterIndicator,
+                i4: MqQuarterIndicator) -> MqQuarterIndicator:
     if i1 is None:
         return None
     arr = [i1, i2, i3, i4]
