@@ -38,29 +38,30 @@ class MqQuarterIndicator(Base):
                (self.period == other.period and self.update_date < other.update_date)
 
 
-def cal_quarter(i1: MqQuarterIndicator, i2: MqQuarterIndicator) -> MqQuarterIndicator:
+def cal_quarter(name: str, i1: MqQuarterIndicator, i2: MqQuarterIndicator) -> MqQuarterIndicator:
     if i1 is not None and get_quarter_num(i1.period) == 1:
         return MqQuarterIndicator(ts_code=i1.ts_code, report_type=i1.report_type,
                                   period=i1.period, update_date=i1.update_date,
-                                  name=i1.name + '_quarter', value=i1.value)
+                                  name=name, value=i1.value)
     elif i1 is None or i2 is None:
         return None
     return MqQuarterIndicator(ts_code=i1.ts_code, report_type=i1.report_type | i2.report_type,
                               period=i1.period, update_date=i1.update_date,
-                              name=i1.name + '_quarter', value=sub(i1.value, i2.value))
+                              name=name, value=sub(i1.value, i2.value))
 
 
-def cal_ltm(i1: MqQuarterIndicator, lyy: MqQuarterIndicator, ly: MqQuarterIndicator) -> MqQuarterIndicator:
+def cal_ltm(name: str, i1: MqQuarterIndicator, i2: MqQuarterIndicator, i3: MqQuarterIndicator, i4) -> MqQuarterIndicator:
     if i1 is not None and get_quarter_num(i1.period) == 4:
         return MqQuarterIndicator(ts_code=i1.ts_code, report_type=i1.report_type,
                                   period=i1.period, update_date=i1.update_date,
-                                  name=i1.name + '_ltm', value=i1.value)
-    elif i1 is None or lyy is None or ly is None:
+                                  name=name, value=i1.value)
+    elif i1 is None or i2 is None or i3 is None or i4 is None:
         return None
     else:
-        return MqQuarterIndicator(ts_code=i1.ts_code, report_type=i1.report_type & lyy.report_type | ly.report_type,
+        return MqQuarterIndicator(ts_code=i1.ts_code,
+                                  report_type=i1.report_type | i2.report_type | i3.report_type | i4.report_type,
                                   period=i1.period, update_date=i1.update_date,
-                                  name=i1.name + '_ltm', value=add(i1.value, sub(lyy.value, ly.value)))
+                                  name=name, value=add(i1.value, i2.value, i3.value, i4.value))
 
 
 def cal_ltm_avg(i1: MqQuarterIndicator, i2: MqQuarterIndicator, i3: MqQuarterIndicator,

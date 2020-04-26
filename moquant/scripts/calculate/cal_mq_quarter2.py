@@ -16,22 +16,11 @@ from moquant.dbclient.ts_dividend import TsDividend
 from moquant.dbclient.ts_fina_indicator import TsFinaIndicator
 from moquant.dbclient.ts_income import TsIncome
 from moquant.log import get_logger
-from moquant.service.mq_quarter_store import MqQuarterStore
+from moquant.service.mq_quarter_store import MqQuarterStore, init_quarter_store
 from moquant.utils import decimal_utils
 from moquant.utils.date_utils import format_delta, get_current_dt, period_delta, get_quarter_num
 
 log = get_logger(__name__)
-
-
-def init_quarter_store(ts_code, from_period=mq_calculate_start_date) -> MqQuarterStore:
-    store = MqQuarterStore()
-    session: Session = db_client.get_session()
-    arr = session.query(MqQuarterIndicator).filter(MqQuarterIndicator.ts_code == ts_code,
-                                                   MqQuarterIndicator.period >= from_period).all()
-    for i in arr:
-        store.add(i)
-    session.close()
-    return store
 
 
 def ready_data(ts_code: str, from_date: str):
@@ -72,7 +61,7 @@ def ready_data(ts_code: str, from_date: str):
         .order_by(TsFinaIndicator.ann_date.asc(), TsFinaIndicator.end_date.asc()).all()
 
     dividend_arr = session.query(TsDividend) \
-        .filter(TsDividend.ts_code == ts_code, TsDividend.ann_date >= from_date) \
+        .filter(TsDividend.ts_code == ts_code, TsDividend.ann_date >= from_date, TsDividend.div_proc == '实施') \
         .order_by(TsDividend.ann_date.asc()).all()
 
     forecast_arr = session.query(MqForecastAgg) \
@@ -168,6 +157,17 @@ def extract_from_fina_indicator(result_list: list, store: MqQuarterStore, period
         call_add_nx(name=i.name, value=getattr(fina, i.from_name))
 
 
+def extract_from_dividend(result_list: list, store: MqQuarterStore, period_set: set, d: TsDividend):
+    call_add_nx = partial(
+        add_nx, ts_code=d.ts_code, period=d.end_date, update_date=format_delta(d.imp_ann_date, -1),
+        report_type=mq_report_type.report,
+        store=store, result_list=result_list, period_set=period_set
+    )
+
+    dividend = decimal_utils.mul(d.cash_div_tax * d.base_share)
+    call_add_nx(name='dividend', value=dividend)
+
+
 def copy_indicator_from_latest(result_list: list, store: MqQuarterStore, period: str, ts_code: str, update_date: str,
                                name: str):
     i = store.find_period_latest(ts_code, name, period)
@@ -195,28 +195,48 @@ def copy_from_latest(result_list: list, store: MqQuarterStore, period_set: set, 
         for i in mq_quarter_indicator_enum.extract_from_forecast_list:
             call_copy(period=period, name=i.name)
 
+        call_copy(period=period, name='dividend')
+
+
+def fill_empty(result_list: list, store: MqQuarterStore, period_set: set, ts_code: str, update_date: str):
+    period_list = list(period_set)
+    period_list.sort()
+    for period in period_list:
+        for i in mq_quarter_indicator_enum.fill_empty_list:
+            exist = store.find_period_latest(ts_code, i.name, period)
+            if exist is None:
+                to_add = MqQuarterIndicator(ts_code=ts_code, report_type=mq_report_type.report,
+                                            period=period, update_date=update_date,
+                                            name=i.name, value=Decimal(0))
+                common_add(result_list, store, to_add)
+
 
 def cal_ltm(result_list: list, store: MqQuarterStore, period: str, ts_code: str, update_date: str):
     call_find_now = partial(store.find_period_exact, ts_code=ts_code, update_date=update_date)
     call_find_pre = partial(store.find_period_latest, ts_code=ts_code)
     call_add = partial(common_add, result_list=result_list, store=store)
 
-    q = get_quarter_num(period)
-    for k in mq_quarter_indicator_enum.cal_ltm_list:
+    for k in mq_quarter_indicator_enum.cal_quarter_list:
         name = k.name
-        i1 = call_find_now(period=period, name=name)
-        i2 = call_find_pre(period=period_delta(period, -1), name=name)
-        lyy = call_find_pre(period=period_delta(period, -q), name=name)
-        ly = call_find_pre(period=period_delta(period, -4), name=name)
-        quarter = mq_quarter_indicator.cal_quarter(i1, i2)
+        from_name = k.from_name
+        i1 = call_find_now(period=period, name=from_name)
+        i2 = call_find_pre(period=period_delta(period, -1), name=from_name)
+        quarter = mq_quarter_indicator.cal_quarter(name, i1, i2)
         if quarter is None:
-            common_log_err(ts_code, period, update_date, '%s_quarter' % name)
+            common_log_err(ts_code, period, update_date, name)
         else:
             call_add(to_add=quarter)
 
-        ltm = mq_quarter_indicator.cal_ltm(i1, lyy, ly)
+    for k in mq_quarter_indicator_enum.cal_ltm_list:
+        name = k.name
+        from_name = k.from_name
+        i1 = call_find_now(period=period, name=from_name)
+        i2 = call_find_pre(period=period_delta(period, -1), name=from_name)
+        i3 = call_find_pre(period=period_delta(period, -2), name=from_name)
+        i4 = call_find_pre(period=period_delta(period, -3), name=from_name)
+        ltm = mq_quarter_indicator.cal_ltm(name, i1, i2, i3, i4)
         if ltm is None:
-            common_log_err(ts_code, period, update_date, '%s_ltm' % name)
+            common_log_err(ts_code, period, update_date, name)
         else:
             call_add(to_add=ltm)
 
@@ -294,6 +314,10 @@ def cal_risk(result_list: list, store: MqQuarterStore, period: str, ts_code: str
     borr = mq_quarter_indicator.add_up('borr', [lt_borr, st_borr])
     common_dividend(call_add, call_log, cur, borr, 'cash_debt_rate')
 
+    nprofit_ltm = call_find(name=mq_quarter_indicator_enum.nprofit_ltm.name)
+    dividend_ltm = call_find(name=mq_quarter_indicator_enum.dividend_ltm.name)
+    common_dividend(call_add, call_log, dividend_ltm, nprofit_ltm, mq_quarter_indicator_enum.dividend_ratio.name)
+
 
 def cal_indicator(result_list: list, store: MqQuarterStore, period: str, ts_code: str, update_date: str):
     cal_ltm(result_list, store, period, ts_code, update_date)
@@ -345,14 +369,17 @@ def calculate(ts_code: str, share_name: str, from_date: str = None, to_date: str
     while from_date <= to_date:
         period_set = set([])
         #  TODO 调整修正
+
         while fit_update_date(from_date, adjust_income_arr, 'mq_ann_date'):
             extract_from_income(result_list, store, period_set, adjust_income_arr.pop(0))
         while fit_update_date(from_date, adjust_balance_arr, 'mq_ann_date'):
             extract_from_balance(result_list, store, period_set, adjust_balance_arr.pop(0))
         while fit_update_date(from_date, adjust_cash_arr, 'mq_ann_date'):
             extract_from_cash_flow(result_list, store, period_set, adjust_cash_arr.pop(0))
-
+        while fit_update_date(from_date, dividend_arr, 'imp_ann_date'):
+            extract_from_dividend(result_list, store, period_set, adjust_cash_arr.pop(0))
         # TODO 财报修正
+
         while fit_update_date(from_date, income_arr, 'mq_ann_date'):
             extract_from_income(result_list, store, period_set, income_arr.pop(0))
         while fit_update_date(from_date, balance_arr, 'mq_ann_date'):
@@ -361,14 +388,15 @@ def calculate(ts_code: str, share_name: str, from_date: str = None, to_date: str
             extract_from_cash_flow(result_list, store, period_set, cash_arr.pop(0))
         while fit_update_date(from_date, fina_arr, 'ann_date'):
             extract_from_fina_indicator(result_list, store, period_set, fina_arr.pop(0))
-
         # TODO 预测修正
+
         while fit_update_date(from_date, forecast_arr, 'ann_date'):
             extract_from_forecast(result_list, store, period_set, forecast_arr.pop(0))
-
         # TODO 人工预测
+
         if len(period_set) > 0:
             copy_from_latest(result_list, store, period_set, ts_code, from_date)
+            fill_empty(result_list, store, period_set, ts_code, from_date)
             cal_complex(result_list, store, period_set, ts_code, from_date)
 
         from_date = format_delta(from_date, 1)
@@ -406,4 +434,4 @@ def recalculate_by_code(ts_code: str):
 
 
 if __name__ == '__main__':
-    recalculate_by_code(sys.argv[1])
+    calculate_by_code(sys.argv[1])

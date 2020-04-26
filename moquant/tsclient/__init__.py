@@ -38,7 +38,11 @@ class TsClient(object):
         return self.__ts.pro_bar(ts_code=ts_code, start_date=start_date, end_date=end_date)
 
     def fetch_daily_basic(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
-        return self.__pro.daily_basic(ts_code=ts_code, start_date=start_date, end_date=end_date)
+        df: DataFrame = self.__pro.daily_basic(ts_code=ts_code, start_date=start_date, end_date=end_date)
+        if not df.empty:
+            df['total_share'] = df.apply(lambda row: row.total_share * 10000, axis=1)
+            df['total_mv'] = df.apply(lambda row: row.total_mv * 10000, axis=1)
+        return df
 
     def fetch_adj_factor(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
         return self.__pro.adj_factor(ts_code=ts_code, start_date=start_date, end_date=end_date)

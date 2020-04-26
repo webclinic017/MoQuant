@@ -1,35 +1,73 @@
+"""
+成长股打分 -1 为非成长股
+
+剔除项:
+PE > max_pe 或 PE < 0
+单季利润为负 或 增速低于 min_yoy
+净利增速基数 < min_dprofit
+LTM净利为负 or 单季净利占LTM < min_dprofit_percent
+PEG > max_peg
+
+打分项:
+PEG
+"""
+
 from decimal import Decimal
 
-from moquant.dbclient.mq_daily_basic import MqDailyBasic
-from moquant.dbclient.mq_quarter_basic import MqQuarterBasic
+from moquant.constants import mq_daily_indicator_enum, mq_quarter_indicator_enum
+from moquant.dbclient.mq_daily_indicator import MqDailyIndicator
 from moquant.log import get_logger
+from moquant.scripts import calculate
+from moquant.service import mq_daily_store, mq_quarter_store
+from moquant.utils import decimal_utils, date_utils
 from moquant.utils.decimal_utils import valid_score
 
 log = get_logger(__name__)
 
+max_pe = Decimal(50)
+max_peg = Decimal(0.2)
+min_yoy = Decimal(0.5)
+zero = Decimal(0)
+min_dprofit = Decimal(1000 * 10000)
+min_dprofit_percent = Decimal(0.15)
 
-def cal_growing_score(share: MqDailyBasic, quarter: MqQuarterBasic,
-                      basic_profit: Decimal = Decimal(1000 * 10000), max_peg: Decimal = Decimal(0.2)):
+
+def cal(daily_store: mq_daily_store.MqDailyStore,
+                      quarter_store: mq_quarter_store.MqQuarterStore,
+                      ts_code: str, update_date: str) -> MqDailyIndicator:
     score = 0
-    if share.dprofit_pe is None or share.dprofit_pe > 50:
-        score = -1
-    elif share.quarter_dprofit_yoy is None or share.quarter_dprofit_yoy < 0.5:
-        score = -1
-    elif share.dprofit_peg is None or share.dprofit_peg > max_peg or share.dprofit_peg < 0:
-        score = -1
+    report_type = 0
+    period = '00000000'
+    pe: MqDailyIndicator = daily_store.find_date_exact(ts_code, mq_daily_indicator_enum.pe.name, update_date)
+    dprofit_quarter = quarter_store.find_latest(ts_code, mq_quarter_indicator_enum.dprofit_quarter.name, update_date)
+    dprofit_quarter_ly = quarter_store.find_period_latest(
+        ts_code, mq_quarter_indicator_enum.dprofit_quarter.name,
+        period=date_utils.period_delta(dprofit_quarter.period, -1),
+        update_date=update_date) if dprofit_quarter is not None else None
+    dprofit_ltm = quarter_store.find_latest(ts_code, mq_quarter_indicator_enum.dprofit_ltm.name, update_date)
 
-    if score != -1:
-        if quarter is None:
+    if pe is None or dprofit_quarter is None or dprofit_quarter_ly is None or dprofit_ltm is None:
+        score = -1
+    elif calculate.gt(pe, max_pe, field='value') or calculate.lt(pe, zero, field='value'):
+        score = -1
+    elif calculate.lt(dprofit_quarter, zero, field='value') or calculate.lt(dprofit_quarter, min_yoy, field='yoy'):
+        score = -1
+    elif calculate.lt(dprofit_quarter_ly, min_dprofit, field='value'):
+        score = -1
+    elif calculate.lt(dprofit_ltm, zero, field='value') or \
+            calculate.lt(decimal_utils.div(dprofit_quarter.value, dprofit_ltm.value), min_dprofit_percent):
+        score = -1
+    else:
+        peg = decimal_utils.div(
+            decimal_utils.div(pe.value, dprofit_quarter.yoy), 100)
+        report_type = pe.report_type | dprofit_quarter.report_type
+        period = max(pe.period, dprofit_quarter.period)
+        if peg > max_peg:
             score = -1
-        elif quarter.quarter_dprofit_ly is None or abs(quarter.quarter_dprofit_ly) < basic_profit:
-            score = -1
-        elif quarter.quarter_dprofit is None or quarter.dprofit_ltm is None or \
-                abs(quarter.quarter_dprofit / quarter.dprofit_ltm < 0.15):
-            score = -1
-        elif quarter.dprofit_period != quarter.report_period and quarter.dprofit_forecast_one_time is True:
-            score = -1
+        else:
+            score = (1 - peg / max_peg) * 100
 
-    if score != -1:
-        score = (1 - share.dprofit_peg / max_peg) * 100
-
-    return valid_score(score)
+    return MqDailyIndicator(ts_code=ts_code, report_type=report_type,
+                            period=period, update_date=update_date,
+                            name=mq_daily_indicator_enum.grow_score.name,
+                            value=valid_score(score))

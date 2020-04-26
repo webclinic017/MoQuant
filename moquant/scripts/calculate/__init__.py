@@ -20,3 +20,21 @@ def recalculate(ts_code: str):
     cal_mq_quarter.recalculate_by_code(ts_code=ts_code)
     cal_mq_daily.recalculate_by_code(ts_code=ts_code)
     cal_message.recalculate_by_code(ts_code=ts_code)
+
+
+def gt(obj: object, target: object, field: str = None) -> bool:
+    if obj is None:
+        return False
+    value = getattr(obj, field) if field is not None else obj
+    if value is None:
+        return False
+    return value > target
+
+
+def lt(obj: object, target: object, field: str = None) -> bool:
+    if obj is None:
+        return False
+    value = getattr(obj, field) if field is not None else obj
+    if value is None:
+        return False
+    return value < target
