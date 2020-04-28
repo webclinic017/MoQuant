@@ -6,6 +6,9 @@ from moquant.dbclient.base import Base
 class MqMessage(Base):
     __tablename__ = 'mq_message'
     __table_args__ = (
+        Index('msg_type', 'msg_type'),
+        Index('code', 'ts_code'),
+        Index('pub_date', 'pub_date'),
         {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
     )
 

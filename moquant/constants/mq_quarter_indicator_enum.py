@@ -47,18 +47,18 @@ dprofit = MqQuarterIndicatorEnum('dprofit', '归母扣非净利润', from_name='
 
 extract_from_fi_list = [dprofit]
 
-# forecast
-forecast_nprofit = MqQuarterIndicatorEnum('nprofit', '归母净利润')
-forecast_dprofit = MqQuarterIndicatorEnum('dprofit', '归母扣非净利润')
+# express
+express_nprofit = MqQuarterIndicatorEnum('dprofit', '归母扣非净利润', from_name='n_income')
+extract_from_express_list = [revenue, express_nprofit, total_assets, nassets]
 
-extract_from_forecast_list = [revenue, forecast_nprofit, forecast_dprofit]
+# forecast
+extract_from_forecast_list = [nprofit]
 
 # dividend
 dividend = MqQuarterIndicatorEnum('dividend', '分红总额')
 dividend_ratio = MqQuarterIndicatorEnum('dividend_ratio', '分红率', is_percent=True)
 dividend_ltm = MqQuarterIndicatorEnum('dividend_ltm', '分红LTM', from_name='dividend')
 
-fill_empty_list = [dividend]
 
 # ltm
 revenue_quarter = MqQuarterIndicatorEnum('revenue_quarter', '营业收入-单季', from_name='revenue')
@@ -88,6 +88,13 @@ liquidity_risk = MqQuarterIndicatorEnum('liquidity_risk', '流动性风险', is_
 intangible_risk = MqQuarterIndicatorEnum('intangible_risk', '无形风险', is_percent=True)
 cash_debt_rate = MqQuarterIndicatorEnum('cash_debt_rate', '存贷比', is_percent=True)
 
+risk_point = MqQuarterIndicatorEnum('risk_point', '存贷比', is_percent=True)
+
+# fill
+fill_dividend = MqQuarterIndicatorEnum('dividend', '分红总额', from_name='')
+fill_dprofit = MqQuarterIndicatorEnum('dprofit', '分红总额', from_name='nprofit')
+fill_after_copy_fail_list = [fill_dividend, fill_dprofit]
+
 all_indicators_list = [
     # income
     revenue, nprofit, total_nprofit,
@@ -110,7 +117,8 @@ all_indicators_list = [
     # du pont
     roe, dprofit_margin, turnover_rate, equity_multiplier,
     # risk
-    receive_risk, liquidity_risk, intangible_risk, cash_debt_rate
+    receive_risk, liquidity_risk, intangible_risk, cash_debt_rate,
+    risk_point
 ]
 
 all_indicators_map = {}

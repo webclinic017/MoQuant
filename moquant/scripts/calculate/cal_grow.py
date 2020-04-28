@@ -33,8 +33,8 @@ min_dprofit_percent = Decimal(0.15)
 
 
 def cal(daily_store: mq_daily_store.MqDailyStore,
-                      quarter_store: mq_quarter_store.MqQuarterStore,
-                      ts_code: str, update_date: str) -> MqDailyIndicator:
+        quarter_store: mq_quarter_store.MqQuarterStore,
+        ts_code: str, update_date: str) -> MqDailyIndicator:
     score = 0
     report_type = 0
     period = '00000000'

@@ -1,8 +1,10 @@
 man_forecast = 0
 forecast = 1
 forecast_fix = 2
-report = 3
-report_fix = 4
-report_adjust = 5
-report_adjust_fix = 6
-mq_predict = 7
+express = 3
+express_fix = 4
+report = 5
+report_fix = 6
+report_adjust = 7
+report_adjust_fix = 8
+mq_predict = 9

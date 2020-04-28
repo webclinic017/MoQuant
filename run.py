@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from moquant.log import get_logger
-from moquant.scripts import clear_all_data, init_table, fetch_data, fetch_latest, download_pdf, calculate
+from moquant.scripts import init_table, calculate, daily
+from moquant.scripts.fetch import fetch_latest
 from moquant.strategy import loopback
 from moquant.utils import env_utils
 from moquant.utils.date_utils import get_current_dt
@@ -13,16 +14,12 @@ if __name__ == '__main__':
 
     if args.job == 'init':
         init_table.create_table()
-    elif args.job == 'clear':
-        clear_all_data.run(args.code)
     elif args.job == 'fetch_daily':
-        fetch_data.run(args.code, args.date)
+        daily.run()
     elif args.job == 'fetch_latest':
         fetch_latest.run()
     elif args.job == 'recalculate':
         calculate.recalculate(args.code)
-    elif args.job == 'df':
-        download_pdf.forecast()
     elif args.job == 'sim':
         loopback.run_grow_strategy('20190101', get_current_dt())
     else:

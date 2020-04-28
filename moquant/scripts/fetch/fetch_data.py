@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """ To fetch basic data from TuShare """
-import sys
 import time
 
-from sqlalchemy import and_, Column, func, Table
+from sqlalchemy import Column, func, Table
 from sqlalchemy.orm import Session
 
 from moquant.constants import fetch_data_start_date, mq_calculate_start_date
 from moquant.dbclient import db_client
-from moquant.dbclient.mq_stock_mark import MqStockMark
 from moquant.dbclient.ts_adj_factor import StockAdjFactor
 from moquant.dbclient.ts_balance_sheet import TsBalanceSheet
 from moquant.dbclient.ts_basic import TsBasic
@@ -21,11 +19,7 @@ from moquant.dbclient.ts_fina_indicator import TsFinaIndicator
 from moquant.dbclient.ts_forecast import TsForecast
 from moquant.dbclient.ts_income import TsIncome
 from moquant.log import get_logger
-from moquant.scripts import clear_after_fetch, fetch_dividend, fetch_stk_limit, \
-    fetch_trade_cal, calculate
-from moquant.scripts.calculate import cal_mq_daily
 from moquant.tsclient import ts_client
-from moquant.utils import threadpool
 from moquant.utils.date_utils import format_delta, get_current_dt
 from moquant.utils.env_utils import pass_fetch_basic
 
@@ -116,26 +110,6 @@ def fetch_data_by_code(stock_code, to_date: str = get_current_dt()):
     return result
 
 
-def fetch_data(to_date: str = get_current_dt()):
-    if to_date is None:
-        to_date = get_current_dt()
-    session: Session = db_client.get_session()
-    result = session.query(MqStockMark).filter(
-        and_(MqStockMark.fetch_data == 1, MqStockMark.last_fetch_date < to_date)).all()
-    log.info(len(result))
-    for row in result:  # type: MqStockMark
-        if fetch_data_by_code(row.ts_code, to_date):
-            row.last_fetch_date = to_date
-            session.flush()
-            do_after_fetch(ts_code=row.ts_code)
-    session.close()
-
-
-def do_after_fetch(ts_code: str):
-    clear_after_fetch.clear(ts_code)
-    threadpool.submit(calculate.run, ts_code=ts_code)
-
-
 def init_stock_basic():
     if pass_fetch_basic():
         return
@@ -163,32 +137,3 @@ def init_stock_basic():
         session.add_all(to_add_obj)
         session.flush()
     session.close()
-
-
-def run(ts_code, to_date: str = get_current_dt()):
-    if to_date is None:
-        to_date = get_current_dt()
-
-    threadpool.submit(fetch_dividend.update_dividend_to, dt=to_date)
-    threadpool.submit(fetch_stk_limit.update_stk_limit_to, dt=to_date)
-    threadpool.submit(fetch_trade_cal.fetch)
-
-    if ts_code is not None and ts_code != '':
-        session: Session = db_client.get_session()
-        mq_list: MqStockMark = session.query(MqStockMark).filter(MqStockMark.ts_code == ts_code).all()
-        for mq in mq_list:
-            fetch_data_by_code(mq.ts_code, to_date)
-            mq.last_fetch_date = to_date
-            session.flush()
-            do_after_fetch(ts_code=mq.ts_code)
-        session.close()
-    else:
-        init_stock_basic()
-        fetch_data(to_date)
-    threadpool.join()
-    cal_mq_daily.update_done_record(to_date)
-
-
-if __name__ == '__main__':
-    run(ts_code=sys.argv[1] if len(sys.argv) > 1 else None, to_date=sys.argv[2] if len(sys.argv) > 2 else None)
-    exit(0)

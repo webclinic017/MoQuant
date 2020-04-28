@@ -72,10 +72,17 @@ class TsClient(object):
         return df
 
     def fetch_forecast(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
-        return self.__pro.forecast(ts_code=ts_code, start_date=start_date, end_date=end_date)
+        return self._handle_forecast(self.__pro.forecast(ts_code=ts_code, start_date=start_date, end_date=end_date))
 
     def fetch_forecast_by_date(self, ann_date: str) -> DataFrame:
-        return self.__pro.forecast(ann_date=ann_date)
+        return self._handle_forecast(self.__pro.forecast(ann_date=ann_date))
+
+    def _handle_forecast(self, df: DataFrame):
+        if not df.empty:
+            df['net_profit_min'] = df.apply(lambda row: row.net_profit_min * 10000, axis=1)
+            df['net_profit_max'] = df.apply(lambda row: row.net_profit_max * 10000, axis=1)
+            df['last_parent_net'] = df.apply(lambda row: row.last_parent_net * 10000, axis=1)
+        return df
 
     def fetch_express(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
         return self.__pro.express(ts_code=ts_code, start_date=start_date, end_date=end_date)

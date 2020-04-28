@@ -8,7 +8,7 @@ from moquant.dbclient.ts_forecast import TsForecast
 from moquant.dbclient.ts_income import TsIncome
 from moquant.dbclient.ts_trade_cal import TsTradeCal
 from moquant.log import get_logger
-from moquant.scripts import fetch_data, clear_after_fetch
+from moquant.scripts.fetch import fetch_data, clear_after_fetch
 from moquant.scripts.calculate import cal_mq_daily, recalculate
 from moquant.tsclient import ts_client
 from moquant.utils import threadpool, env_utils

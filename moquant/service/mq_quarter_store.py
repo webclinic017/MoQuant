@@ -29,7 +29,7 @@ class MqQuarterStore(object):
     def find_latest(self, ts_code: str, name: str,
                     update_date: str = '99999999') -> MqQuarterIndicator:
         tree = self.get_tree(ts_code, name)
-        max_to_find = MqQuarterIndicator(period='99999999', update_date=update_date)
+        max_to_find = MqQuarterIndicator(period=update_date, update_date=update_date)
         target = tree.find_max_under(max_to_find)
         ret: MqQuarterIndicator = self.val(target)
         return ret

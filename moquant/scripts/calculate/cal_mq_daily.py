@@ -1,209 +1,216 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 import sys
-import time
+from datetime import time
+from decimal import Decimal
+from functools import partial
 
-from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
-from moquant.constants import mq_calculate_start_date
+from moquant.constants import mq_calculate_start_date, mq_daily_indicator_enum, mq_report_type, \
+    mq_quarter_indicator_enum
 from moquant.dbclient import db_client
-from moquant.dbclient.mq_daily_basic import MqDailyBasic
-from moquant.dbclient.mq_quarter_basic import MqQuarterBasic
-from moquant.dbclient.mq_stock_mark import MqStockMark
-from moquant.dbclient.mq_sys_param import MqSysParam
+from moquant.dbclient.mq_daily_indicator import MqDailyIndicator
+from moquant.dbclient.mq_quarter_indicator import MqQuarterIndicator
 from moquant.dbclient.ts_basic import TsBasic
 from moquant.dbclient.ts_daily_basic import TsDailyBasic
 from moquant.log import get_logger
-from moquant.scripts.calculate.cal_grow import cal_growing_score
-from moquant.scripts.calculate.cal_val import cal_val_score
-from moquant.utils.date_utils import format_delta, get_current_dt
-from moquant.utils.decimal_utils import div
+from moquant.scripts.calculate import cal_grow
+from moquant.service import mq_quarter_store, mq_daily_store
+from moquant.utils import decimal_utils, date_utils
 
 log = get_logger(__name__)
-done_record_key = 'CAL_DAILY_DONE'
 
 
-def get_next_index(arr, field, current, i: int = -1):
-    while i + 1 < len(arr) and getattr(arr[i + 1], field) <= current:
-        i = i + 1
-    return i
+def common_add(result_list: list, store: mq_daily_store.MqDailyStore, to_add: MqDailyIndicator):
+    store.add(to_add)
+    result_list.append(to_add)
 
 
-def add_to_dict(quarter_dict, quarter_arr, s, e):
-    for i in range(s, e):
-        quarter: MqQuarterBasic = quarter_arr[i]
-        if quarter.report_period != quarter.forecast_period:
-            continue
-        quarter_dict[quarter.report_period] = quarter
+def common_log_err(ts_code: str, update_date: str, name: str):
+    log.error('Fail to cal %s of %s, date: %s' % (name, ts_code, update_date))
 
 
-def calculate(ts_code: str, share_name: str, to_date: str, fix_from: str = None):
-    result_list = []
-    if to_date is None:
-        to_date = get_current_dt()
+def add_nx(ts_code: str, report_type: int, period: str, update_date: str,
+           name: str, value: Decimal,
+           result_list: list, store: mq_daily_store.MqDailyStore):
+    if value is None:
+        return
+    exist = store.find_date_exact(ts_code, name, period)
+    if exist is not None:
+        return
+    to_add = MqDailyIndicator(ts_code=ts_code, report_type=(1 << report_type), period=period, update_date=update_date,
+                              name=name, value=value)
+    common_add(result_list, store, to_add)
+
+
+def extract_from_daily_basic(result_list: list, store: mq_daily_store.MqDailyStore, daily: TsDailyBasic):
+    call_add_nx = partial(
+        add_nx, ts_code=daily.ts_code, period=daily.trade_date, update_date=daily.trade_date,
+        report_type=mq_report_type.report, store=store, result_list=result_list
+    )
+    for i in mq_daily_indicator_enum.extract_from_daily_list:
+        call_add_nx(name=i.name, value=getattr(daily, i.name))
+
+
+def copy_basic_from_yesterday(result_list: list, store: mq_daily_store.MqDailyStore, ts_code, now_date):
+    yesterday_date = date_utils.format_delta(now_date, -1)
+    for i in mq_daily_indicator_enum.extract_from_daily_list:
+        yesterday = store.find_date_exact(ts_code, i.name, yesterday_date)
+        if yesterday is None:
+            log.error('Cant find daily data of %s %s to copy for non-trade-day' % (ts_code, yesterday))
+        else:
+            to_add = MqDailyIndicator(ts_code=yesterday.ts_code, report_type=yesterday.report_type,
+                                      period=yesterday.period, update_date=now_date,
+                                      name=yesterday.name, value=yesterday.value)
+            common_add(result_list, store, to_add)
+
+
+# daily / quarter
+def dq_dividend(call_add: partial, call_log: partial, i1: MqDailyIndicator, i2: MqQuarterIndicator, name: str):
+    if i1 is None or i2 is None:
+        call_log(name=name)
+        return None
+    else:
+        to_add = MqDailyIndicator(ts_code=i1.ts_code, report_type=i1.report_type | i2.report_type,
+                                  period=i2.period, update_date=i1.update_date,
+                                  name=name, value=decimal_utils.div(i1.value, i2.value))
+        call_add(to_add=to_add)
+        return to_add
+
+
+# quarter / daily
+def qd_dividend(call_add: partial, call_log: partial, i1: MqQuarterIndicator, i2: MqDailyIndicator, name: str):
+    if i1 is None or i2 is None:
+        call_log(name=name)
+        return None
+    else:
+        to_add = MqDailyIndicator(ts_code=i1.ts_code, report_type=i1.report_type | i2.report_type,
+                                  period=i1.period, update_date=i2.update_date,
+                                  name=name, value=decimal_utils.div(i1.value, i2.value))
+        call_add(to_add=to_add)
+        return to_add
+
+
+def cal_pepb(result_list: list, daily_store: mq_daily_store.MqDailyStore,
+             quarter_store: mq_quarter_store.MqQuarterStore,
+             ts_code: str, update_date: str):
+    call_add = partial(common_add, result_list=result_list, store=daily_store)
+    call_log = partial(common_log_err, ts_code=ts_code, update_date=update_date)
+
+    total_mv = daily_store.find_date_exact(ts_code, mq_daily_indicator_enum.total_mv.name, update_date)
+
+    dprofit_ltm = quarter_store.find_latest(ts_code, mq_quarter_indicator_enum.dprofit_ltm.name, update_date)
+    dq_dividend(call_add, call_log, total_mv, dprofit_ltm, mq_daily_indicator_enum.pe.name)
+
+    nassets = quarter_store.find_latest(ts_code, mq_quarter_indicator_enum.nassets.name, update_date)
+    dq_dividend(call_add, call_log, total_mv, nassets, mq_daily_indicator_enum.pb.name)
+
+
+def cal_dividend(result_list: list, daily_store: mq_daily_store.MqDailyStore,
+                 quarter_store: mq_quarter_store.MqQuarterStore,
+                 ts_code: str, update_date: str):
+    call_add = partial(common_add, result_list=result_list, store=daily_store)
+    call_log = partial(common_log_err, ts_code=ts_code, update_date=update_date)
+
+    dividend_ltm = quarter_store.find_latest(ts_code, mq_quarter_indicator_enum.dividend_ltm.name, update_date)
+    total_mv = daily_store.find_date_exact(ts_code, mq_daily_indicator_enum.total_mv.name, update_date)
+    qd_dividend(call_add, call_log, dividend_ltm, total_mv, mq_daily_indicator_enum.dividend_yields.name)
+
+
+def cal_score(result_list: list, daily_store: mq_daily_store.MqDailyStore,
+              quarter_store: mq_quarter_store.MqQuarterStore,
+              ts_code: str, update_date: str):
+    call_add = partial(common_add, result_list=result_list, store=daily_store)
+
+    grow_score = cal_grow.cal(daily_store, quarter_store, ts_code, update_date)
+    call_add(to_add=grow_score)
+
+
+def calculate_one(ts_code: str, share_name: str, to_date: str = date_utils.get_current_dt()):
     start_time = time.time()
+    result_list = []
     session = db_client.get_session()
-    last_mq_daily = session.query(MqDailyBasic).filter(MqDailyBasic.ts_code == ts_code) \
-        .order_by(MqDailyBasic.date.desc()).limit(1).all()
+    last_mq_daily = session.query(MqDailyIndicator).filter(MqDailyIndicator.ts_code == ts_code) \
+        .order_by(MqDailyIndicator.update_date.desc()).limit(1).all()
 
     from_date = mq_calculate_start_date
     if len(last_mq_daily) > 0:
-        from_date = format_delta(last_mq_daily[0].date, 1)
+        from_date = date_utils.format_delta(last_mq_daily[0].update_date, 1)
     else:
         ts_basic_arr = session.query(TsBasic).filter(TsBasic.ts_code == ts_code).all()
         if len(ts_basic_arr) > 0 and ts_basic_arr[0].list_date > from_date:
             from_date = ts_basic_arr[0].list_date
-    if fix_from is None and from_date > to_date:
-        return result_list
 
     # Get all daily basic from a date
     last_ts_daily = session.query(TsDailyBasic) \
-        .filter(and_(TsDailyBasic.ts_code == ts_code, TsDailyBasic.trade_date < from_date)) \
+        .filter(TsDailyBasic.ts_code == ts_code, TsDailyBasic.trade_date < from_date) \
         .order_by(TsDailyBasic.trade_date.desc()) \
         .limit(1) \
         .all()
     daily_start_date = last_ts_daily[0].trade_date if len(last_ts_daily) > 0 else from_date
+
     daily_arr = session.query(TsDailyBasic) \
-        .filter(and_(TsDailyBasic.ts_code == ts_code, TsDailyBasic.trade_date >= daily_start_date)) \
+        .filter(TsDailyBasic.ts_code == ts_code, TsDailyBasic.trade_date >= daily_start_date) \
         .order_by(TsDailyBasic.trade_date.asc()).all()
     if len(daily_arr) > 0 and daily_arr[0].trade_date > from_date:
         from_date = daily_arr[0].trade_date
 
-    quarter_arr = session.query(MqQuarterBasic) \
-        .filter(
-        and_(MqQuarterBasic.ts_code == ts_code, MqQuarterBasic.update_date >= format_delta(from_date, -(360 * 6)))) \
-        .order_by(MqQuarterBasic.update_date.asc(), MqQuarterBasic.report_period.asc(),
-                  MqQuarterBasic.forecast_period.asc()) \
-        .all()
-
     session.close()
 
-    if len(quarter_arr) > 0 and quarter_arr[0].update_date > from_date:
-        from_date = quarter_arr[0].update_date
-
-    if fix_from is not None:
-        from_date = fix_from
+    quarter_store = mq_quarter_store.init_quarter_store_by_date(ts_code, date_utils.format_delta(from_date, -360))
+    daily_store = mq_daily_store.init_daily_store_by_date(ts_code, date_utils.format_delta(from_date, -360))
 
     prepare_time = time.time()
     log.info("Prepare data for %s: %s seconds" % (ts_code, prepare_time - start_time))
 
-    d_i = get_next_index(daily_arr, 'trade_date', from_date)
-    q_i = get_next_index(quarter_arr, 'update_date', from_date)
-    quarter_dict = {}
-    add_to_dict(quarter_dict, quarter_arr, 0, q_i)
-
     while from_date <= to_date:
-        daily_basic: TsDailyBasic = daily_arr[d_i] if 0 <= d_i < len(daily_arr) else None
-        is_trade_day: bool = (daily_basic is not None and daily_basic.trade_date == from_date)
-        quarter: MqQuarterBasic = quarter_arr[q_i] if 0 <= q_i < len(quarter_arr) else None
+        is_trade_day: bool = (len(daily_arr) > 0 and daily_arr[0].trade_date == from_date)
 
-        total_share = None
-        close = None
-        market_value = None
-        if daily_basic is not None:
-            total_share = daily_basic.total_share * 10000
-            close = daily_basic.close
-            market_value = daily_basic.total_mv * 10000
+        if is_trade_day:
+            extract_from_daily_basic(result_list, daily_store, daily_arr.pop(0))
+        else:
+            copy_basic_from_yesterday(result_list, daily_store, ts_code, from_date)
 
-        dprofit_period = None
-        dprofit_pe = None
-        dprofit_peg = None
-        quarter_dprofit_yoy = None
-        pb = None
-        dividend_yields = None
-        if quarter is not None:
-            dprofit_period = quarter.dprofit_period
-            dprofit_ltm = quarter.dprofit_ltm
-            if dprofit_ltm is not None and market_value is not None and dprofit_ltm != 0:
-                dprofit_pe = market_value / dprofit_ltm
-            quarter_dprofit_yoy = quarter.quarter_dprofit_yoy
-            if dprofit_pe is not None and quarter_dprofit_yoy is not None and quarter_dprofit_yoy != 0:
-                dprofit_peg = dprofit_pe / quarter_dprofit_yoy / 100
-            nassets = quarter.nassets
-            if nassets is not None and market_value is not None and nassets != 0:
-                pb = market_value / nassets
-            dividend_yields = div(quarter.dividend_ltm, market_value)
+        cal_pepb(result_list, daily_store, quarter_store, ts_code, from_date)
+        cal_dividend(result_list, daily_store, quarter_store, ts_code, from_date)
+        cal_score(result_list, daily_store, quarter_store, ts_code, from_date)
 
-        mq_daily = MqDailyBasic(ts_code=ts_code, share_name=share_name, date=from_date, is_trade_day=is_trade_day,
-                                total_share=total_share, close=close, market_value=market_value, pb=pb,
-                                dprofit_period=dprofit_period, quarter_dprofit_yoy=quarter_dprofit_yoy,
-                                dprofit_pe=dprofit_pe, dprofit_peg=dprofit_peg, dividend_yields=dividend_yields,
-                                grow_score=-1, val_score=-1)
-        mq_daily.grow_score = cal_growing_score(mq_daily, quarter)
-        mq_daily.val_score = cal_val_score(mq_daily, quarter, quarter_dict)
-
-        result_list.append(mq_daily)
-
-        from_date = format_delta(from_date, 1)
-        d_i = get_next_index(daily_arr, 'trade_date', from_date, d_i)
-        nq_i = get_next_index(quarter_arr, 'update_date', from_date, q_i)
-        add_to_dict(quarter_dict, quarter_arr, q_i, nq_i)
-        q_i = nq_i
+        from_date = date_utils.format_delta(from_date, 1)
 
     calculate_time = time.time()
-    log.info("Calculate data for %s: %s seconds" % (ts_code, calculate_time - prepare_time))
+    log.info("Calculate mq_daily_indicator for %s: %s seconds" % (ts_code, calculate_time - prepare_time))
     return result_list
 
 
-def calculate_and_insert(ts_code: str, share_name: str, to_date: str = get_current_dt()):
-    result_list = calculate(ts_code, share_name, to_date)
+def calculate_and_insert(ts_code: str, share_name: str, to_date: str = date_utils.get_current_dt()):
+    result_list = calculate_one(ts_code, share_name, to_date)
     if len(result_list) > 0:
         start_time = time.time()
         session: Session = db_client.get_session()
-        for item in result_list:  # type: MqDailyBasic
+        for item in result_list:  # type: MqDailyIndicator
             session.add(item)
         session.flush()
         session.close()
-        log.info("Insert mq daily data for %s: %s seconds" % (ts_code, time.time() - start_time))
+        log.info("Insert mq_daily_indicator for %s: %s seconds" % (ts_code, time.time() - start_time))
     else:
-        log.info('Nothing to insert %s' % ts_code)
+        log.info('Nothing to insert into mq_daily_indicator %s' % ts_code)
 
 
-def calculate_all():
+def calculate_by_code(ts_code: str, to_date: str = date_utils.get_current_dt()):
     session: Session = db_client.get_session()
-    now_date = get_current_dt()
-    mq_list = session.query(MqStockMark).filter(MqStockMark.last_fetch_date == now_date).all()
+    basic: TsBasic = session.query(TsBasic).filter(TsBasic.ts_code == ts_code).one()
     session.close()
-    for mq in mq_list:
-        calculate_and_insert(mq.ts_code, mq.share_name, mq.last_fetch_date)
-    update_done_record(now_date)
+    if basic is None:
+        log.error("Cant find ts_basic of %s" % ts_code)
+        return
+    calculate_and_insert(ts_code, basic.name, to_date)
 
 
-def update_done_record(to_date: str):
+def recalculate_by_code(ts_code: str, to_date: str = date_utils.get_current_dt()):
     session: Session = db_client.get_session()
-    session.merge(MqSysParam(param_key=done_record_key, param_value=to_date), True)
-    session.flush()
+    session.query(MqDailyIndicator).filter(MqDailyIndicator.ts_code == ts_code).delete()
     session.close()
+    calculate_by_code(ts_code, to_date)
 
-
-def is_done(dt: str) -> bool:
-    session: Session = db_client.get_session()
-    param_list: list = session.query(MqSysParam).filter(MqSysParam.param_key == done_record_key).all()
-    session.close()
-    param: MqSysParam = None
-    if len(param_list) > 0:
-        param = param_list[0]
-    return param is not None and param.param_value >= dt
-
-
-def calculate_by_code(ts_code: str):
-    session: Session = db_client.get_session()
-    stock: MqStockMark = session.query(MqStockMark).filter(MqStockMark.ts_code == ts_code).one()
-    session.close()
-    calculate_and_insert(ts_code, stock.share_name)
-
-
-def recalculate_by_code(ts_code: str):
-    session: Session = db_client.get_session()
-    session.query(MqDailyBasic).filter(MqDailyBasic.ts_code == ts_code).delete()
-    session.close()
-    calculate_by_code(ts_code)
-
-
+receive_risk
 if __name__ == '__main__':
-    if len(sys.argv) > 1:
-        recalculate_by_code(sys.argv[1])
-    else:
-        calculate_all()
+    recalculate_by_code(sys.argv[1])
