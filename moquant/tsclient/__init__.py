@@ -8,6 +8,7 @@ from pandas import DataFrame
 from tushare.pro.client import DataApi
 
 from moquant.log import get_logger
+from moquant.utils import decimal_utils
 from moquant.utils.compare_utils import mini
 from moquant.utils.env_utils import get_env_value
 
@@ -40,8 +41,10 @@ class TsClient(object):
     def fetch_daily_basic(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
         df: DataFrame = self.__pro.daily_basic(ts_code=ts_code, start_date=start_date, end_date=end_date)
         if not df.empty:
-            df['total_share'] = df.apply(lambda row: row.total_share * 10000, axis=1)
-            df['total_mv'] = df.apply(lambda row: row.total_mv * 10000, axis=1)
+            df['total_share'] = df.apply(lambda row:
+                                         decimal_utils.mul(row.total_share, 10000, err_default=None), axis=1)
+            df['total_mv'] = df.apply(lambda row:
+                                      decimal_utils.mul(row.total_mv, 10000, err_default=None), axis=1)
         return df
 
     def fetch_adj_factor(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
@@ -79,9 +82,12 @@ class TsClient(object):
 
     def _handle_forecast(self, df: DataFrame):
         if not df.empty:
-            df['net_profit_min'] = df.apply(lambda row: row.net_profit_min * 10000, axis=1)
-            df['net_profit_max'] = df.apply(lambda row: row.net_profit_max * 10000, axis=1)
-            df['last_parent_net'] = df.apply(lambda row: row.last_parent_net * 10000, axis=1)
+            df['net_profit_min'] = df.apply(lambda row:
+                                            decimal_utils.mul(row.net_profit_min, 10000, err_default=None), axis=1)
+            df['net_profit_max'] = df.apply(lambda row:
+                                            decimal_utils.mul(row.net_profit_max, 10000, err_default=None), axis=1)
+            df['last_parent_net'] = df.apply(lambda row:
+                                             decimal_utils.mul(row.last_parent_net, 10000, err_default=None), axis=1)
         return df
 
     def fetch_express(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:

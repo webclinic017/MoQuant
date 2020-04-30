@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 from moquant.log import get_logger
 from moquant.scripts import init_table, calculate, daily
-from moquant.scripts.fetch import fetch_latest
+from moquant.scripts.fetch import fetch_latest, clear_all
 from moquant.strategy import loopback
 from moquant.utils import env_utils
 from moquant.utils.date_utils import get_current_dt
@@ -14,6 +14,8 @@ if __name__ == '__main__':
 
     if args.job == 'init':
         init_table.create_table()
+    elif args.job == 'clear_all':
+        clear_all.run()
     elif args.job == 'fetch_daily':
         daily.run()
     elif args.job == 'fetch_latest':

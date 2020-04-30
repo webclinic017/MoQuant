@@ -339,7 +339,8 @@ def cal_ratio(result_list: list, store: MqQuarterStore, period: str, ts_code: st
     accounts_receiv = call_find(name='accounts_receiv')
     oth_receiv = call_find(name='oth_receiv')
     lt_rec = call_find(name='lt_rec')
-    total_receive = mq_quarter_indicator.add_up('total_receive', [notes_receiv, accounts_receiv, oth_receiv, lt_rec])
+    total_receive = mq_quarter_indicator.add_up('total_receive',
+                                                [notes_receiv, accounts_receiv, oth_receiv, lt_rec])
     revenue = call_find(name='revenue_ltm')
     receive_risk = common_dividend(call_add, call_log, total_receive, revenue, 'receive_risk')
 

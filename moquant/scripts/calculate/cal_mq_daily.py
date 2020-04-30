@@ -1,5 +1,5 @@
 import sys
-from datetime import time
+import time
 from decimal import Decimal
 from functools import partial
 
@@ -211,6 +211,5 @@ def recalculate_by_code(ts_code: str, to_date: str = date_utils.get_current_dt()
     session.close()
     calculate_by_code(ts_code, to_date)
 
-receive_risk
 if __name__ == '__main__':
     recalculate_by_code(sys.argv[1])
