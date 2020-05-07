@@ -26,7 +26,7 @@ class TsBalanceSheet(Base):
     special_rese = Column('special_rese', DECIMAL(30, 10), comment='专项储备')
     money_cap = Column('money_cap', DECIMAL(30, 10), comment='货币资金')
     trad_asset = Column('trad_asset', DECIMAL(30, 10), comment='交易性金融资产')
-    notes_receiv = Column('notes_receiv', DECIMAL(30, 10), comment='应收票据', server_default=0)
+    notes_receiv = Column('notes_receiv', DECIMAL(30, 10), comment='应收票据')
     accounts_receiv = Column('accounts_receiv', DECIMAL(30, 10), comment='应收账款')
     oth_receiv = Column('oth_receiv', DECIMAL(30, 10), comment='其他应收款')
     prepayment = Column('prepayment', DECIMAL(30, 10), comment='预付款项')

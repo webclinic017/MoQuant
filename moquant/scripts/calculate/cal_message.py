@@ -65,6 +65,7 @@ def generate_report_message_by_code(ts_code: str, share_name: str, to_date: str 
             result_list.append(MqMessage(ts_code=ts_code, msg_type=mq_message_type.report,
                                          message=get_report_message_content(dprofit, share_name),
                                          pub_date=date_utils.format_delta(from_date, 1)))
+        from_date = date_utils.format_delta(from_date, 1)
 
     return result_list
 

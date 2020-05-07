@@ -252,7 +252,7 @@ def fill_empty(result_list: list, store: MqQuarterStore, period_set: set, ts_cod
                 if i.from_name == '':
                     call_add_nx(report_type=mq_report_type.report, value=Decimal(0))
                 else:
-                    from_indicator = store.find_period_exact(ts_code, i.name, period, update_date)
+                    from_indicator = store.find_period_exact(ts_code, i.from_name, period, update_date)
                     if from_indicator is None or from_indicator.value is None:
                         log.error('Cant find %s to fill %s for %s. Period: %s. Update date: %s' %
                                   (i.from_name, i.name, ts_code, period, update_date))
