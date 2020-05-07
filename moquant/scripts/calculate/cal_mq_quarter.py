@@ -101,11 +101,12 @@ def add_nx(ts_code: str, report_type: int, period: str, update_date: str,
         return
     exist = store.find_period_latest(ts_code, name, period)
     if exist is not None and exist.update_date == update_date:
-        return
+        return None
     to_add = MqQuarterIndicator(ts_code=ts_code, report_type=(1 << report_type), period=period, update_date=update_date,
                                 name=name, value=value)
     common_add(result_list, store, to_add)
     period_set.add(period)
+    return to_add
 
 
 def extract_from_express(result_list: list, store: MqQuarterStore, period_set: set, express: TsExpress):
@@ -210,12 +211,14 @@ def extract_from_dividend(result_list: list, store: MqQuarterStore, period_set: 
 
 
 def copy_indicator_from_latest(result_list: list, store: MqQuarterStore, period: str, ts_code: str, update_date: str,
-                               name: str):
-    i = store.find_period_latest(ts_code, name, period)
+                               name: str, from_name: str = None):
+    if from_name is None:
+        from_name = name
+    i = store.find_period_latest(ts_code, from_name, period, update_date)
     if i is None or i.update_date == update_date:
         return
     ni = MqQuarterIndicator(ts_code=i.ts_code, report_type=i.report_type, period=i.period, update_date=update_date,
-                            name=i.name, value=i.value)
+                            name=name, value=i.value)
     common_add(result_list, store, ni)
 
 
@@ -257,7 +260,8 @@ def fill_empty(result_list: list, store: MqQuarterStore, period_set: set, ts_cod
                         log.error('Cant find %s to fill %s for %s. Period: %s. Update date: %s' %
                                   (i.from_name, i.name, ts_code, period, update_date))
                     else:
-                        call_add_nx(report_type=from_indicator.report_type, value=from_indicator.value)
+                        add = call_add_nx(report_type=0, value=from_indicator.value)
+                        add.report_type = from_indicator.report_type
 
 
 def cal_ltm(result_list: list, store: MqQuarterStore, period: str, ts_code: str, update_date: str):
