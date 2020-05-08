@@ -27,7 +27,7 @@ def get_report_type_name(report_type):
 
 
 def get_report_message_content(dprofit: MqQuarterIndicator, share_name: str) -> str:
-    pub = '%s(%s) 发布%s' % (share_name, dprofit.ts_code, get_report_type_name(dprofit.report_type))
+    pub = '%s(%s) 发布%s%s' % (share_name, dprofit.ts_code, date_utils.q_format_period(dprofit.period), get_report_type_name(dprofit.report_type))
     d = '扣非净利为%s' % decimal_utils.unit_format(dprofit.value)
     yoy = '同比增速为%s' % decimal_utils.percent_format(dprofit.yoy) if dprofit is not None else ''
     full = '%s,%s %s' % (pub, d, yoy)

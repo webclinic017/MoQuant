@@ -64,10 +64,10 @@ class TsClient(object):
         df = df1.append(df2)
         if not df.empty:
             df['mq_ann_date'] = df.apply(lambda row: mini(row.ann_date, row.f_ann_date), axis=1)
-            df['notes_receiv'] = df.apply(lambda row: 0 if row.notes_receiv is None else row.notes_receiv, axis=1)
-            df['accounts_receiv'] = df.apply(lambda row: 0 if row.accounts_receiv is None else row.accounts_receiv, axis=1)
-            df['oth_receiv'] = df.apply(lambda row: 0 if row.oth_receiv is None else row.oth_receiv, axis=1)
-            df['lt_rec'] = df.apply(lambda row: 0 if row.lt_rec is None else row.lt_rec, axis=1)
+            df['notes_receiv'] = df.apply(lambda row: decimal_utils.noneToZero(row.notes_receiv), axis=1)
+            df['accounts_receiv'] = df.apply(lambda row: decimal_utils.noneToZero(row.accounts_receiv), axis=1)
+            df['oth_receiv'] = df.apply(lambda row: decimal_utils.noneToZero(row.oth_receiv), axis=1)
+            df['lt_rec'] = df.apply(lambda row: decimal_utils.noneToZero(row.lt_rec), axis=1)
         return df
 
     def fetch_cash_flow(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:

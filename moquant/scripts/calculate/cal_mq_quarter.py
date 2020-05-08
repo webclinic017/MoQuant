@@ -155,21 +155,53 @@ def extract_from_forecast(result_list: list, store: MqQuarterStore, period_set: 
     call_add_nx(name=mq_quarter_indicator_enum.nprofit.name, value=forecast_nprofit)
 
 
+def extract_from_income_adjust(result_list: list, store: MqQuarterStore, period_set: set, income: TsIncome):
+    update_date = date_utils.format_delta(income.mq_ann_date, -1)
+
+    nprofit_new = store.find_period_exact(income.ts_code, mq_quarter_indicator_enum.nprofit.name, income.end_date,
+                                          update_date)
+    nprofit_old = store.find_period_latest(income.ts_code, mq_quarter_indicator_enum.nprofit.name, income.end_date,
+                                           date_utils.format_delta(update_date, -1))
+    dprofit_old = store.find_period_latest(income.ts_code, mq_quarter_indicator_enum.dprofit.name, income.end_date,
+                                           date_utils.format_delta(update_date, -2))
+
+    to_add = None
+    if nprofit_new is None:
+        log.error('Cant find nprofit in adjust income. %s %s' % (income.ts_code, income.end_date))
+    if nprofit_old is None or dprofit_old is None:
+        to_add = MqQuarterIndicator(ts_code=income.ts_code, report_type=(1 << mq_report_type.report_adjust),
+                                    period=income.end_date, update_date=update_date,
+                                    name=mq_quarter_indicator_enum.dprofit.name, value=nprofit_new.value)
+    else:
+        to_add = MqQuarterIndicator(ts_code=income.ts_code, report_type=(1 << mq_report_type.report_adjust),
+                                    period=income.end_date, update_date=update_date,
+                                    name=mq_quarter_indicator_enum.dprofit.name,
+                                    value=decimal_utils.sub(nprofit_new.value,
+                                                            decimal_utils.sub(nprofit_old.value, dprofit_old.value)))
+
+    if to_add is not None:
+        common_add(result_list, store, to_add)
+
+
 def extract_from_income(result_list: list, store: MqQuarterStore, period_set: set, income: TsIncome):
     call_add_nx = partial(
         add_nx, ts_code=income.ts_code, period=income.end_date,
         update_date=date_utils.format_delta(income.mq_ann_date, -1),
-        report_type=mq_report_type.report if income.report_type == 1 else mq_report_type.report_adjust,
+        report_type=mq_report_type.report if income.report_type == '1' else mq_report_type.report_adjust,
         store=store, result_list=result_list, period_set=period_set
     )
     for i in mq_quarter_indicator_enum.extract_from_income_list:
         call_add_nx(name=i.name, value=getattr(income, i.from_name))
 
+    # 处理调整
+    if income.report_type == '4':
+        extract_from_income_adjust(result_list, store, period_set, income)
+
 
 def extract_from_balance(result_list: list, store: MqQuarterStore, period_set: set, bs: TsBalanceSheet):
     call_add_nx = partial(
         add_nx, ts_code=bs.ts_code, period=bs.end_date, update_date=date_utils.format_delta(bs.mq_ann_date, -1),
-        report_type=mq_report_type.report if bs.report_type == 1 else mq_report_type.report_adjust,
+        report_type=mq_report_type.report if bs.report_type == '1' else mq_report_type.report_adjust,
         store=store, result_list=result_list, period_set=period_set
     )
 
@@ -180,7 +212,7 @@ def extract_from_balance(result_list: list, store: MqQuarterStore, period_set: s
 def extract_from_cash_flow(result_list: list, store: MqQuarterStore, period_set: set, cf: TsCashFlow):
     call_add_nx = partial(
         add_nx, ts_code=cf.ts_code, period=cf.end_date, update_date=date_utils.format_delta(cf.mq_ann_date, -1),
-        report_type=mq_report_type.report if cf.report_type == 1 else mq_report_type.report_adjust,
+        report_type=mq_report_type.report if cf.report_type == '1' else mq_report_type.report_adjust,
         store=store, result_list=result_list, period_set=period_set
     )
 
@@ -266,7 +298,7 @@ def fill_empty(result_list: list, store: MqQuarterStore, period_set: set, ts_cod
 
 def cal_ltm(result_list: list, store: MqQuarterStore, period: str, ts_code: str, update_date: str):
     call_find_now = partial(store.find_period_exact, ts_code=ts_code, update_date=update_date)
-    call_find_pre = partial(store.find_period_latest, ts_code=ts_code)
+    call_find_pre = partial(store.find_period_latest, ts_code=ts_code, update_date=update_date)
     call_add = partial(common_add, result_list=result_list, store=store)
 
     for k in mq_quarter_indicator_enum.cal_quarter_list:

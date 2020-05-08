@@ -1,3 +1,4 @@
+import math
 from decimal import Decimal
 
 from moquant.utils.compare_utils import mini, maxi
@@ -103,3 +104,10 @@ def percent_format(num):
     if not isinstance(num, Decimal):
         num = Decimal(num)
     return '%s%%' % cut_format(num * 100)
+
+
+def noneToZero(num):
+    if num is None or math.isnan(num):
+        return 0
+    else:
+        return num
