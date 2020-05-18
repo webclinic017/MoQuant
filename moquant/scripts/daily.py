@@ -29,7 +29,7 @@ def run():
         basic_list = session.query(TsBasic).filter(TsBasic.ts_code == ts_code).all()
     else:
         fetch_data.init_stock_basic()
-        fetch_data.fetch_data(to_date)
+        basic_list = session.query(TsBasic).all()
     session.close()
 
     for basic in basic_list:
