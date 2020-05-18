@@ -30,7 +30,3 @@ def forecast_html_path() -> str:
 
 def forecast_saved_path() -> str:
     return get_env_value('FORECAST_SAVED_PATH')
-
-
-def pass_fetch_basic() -> bool:
-    return get_env_value('PASS_FETCH_BASIC') == '1'

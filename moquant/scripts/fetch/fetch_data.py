@@ -6,7 +6,7 @@ import time
 from sqlalchemy import Column, func, Table
 from sqlalchemy.orm import Session
 
-from moquant.constants import fetch_data_start_date, mq_calculate_start_date
+from moquant.constants import fetch_data_start_date
 from moquant.dbclient import db_client
 from moquant.dbclient.ts_adj_factor import StockAdjFactor
 from moquant.dbclient.ts_balance_sheet import TsBalanceSheet
@@ -21,7 +21,6 @@ from moquant.dbclient.ts_income import TsIncome
 from moquant.log import get_logger
 from moquant.tsclient import ts_client
 from moquant.utils.date_utils import format_delta, get_current_dt
-from moquant.utils.env_utils import pass_fetch_basic
 
 log = get_logger(__name__)
 
@@ -111,10 +110,6 @@ def fetch_data_by_code(stock_code, to_date: str = get_current_dt()):
 
 
 def init_stock_basic():
-    if pass_fetch_basic():
-        return
-
-    # refresh stock basic every day, to update info and insert new stock
     session: Session = db_client.get_session()
     session.query(TsBasic).delete()
 
@@ -122,18 +117,3 @@ def init_stock_basic():
 
     if not stock_data.empty:
         db_client.store_dataframe(stock_data, TsBasic.__tablename__)
-
-    msm_list = session.query(MqStockMark).all()
-    existed = [msm.ts_code for msm in msm_list]
-
-    filter_df = stock_data[~stock_data['ts_code'].isin(existed)].rename(columns={"name": "stock_name"})
-
-    to_add_obj = [
-        MqStockMark(ts_code=stock.ts_code, share_name=stock.stock_name, last_daily_cal=mq_calculate_start_date,
-                    fetch_data=True, last_fetch_date=fetch_data_start_date
-                    ) for index, stock in filter_df.iterrows()]
-
-    if len(to_add_obj) > 0:
-        session.add_all(to_add_obj)
-        session.flush()
-    session.close()
