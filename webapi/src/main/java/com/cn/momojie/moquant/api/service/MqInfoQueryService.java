@@ -1,12 +1,19 @@
 package com.cn.momojie.moquant.api.service;
 
-import com.cn.momojie.moquant.api.constant.SysParamKey;
+import java.math.BigDecimal;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
+
 import com.cn.momojie.moquant.api.constant.TrendType;
 import com.cn.momojie.moquant.api.dao.*;
-import com.cn.momojie.moquant.api.dto.MqDailyBasic;
-import com.cn.momojie.moquant.api.dto.MqForecastAgg;
-import com.cn.momojie.moquant.api.dto.MqMessage;
-import com.cn.momojie.moquant.api.dto.MqQuarterBasic;
+import com.cn.momojie.moquant.api.dto.*;
 import com.cn.momojie.moquant.api.dto.ts.TsBasic;
 import com.cn.momojie.moquant.api.param.*;
 import com.cn.momojie.moquant.api.util.BigDecimalUtils;
@@ -14,16 +21,8 @@ import com.cn.momojie.moquant.api.util.DateTimeUtils;
 import com.cn.momojie.moquant.api.util.PinYinUtil;
 import com.cn.momojie.moquant.api.vo.*;
 import com.github.pagehelper.PageHelper;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
-import java.math.BigDecimal;
-import java.util.*;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
@@ -51,14 +50,13 @@ public class MqInfoQueryService {
     private MqSysParamService mqSysParamService;
 
     public PageResult getLatestListByOrder(MqDailyBasicParam param) {
-        param.setDt(getLatestDt());
         PageHelper.startPage(param.getPageNum(), param.getPageSize());
         List<MqDailyBasic> list = dailyBasicDao.selectByParam(param);
         return PageResult.fromList(list);
     }
 
     public PageResult getGrowList(MqShareListParam param) {
-    	param.setDt(getLatestDt());
+    	param.setYesterday(DateTimeUtils.getYesterdayDt());
     	param.setScoreBy("grow_score");
 		PageHelper.startPage(param.getPageNum(), param.getPageSize());
 		List<MqDailyBasic> list = dailyBasicDao.getScoreList(param);
@@ -66,16 +64,33 @@ public class MqInfoQueryService {
 	}
 
 	public PageResult getValList(MqShareListParam param) {
-		param.setDt(getLatestDt());
 		param.setScoreBy("val_score");
 		PageHelper.startPage(param.getPageNum(), param.getPageSize());
 		List<MqDailyBasic> list = dailyBasicDao.getScoreList(param);
 		return PageResult.fromList(list);
 	}
 
-    private String getLatestDt() {
-        return mqSysParamService.getString(SysParamKey.CAL_DAILY_DONE);
-    }
+	private Map<String, MqDailyBasic> getDailyLatest(Collection<String> codeList) {
+		Map<String, MqDailyBasic> result = new HashMap<>();
+		if (CollectionUtils.isEmpty(codeList)) {
+			return result;
+		}
+
+		List<MqDailyIndicator> indicatorList = dailyBasicDao.getDailyLatest(codeList, DateTimeUtils.getYesterdayDt());
+		Map<String, Map<String, MqDailyIndicator>> codeNameMap = new HashMap<>();
+		for (MqDailyIndicator i: indicatorList) {
+			String tsCode = i.getTsCode();
+			String name = i.getName();
+			if (!codeNameMap.containsKey(tsCode)) {
+				codeNameMap.put(tsCode, new HashMap<>());
+			}
+			Map<String, MqDailyIndicator> nameMap = codeNameMap.get(tsCode);
+			nameMap.put(name, i);
+		}
+
+
+		return result;
+	}
 
     public MqShareDetail getLatestByCode(String code) {
 		MqShareDetail detail = new MqShareDetail();

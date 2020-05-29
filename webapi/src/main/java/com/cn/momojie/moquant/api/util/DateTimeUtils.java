@@ -1,17 +1,31 @@
 package com.cn.momojie.moquant.api.util;
 
-import java.text.SimpleDateFormat;
+import java.time.format.DateTimeFormatter;
+import java.util.Calendar;
 import java.util.Date;
+
+import org.apache.commons.lang3.time.FastDateFormat;
 
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class DateTimeUtils {
 
-    public static String getCurrentDt() {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
-        return sdf.format(new Date());
+	private static final FastDateFormat DT_FORMAT = FastDateFormat.getInstance("yyyyMMdd");
+
+    public static String getTodayDt() {
+        return getDt(new Date());
     }
+
+    public static String getYesterdayDt() {
+    	Calendar c = Calendar.getInstance();
+    	c.add(Calendar.DATE, -1);
+    	return getDt(c.getTime());
+	}
+
+    public static String getDt(Date d) {
+		return DT_FORMAT.format(d);
+	}
 
     public static String convertToQuarter(String period) {
     	try {
