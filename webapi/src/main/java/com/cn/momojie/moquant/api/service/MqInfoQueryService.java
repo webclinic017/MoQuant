@@ -5,18 +5,14 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import org.springframework.beans.BeanUtils;
+import org.apache.commons.collections.CollectionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
-import org.springframework.util.StringUtils;
 
-import com.cn.momojie.moquant.api.constant.TrendType;
 import com.cn.momojie.moquant.api.dao.*;
 import com.cn.momojie.moquant.api.dto.*;
 import com.cn.momojie.moquant.api.dto.ts.TsBasic;
 import com.cn.momojie.moquant.api.param.*;
-import com.cn.momojie.moquant.api.util.BigDecimalUtils;
 import com.cn.momojie.moquant.api.util.DateTimeUtils;
 import com.cn.momojie.moquant.api.util.PinYinUtil;
 import com.cn.momojie.moquant.api.vo.*;
@@ -32,52 +28,84 @@ public class MqInfoQueryService {
 	private TsBasicDao tsBasicDao;
 
     @Autowired
-    private MqDailyBasicDao dailyBasicDao;
+    private MqDailyIndicatorDao dailyIndicatorDao;
 
     @Autowired
-    private MqQuarterBasicDao quarterBasicDao;
+    private MqQuarterIndicatorDao quarterIndicatorDao;
 
     @Autowired
     private MqShareNoteDao noteDao;
 
     @Autowired
-    private MqForecastAggDao forecastAggDao;
-
-    @Autowired
     private MqMessageDao messageDao;
 
-    @Autowired
-    private MqSysParamService mqSysParamService;
-
     public PageResult getLatestListByOrder(MqDailyBasicParam param) {
-        PageHelper.startPage(param.getPageNum(), param.getPageSize());
-        List<MqDailyBasic> list = dailyBasicDao.selectByParam(param);
-        return PageResult.fromList(list);
+        return null;
     }
 
     public PageResult getGrowList(MqShareListParam param) {
     	param.setYesterday(DateTimeUtils.getYesterdayDt());
     	param.setScoreBy("grow_score");
 		PageHelper.startPage(param.getPageNum(), param.getPageSize());
-		List<MqDailyBasic> list = dailyBasicDao.getScoreList(param);
-		return PageResult.fromList(list);
+		List<MqShareAll> list = dailyIndicatorDao.getScoreList(param);
+		PageResult<MqShareAll> result = PageResult.fromList(list);
+
+		List<String> codeList = list.stream().map(MqShareAll::getTsCode).collect(Collectors.toList());
+
+		Map<String, TsBasic> basicMap = getBasicMap(codeList);
+		Map<String, Map<String, MqDailyIndicator>> dailyMap = getDailyLatest(codeList, Arrays.asList("pe"));
+		Map<String, Map<String, MqQuarterIndicator>> quarterMap = getQuarterLatest(codeList, Arrays.asList("peg"));
+
+		List<MqShareAll> pageList = new ArrayList<>(list.size());
+
+		for (String tsCode: codeList) {
+			MqShareAll all = new MqShareAll();
+			all.setTsCode(tsCode);
+
+			TsBasic basic = basicMap.get(tsCode);
+			if (basic == null) {
+				log.error("Can't find ts_basic of {}", tsCode);
+			} else {
+				all.setShareName(basic.getName());
+			}
+
+			all.setDailyIndicators(dailyMap.getOrDefault(tsCode, new HashMap<>()));
+			all.setQuarterIndicators(quarterMap.getOrDefault(tsCode, new HashMap<>()));
+			pageList.add(all);
+		}
+
+		return result;
 	}
 
 	public PageResult getValList(MqShareListParam param) {
 		param.setScoreBy("val_score");
 		PageHelper.startPage(param.getPageNum(), param.getPageSize());
-		List<MqDailyBasic> list = dailyBasicDao.getScoreList(param);
+		List<MqShareAll> list = dailyIndicatorDao.getScoreList(param);
 		return PageResult.fromList(list);
 	}
 
-	private Map<String, MqDailyBasic> getDailyLatest(Collection<String> codeList) {
-		Map<String, MqDailyBasic> result = new HashMap<>();
+	private Map<String, TsBasic> getBasicMap(Collection<String> codeList) {
+		Map<String, TsBasic> result = new HashMap<>();
 		if (CollectionUtils.isEmpty(codeList)) {
 			return result;
 		}
 
-		List<MqDailyIndicator> indicatorList = dailyBasicDao.getDailyLatest(codeList, DateTimeUtils.getYesterdayDt());
+		List<TsBasic> basicList = tsBasicDao.selectByCodes(codeList);
+		for (TsBasic basic: basicList) {
+			result.put(basic.getTsCode(), basic);
+		}
+
+		return result;
+	}
+
+	private Map<String, Map<String, MqDailyIndicator>> getDailyLatest(Collection<String> codeList, Collection<String> nameList) {
 		Map<String, Map<String, MqDailyIndicator>> codeNameMap = new HashMap<>();
+		if (CollectionUtils.isEmpty(codeList)) {
+			return codeNameMap;
+		}
+
+		List<MqDailyIndicator> indicatorList = dailyIndicatorDao.getDailyLatest(codeList, nameList,
+				DateTimeUtils.getYesterdayDt());
 		for (MqDailyIndicator i: indicatorList) {
 			String tsCode = i.getTsCode();
 			String name = i.getName();
@@ -88,175 +116,47 @@ public class MqInfoQueryService {
 			nameMap.put(name, i);
 		}
 
+		return codeNameMap;
+	}
 
-		return result;
+	private Map<String, Map<String, MqQuarterIndicator>> getQuarterLatest(Collection<String> codeList, Collection<String> nameList) {
+		Map<String, Map<String, MqQuarterIndicator>> codeNameMap = new HashMap<>();
+		if (CollectionUtils.isEmpty(codeList)) {
+			return codeNameMap;
+		}
+
+		List<MqQuarterIndicator> indicatorList = quarterIndicatorDao.getQuarterLatest(codeList, nameList,
+				DateTimeUtils.getYesterdayDt());
+		for (MqQuarterIndicator i: indicatorList) {
+			String tsCode = i.getTsCode();
+			String name = i.getName();
+			if (!codeNameMap.containsKey(tsCode)) {
+				codeNameMap.put(tsCode, new HashMap<>());
+			}
+			Map<String, MqQuarterIndicator> nameMap = codeNameMap.get(tsCode);
+			nameMap.put(name, i);
+		}
+
+		return codeNameMap;
 	}
 
     public MqShareDetail getLatestByCode(String code) {
-		MqShareDetail detail = new MqShareDetail();
-
-		MqDailyBasic daily = dailyBasicDao.selectLatestByCode(code);
-		if (daily != null) {
-			BeanUtils.copyProperties(daily, detail);
-		}
-
-		MqQuarterBasic quarter = quarterBasicDao.selectLatestByCode(code);
-		if (quarter != null) {
-			BeanUtils.copyProperties(quarter, detail);
-		}
-
-		return detail;
+		return null;
     }
 
 	public MqShareTrend getTrendFromDaily(MqTrendParam input, TsBasic basic,
-			Function<MqDailyBasic, BigDecimal> y1Get, Function<MqDailyBasic, BigDecimal> y2Get) {
-		MqShareTrend trend = new MqShareTrend();
-		String tsCode = input.getTsCode();
-		String trendType = input.getTrendType();
-		MqDailyBasicParam param = new MqDailyBasicParam();
-		param.setTsCode(tsCode);
-		param.setForTrend(trendType);
-		param.setOrderByDate(true);
-		List<MqDailyBasic> dailyList = dailyBasicDao.selectByParam(param);
-
-		for (MqDailyBasic daily: dailyList) {
-			if (daily.getDate().compareTo(basic.getListDate()) < 0) {
-				// Filter info before list. Impossible case
-				continue;
-			}
-			BigDecimal y1 = null, y2 = null;
-			if (y1Get != null) {
-				y1 = y1Get.apply(daily);
-			}
-			if (y2Get != null) {
-				y2 = y2Get.apply(daily);
-			}
-			if (y1 != null) {
-				addToTrend(trend, daily.getDate(), y1, y2);
-			}
-		}
-		return trend;
+			Function<MqShareAll, BigDecimal> y1Get, Function<MqShareAll, BigDecimal> y2Get) {
+		return null;
 	}
 
     public MqShareTrend getTrendFromQuarter(MqTrendParam input, Function<MqQuarterBasic, String> quarterGet,
 			Function<MqQuarterBasic, BigDecimal> y1Get, Function<MqQuarterBasic, BigDecimal> y2Get,
 			Boolean calYoyOnY2InYear) {
-		MqShareTrend trend = new MqShareTrend();
-		String tsCode = input.getTsCode();
-		String trendType = input.getTrendType();
-		MqQuarterBasicParam param = new MqQuarterBasicParam();
-		param.setTsCode(tsCode);
-		param.setTrendType(trendType);
-		List<MqQuarterBasic> quarterList = quarterBasicDao.selectTrendByParam(param);
-		Map<String, MqQuarterBasic> quarterMap = new HashMap<>();
-		Iterator<MqQuarterBasic> quarterIt = quarterList.iterator();
-		while (quarterIt.hasNext()) {
-			MqQuarterBasic quarter = quarterIt.next();
-			String period = quarterGet.apply(quarter);
-			if (StringUtils.isEmpty(period)) {
-				continue;
-			}
-			if (TrendType.isYear(trendType)) {
-				if (isQ4(period) || !quarterIt.hasNext()) {
-					quarterMap.put(period, quarter);
-				}
-			} else {
-				quarterMap.put(period, quarter);
-			}
-		}
-
-		List<String> periodList = quarterMap.keySet().stream().sorted().collect(Collectors.toList());
-		MqQuarterBasic last = null;
-		for (String period: periodList) {
-			MqQuarterBasic quarter = quarterMap.get(period);
-			if (quarter == null) {
-				continue;
-			}
-			String quarterStr = DateTimeUtils.convertToQuarter(period);
-			if (quarterStr == null) {
-				continue;
-			}
-			if (TrendType.isYear(trendType) && !isQ4(quarterStr)) {
-				quarterStr = quarterStr + " LTM";
-			}
-			if (!quarter.getReportPeriod().equals(quarter.getForecastPeriod()) && period.equals(quarter.getForecastPeriod())) {
-				quarterStr = quarterStr + " (含预告)";
-			}
-			BigDecimal y1 = null, y2 = null;
-			if (y1Get != null) {
-				y1 = y1Get.apply(quarter);
-			}
-			if (y2Get != null) {
-				y2 = y2Get.apply(quarter);
-				if (TrendType.isYear(trendType) && calYoyOnY2InYear) {
-					if (last != null) {
-						BigDecimal lastValue = y2Get.apply(last);
-						y2 = BigDecimalUtils.yoy(y2, lastValue);
-					} else {
-						y2 = BigDecimal.ZERO;
-					}
-				}
-			}
-			if (y1 != null) {
-				addToTrend(trend, quarterStr, y1, y2);
-				last = quarter;
-			}
-		}
-		return trend;
+		return null;
 	}
 
 	public MqShareTrend getTrend(MqTrendParam input) {
-		MqShareTrend trend = new MqShareTrend();
-		String tsCode = input.getTsCode();
-		String trendType = input.getTrendType();
-		if (tsCode == null || trendType == null) {
-			return trend;
-		}
-    	TsBasic basic = tsBasicDao.selectByCode(tsCode);
-    	if (basic == null) {
-    		log.error("Can't find share basic of {}", tsCode);
-    		return trend;
-		}
-    	Boolean isYear = TrendType.isYear(trendType);
-    	if (TrendType.PE.equals(trendType)) {
-    		return getTrendFromDaily(input, basic, MqDailyBasic::getDprofitPe, null);
-		} else if (TrendType.PB.equals(trendType)) {
-			return getTrendFromDaily(input, basic, MqDailyBasic::getPb, null);
-		} else if (TrendType.DIVIDEND.equals(trendType)) {
-			return getTrendFromDaily(input, basic, MqDailyBasic::getDividendYields, null);
-		} else if (TrendType.REVENUE_YEAR.equals(trendType) || TrendType.REVENUE_QUARTER.equals(trendType)) {
-    		return getTrendFromQuarter(input, MqQuarterBasic::getRevenuePeriod,
-					isYear ? MqQuarterBasic::getRevenue : MqQuarterBasic::getQuarterRevenue,
-					isYear ? MqQuarterBasic::getRevenueLtm : MqQuarterBasic::getQuarterRevenueYoy,
-					isYear);
-		} else if (TrendType.DPROFIT_YEAR.equals(trendType) || TrendType.DPROFIT_QUARTER.equals(trendType)) {
-			return getTrendFromQuarter(input, MqQuarterBasic::getDprofitPeriod,
-					isYear ? MqQuarterBasic::getDprofit : MqQuarterBasic::getQuarterDprofit,
-					isYear ? MqQuarterBasic::getDprofitLtm : MqQuarterBasic::getQuarterDprofitYoy,
-					isYear);
-		} else if (TrendType.NPROFIT_YEAR.equals(trendType) || TrendType.NPROFIT_QUARTER.equals(trendType)) {
-			return getTrendFromQuarter(input, MqQuarterBasic::getNprofitPeriod,
-					isYear ? MqQuarterBasic::getNprofit : MqQuarterBasic::getQuarterNprofit,
-					isYear ? MqQuarterBasic::getNprofitLtm : MqQuarterBasic::getQuarterNprofitYoy,
-					isYear);
-		} else if (TrendType.DIVIDEND_PROFIT.equals(trendType)) {
-    		return getTrendFromQuarter(input, MqQuarterBasic::getForecastPeriod,
-					MqQuarterBasic::getDividendProfitRatio, null, false);
-		} else if (TrendType.ROE.equals(trendType)) {
-			return getTrendFromQuarter(input, MqQuarterBasic::getDprofitPeriod, MqQuarterBasic::getRoe,
-					null, false);
-		} else if (TrendType.DPROFIT_MARGIN.equals(trendType)) {
-			return getTrendFromQuarter(input, MqQuarterBasic::getDprofitPeriod, MqQuarterBasic::getDprofitMargin,
-					null, false);
-		} else if (TrendType.TURNOVER_RATE.equals(trendType)) {
-			return getTrendFromQuarter(input, MqQuarterBasic::getRevenuePeriod, MqQuarterBasic::getTurnoverRate,
-					null, false);
-		} else if (TrendType.EM.equals(trendType)) {
-			return getTrendFromQuarter(input, MqQuarterBasic::getForecastPeriod, MqQuarterBasic::getEquityMultiplier,
-					null, false);
-		}
-
-    	return trend;
+		return null;
 	}
 
 	private Boolean isQ4(String period) {
@@ -308,29 +208,7 @@ public class MqInfoQueryService {
 	}
 
 	public MqForecastInfo getForecastInfo(String code) {
-		MqForecastInfo result = new MqForecastInfo();
-
-		MqQuarterBasic quarter = quarterBasicDao.selectLatestByCode(code);
-
-		if (quarter.getReportPeriod() == null || quarter.getForecastPeriod() == null) {
-			return result;
-		}
-		if (quarter.getReportPeriod().equals(quarter.getForecastPeriod())) {
-			return result;
-		}
-		result.setPeriod(quarter.getForecastPeriod());
-		result.setDprofit(quarter.getDprofit());
-		result.setLatest(true);
-
-		MqForecastAgg forecast = forecastAggDao.selectLatest(quarter.getTsCode());
-		if (forecast != null) {
-			result.setForecastReason(forecast.getChangedReason());
-			result.setAdjustReason(forecast.getManualAdjustReason());
-			result.setOneTime(forecast.getOneTime());
-			result.setFromManual(forecast.getFromManual());
-		}
-
-		return result;
+		return null;
 	}
 
 	public PageResult<MqMessage> getLatestReportList(MqMessageParam param) {
