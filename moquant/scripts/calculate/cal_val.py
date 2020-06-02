@@ -18,6 +18,7 @@ pe, pb, pepb 各 10%
 from decimal import Decimal
 from functools import partial
 
+from constants import mq_report_type
 from moquant.constants import mq_quarter_indicator_enum, mq_daily_indicator_enum
 from moquant.dbclient.mq_daily_indicator import MqDailyIndicator
 from moquant.log import get_logger
@@ -159,5 +160,10 @@ def cal(daily_store: mq_daily_store.MqDailyStore,
                 decimal_utils.mul(dividend_yoy_score, 0.2),
                 decimal_utils.mul((pe_score + pb_score + pepb_score), 0.1),
                 decimal_utils.mul(profit_yoy_score, 0.2))
+
+    return MqDailyIndicator(ts_code=ts_code, report_type=mq_report_type.mq_predict,
+                            period=dividend_yields.period, update_date=update_date,
+                            name=mq_daily_indicator_enum.grow_score.name,
+                            value=decimal_utils.valid_score(score))
 
     return decimal_utils.valid_score(score)

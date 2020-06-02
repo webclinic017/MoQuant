@@ -18,13 +18,17 @@ public class DateTimeUtils {
     }
 
     public static String getYesterdayDt() {
-    	Calendar c = Calendar.getInstance();
-    	c.add(Calendar.DATE, -1);
-    	return getDt(c.getTime());
+    	return getDtFromDelta(-1);
 	}
 
     public static String getDt(Date d) {
 		return DT_FORMAT.format(d);
+	}
+
+	public static String getDtFromDelta(Integer dayDelta) {
+		Calendar c = Calendar.getInstance();
+		c.add(Calendar.DATE, dayDelta);
+		return getDt(c.getTime());
 	}
 
     public static String convertToQuarter(String period) {

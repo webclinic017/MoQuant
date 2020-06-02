@@ -1,5 +1,6 @@
 package com.cn.momojie.moquant.api.controller;
 
+import com.cn.momojie.moquant.api.dto.MqShareAll;
 import com.cn.momojie.moquant.api.param.MqCodePageParam;
 import com.cn.momojie.moquant.api.param.MqDailyBasicParam;
 import com.cn.momojie.moquant.api.param.MqMessageParam;
@@ -7,7 +8,6 @@ import com.cn.momojie.moquant.api.param.MqShareListParam;
 import com.cn.momojie.moquant.api.param.MqTrendParam;
 import com.cn.momojie.moquant.api.service.MqInfoQueryService;
 import com.cn.momojie.moquant.api.vo.MqForecastInfo;
-import com.cn.momojie.moquant.api.vo.MqShareDetail;
 import com.cn.momojie.moquant.api.vo.MqShareTrend;
 import com.cn.momojie.moquant.api.vo.PageResult;
 import com.cn.momojie.moquant.api.vo.ShareListItem;
@@ -41,7 +41,7 @@ public class MqStockController {
     }
 
     @RequestMapping(path = "getLatestByCode", method = RequestMethod.POST)
-    public MqShareDetail getLatestByCode(@RequestBody String tsCode) {
+    public MqShareAll getLatestByCode(@RequestBody String tsCode) {
         return mqInfoQueryService.getLatestByCode(tsCode);
     }
 

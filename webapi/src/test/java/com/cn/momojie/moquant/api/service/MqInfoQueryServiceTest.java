@@ -6,7 +6,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.cn.momojie.moquant.api.SpringBaseTest;
 import com.cn.momojie.moquant.api.param.MqCodePageParam;
-import com.cn.momojie.moquant.api.vo.MqShareDetail;
 import com.cn.momojie.moquant.api.vo.PageResult;
 
 public class MqInfoQueryServiceTest extends SpringBaseTest {

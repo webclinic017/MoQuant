@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cn.momojie.moquant.api.dao.MqShareNoteDao">
+    <resultMap id="BaseResultMap" type="com.cn.momojie.moquant.api.vo.MqShareNoteVo">
+        <id column="id" jdbcType="BIGINT" property="id"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+        <result column="event_brief" jdbcType="VARCHAR" property="eventBrief"/>
+        <result column="note_detail" jdbcType="VARCHAR" property="noteDetail"/>
+        <result column="note_conclusion" jdbcType="VARCHAR" property="noteConclusion"/>
+    </resultMap>
+
+    <resultMap id="RelationMap" type="com.cn.momojie.moquant.api.vo.MqShareNoteRelationVo">
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+        <result column="ts_code" jdbcType="VARCHAR" property="tsCode"/>
+        <result column="note_id" jdbcType="VARCHAR" property="noteId"/>
+        <result column="share_name" jdbcType="VARCHAR" property="shareName"/>
+    </resultMap>
+
+    <select id="getByCode" resultMap="BaseResultMap">
+        <choose>
+            <when test="ts_code != null and ts_code.length > 0">
+                SELECT r.*
+                FROM mq_share_note_relation r
+                LEFT JOIN mq_share_note n
+                ON r.note_id = n.id
+                WHERE ts_code = #{ts_code}
+                ORDER BY r.update_time DESC
+            </when>
+            <otherwise>
+                SELECT * FROM mq_share_note
+                ORDER BY update_time DESC
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="getRelated" resultMap="RelationMap">
+        SELECT
+            r.ts_code,
+            r.note_id,
+            b.name as share_name
+        FROM mq_share_note_relation r
+        LEFT JOIN ts_basic b
+        ON r.ts_code = b.ts_code
+        WHERE r.note_id IN <foreach collection="list" item="item" open="(" separator="," close=")">#{item}</foreach>
+    </select>
+</mapper>

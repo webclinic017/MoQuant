@@ -3,11 +3,11 @@ package com.cn.momojie.moquant.api.param;
 import lombok.Data;
 
 @Data
-public class MqShareListParam extends MqPageParam {
+public class MqShareListParam {
 
     private String scoreBy;
 
     private String orderBy;
 
-    private String yesterday;
+    private String underDate;
 }

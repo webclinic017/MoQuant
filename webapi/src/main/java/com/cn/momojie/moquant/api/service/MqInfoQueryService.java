@@ -2,7 +2,6 @@ package com.cn.momojie.moquant.api.service;
 
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.apache.commons.collections.CollectionUtils;
@@ -10,7 +9,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.cn.momojie.moquant.api.dao.*;
-import com.cn.momojie.moquant.api.dto.*;
+import com.cn.momojie.moquant.api.dto.MqDailyIndicator;
+import com.cn.momojie.moquant.api.dto.MqMessage;
+import com.cn.momojie.moquant.api.dto.MqQuarterIndicator;
+import com.cn.momojie.moquant.api.dto.MqShareAll;
 import com.cn.momojie.moquant.api.dto.ts.TsBasic;
 import com.cn.momojie.moquant.api.param.*;
 import com.cn.momojie.moquant.api.util.DateTimeUtils;
@@ -44,19 +46,17 @@ public class MqInfoQueryService {
     }
 
     public PageResult getGrowList(MqShareListParam param) {
-    	param.setYesterday(DateTimeUtils.getYesterdayDt());
+    	param.setUnderDate(DateTimeUtils.getTodayDt());
     	param.setScoreBy("grow_score");
-		PageHelper.startPage(param.getPageNum(), param.getPageSize());
-		List<MqShareAll> list = dailyIndicatorDao.getScoreList(param);
-		PageResult<MqShareAll> result = PageResult.fromList(list);
-
-		List<String> codeList = list.stream().map(MqShareAll::getTsCode).collect(Collectors.toList());
+		List<String> codeList = dailyIndicatorDao.getScoreList(param);
+		PageResult<MqShareAll> result = new PageResult<>();
+		result.setTotal(Long.valueOf(codeList.size()));
 
 		Map<String, TsBasic> basicMap = getBasicMap(codeList);
 		Map<String, Map<String, MqDailyIndicator>> dailyMap = getDailyLatest(codeList, Arrays.asList("pe"));
-		Map<String, Map<String, MqQuarterIndicator>> quarterMap = getQuarterLatest(codeList, Arrays.asList("peg"));
+		Map<String, Map<String, MqQuarterIndicator>> quarterMap = getQuarterLatest(codeList, Arrays.asList("revenue_quarter", "dprofit_quarter"));
 
-		List<MqShareAll> pageList = new ArrayList<>(list.size());
+		List<MqShareAll> pageList = new ArrayList<>(codeList.size());
 
 		for (String tsCode: codeList) {
 			MqShareAll all = new MqShareAll();
@@ -78,10 +78,35 @@ public class MqInfoQueryService {
 	}
 
 	public PageResult getValList(MqShareListParam param) {
+		param.setUnderDate(DateTimeUtils.getTodayDt());
 		param.setScoreBy("val_score");
-		PageHelper.startPage(param.getPageNum(), param.getPageSize());
-		List<MqShareAll> list = dailyIndicatorDao.getScoreList(param);
-		return PageResult.fromList(list);
+		List<String> codeList = dailyIndicatorDao.getScoreList(param);
+		PageResult<MqShareAll> result = new PageResult<>();
+		result.setTotal(Long.valueOf(codeList.size()));
+
+		Map<String, TsBasic> basicMap = getBasicMap(codeList);
+		Map<String, Map<String, MqDailyIndicator>> dailyMap = getDailyLatest(codeList, Arrays.asList("pe", "pb", "dividend_yields"));
+		Map<String, Map<String, MqQuarterIndicator>> quarterMap = getQuarterLatest(codeList, Arrays.asList(""));
+
+		List<MqShareAll> pageList = new ArrayList<>(codeList.size());
+
+		for (String tsCode: codeList) {
+			MqShareAll all = new MqShareAll();
+			all.setTsCode(tsCode);
+
+			TsBasic basic = basicMap.get(tsCode);
+			if (basic == null) {
+				log.error("Can't find ts_basic of {}", tsCode);
+			} else {
+				all.setShareName(basic.getName());
+			}
+
+			all.setDailyIndicators(dailyMap.getOrDefault(tsCode, new HashMap<>()));
+			all.setQuarterIndicators(quarterMap.getOrDefault(tsCode, new HashMap<>()));
+			pageList.add(all);
+		}
+
+		return result;
 	}
 
 	private Map<String, TsBasic> getBasicMap(Collection<String> codeList) {
@@ -140,20 +165,28 @@ public class MqInfoQueryService {
 		return codeNameMap;
 	}
 
-    public MqShareDetail getLatestByCode(String code) {
-		return null;
+    public MqShareAll getLatestByCode(String tsCode) {
+		List<String> codeList = Arrays.asList(tsCode);
+
+		Map<String, TsBasic> basicMap = getBasicMap(codeList);
+		Map<String, Map<String, MqDailyIndicator>> dailyMap = getDailyLatest(codeList, null);
+		Map<String, Map<String, MqQuarterIndicator>> quarterMap = getQuarterLatest(codeList, null);
+
+		MqShareAll all = new MqShareAll();
+		all.setTsCode(tsCode);
+
+		TsBasic basic = basicMap.get(tsCode);
+		if (basic == null) {
+			log.error("Can't find ts_basic of {}", tsCode);
+		} else {
+			all.setShareName(basic.getName());
+		}
+
+		all.setDailyIndicators(dailyMap.getOrDefault(tsCode, new HashMap<>()));
+		all.setQuarterIndicators(quarterMap.getOrDefault(tsCode, new HashMap<>()));
+
+    	return all;
     }
-
-	public MqShareTrend getTrendFromDaily(MqTrendParam input, TsBasic basic,
-			Function<MqShareAll, BigDecimal> y1Get, Function<MqShareAll, BigDecimal> y2Get) {
-		return null;
-	}
-
-    public MqShareTrend getTrendFromQuarter(MqTrendParam input, Function<MqQuarterBasic, String> quarterGet,
-			Function<MqQuarterBasic, BigDecimal> y1Get, Function<MqQuarterBasic, BigDecimal> y2Get,
-			Boolean calYoyOnY2InYear) {
-		return null;
-	}
 
 	public MqShareTrend getTrend(MqTrendParam input) {
 		return null;

@@ -125,6 +125,7 @@ def cal_score(result_list: list, daily_store: mq_daily_store.MqDailyStore,
     call_add(to_add=grow_score)
 
 
+
 def calculate_one(ts_code: str, share_name: str, to_date: str = date_utils.get_current_dt()):
     start_time = time.time()
     result_list = []
@@ -210,6 +211,7 @@ def recalculate_by_code(ts_code: str, to_date: str = date_utils.get_current_dt()
     session.query(MqDailyIndicator).filter(MqDailyIndicator.ts_code == ts_code).delete()
     session.close()
     calculate_by_code(ts_code, to_date)
+
 
 if __name__ == '__main__':
     recalculate_by_code(sys.argv[1])

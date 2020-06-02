@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cn.momojie.moquant.api.dao.MqDailyIndicatorDao">
+    <resultMap id="AllMap" type="com.cn.momojie.moquant.api.dto.MqShareAll">
+        <result column="ts_code" jdbcType="VARCHAR" property="tsCode"/>
+    </resultMap>
+
+    <resultMap id="DailyMap" type="com.cn.momojie.moquant.api.dto.MqDailyIndicator">
+        <result column="ts_code" jdbcType="VARCHAR" property="tsCode"/>
+        <result column="update_date" jdbcType="VARCHAR" property="updateDate"/>
+        <result column="period" jdbcType="VARCHAR" property="period"/>
+        <result column="report_type" jdbcType="INTEGER" property="reportType"/>
+        <result column="name" jdbcType="VARCHAR" property="name"/>
+        <result column="value" jdbcType="DECIMAL" property="value"/>
+    </resultMap>
+
+    <select id="getScoreList" resultType="java.lang.String"
+            parameterType="com.cn.momojie.moquant.api.param.MqShareListParam">
+        SELECT o.ts_code FROM mq_daily_indicator o
+        RIGHT JOIN
+        (
+            SELECT ts_code,
+            MAX(update_date) as update_date
+            FROM mq_daily_indicator
+            WHERE update_date <![CDATA[ <= ]]> #{underDate}
+            GROUP BY ts_code
+        ) gp
+        ON o.ts_code = gp.ts_code AND o.update_date = gp.ts_code
+        WHERE o.name=#{scoreBy} AND o.value > 0
+    </select>
+
+    <select id="getDailyLatest" resultMap="DailyMap">
+        SELECT *
+        FROM
+        (
+            SELECT * FROM mq_daily_indicator
+            WHERE ts_code IN <foreach collection="codeList" item="codeI" open="(" separator="," close=")">#{codeI}</foreach>
+            <if test="nameList != null and nameList.size > 0">
+                AND name IN <foreach collection="nameList" item="nameI" open="(" separator="," close=")">#{nameI}</foreach>
+            </if>
+            AND update_date <![CDATA[ >= ]]> #{yesterday}
+            AND value > 0
+            ORDER BY update_date DESC LIMIT 5000
+	    ) o
+	    GROUP BY ts_code, name
+    </select>
+
+</mapper>
