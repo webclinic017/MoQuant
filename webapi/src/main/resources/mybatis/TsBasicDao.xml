@@ -32,4 +32,10 @@
       FROM ts_basic
       ORDER BY ts_code ASC
     </select>
+
+    <select id="selectByCodes" resultMap="BaseResultMap">
+        SELECT *
+        FROM ts_basic
+        WHERE ts_code IN <foreach collection="list" item="i" open="(" separator="," close=")">#{i}</foreach>
+    </select>
 </mapper>

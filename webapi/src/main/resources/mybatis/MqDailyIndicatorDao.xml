@@ -25,24 +25,27 @@
             WHERE update_date <![CDATA[ <= ]]> #{underDate}
             GROUP BY ts_code
         ) gp
-        ON o.ts_code = gp.ts_code AND o.update_date = gp.ts_code
+        ON o.ts_code = gp.ts_code AND o.update_date = gp.update_date
         WHERE o.name=#{scoreBy} AND o.value > 0
     </select>
 
     <select id="getDailyLatest" resultMap="DailyMap">
-        SELECT *
-        FROM
+        SELECT o.*
+        FROM mq_daily_indicator o
+        RIGHT JOIN
         (
-            SELECT * FROM mq_daily_indicator
-            WHERE ts_code IN <foreach collection="codeList" item="codeI" open="(" separator="," close=")">#{codeI}</foreach>
-            <if test="nameList != null and nameList.size > 0">
-                AND name IN <foreach collection="nameList" item="nameI" open="(" separator="," close=")">#{nameI}</foreach>
-            </if>
-            AND update_date <![CDATA[ >= ]]> #{yesterday}
-            AND value > 0
-            ORDER BY update_date DESC LIMIT 5000
-	    ) o
-	    GROUP BY ts_code, name
+            SELECT ts_code,
+            MAX(update_date) as update_date
+            FROM mq_daily_indicator
+            WHERE update_date <![CDATA[ <= ]]> #{underDate}
+            AND ts_code IN <foreach collection="codeList" item="codeI" open="(" separator="," close=")">#{codeI}</foreach>
+            GROUP BY ts_code
+        ) gp
+        ON o.ts_code = gp.ts_code AND o.update_date = gp.update_date
+        WHERE 1=1
+        <if test="nameList != null and nameList.size > 0">
+            AND o.name IN <foreach collection="nameList" item="nameI" open="(" separator="," close=")">#{nameI}</foreach>
+        </if>
     </select>
 
 </mapper>

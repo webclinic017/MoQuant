@@ -13,20 +13,30 @@
         <result column="mom" jdbcType="DECIMAL" property="mom"/>
     </resultMap>
 
-    <select id="getQuarterLatest" resultMap="DailyMap">
-        SELECT *
-        FROM
+    <select id="getQuarterLatest" resultMap="QuarterMap">
+        SELECT o. * FROM mq_quarter_indicator o
+        RIGHT JOIN (
+        SELECT t.ts_code, t.period,
+        MAX(t.update_date) AS update_date
+        FROM mq_quarter_indicator t
+        RIGHT JOIN
         (
-            SELECT * FROM mq_daily_indicator
-            WHERE ts_code IN <foreach collection="codeList" item="codeI" open="(" separator="," close=")">#{codeI}</foreach>
-            <if test="nameList != null and nameList.size > 0">
-                AND name IN <foreach collection="nameList" item="nameI" open="(" separator="," close=")">#{nameI}</foreach>
-            </if>
-            AND period <![CDATA[ >= ]]> #{fromPeriod}
-            AND value > 0
-            ORDER BY period DESC, update_date DESC LIMIT 5000
-	    ) o
-	    GROUP BY ts_code, name
+        SELECT ts_code,
+        max(period) AS period
+        FROM mq_quarter_indicator
+        WHERE update_date <![CDATA[ <= ]]> #{underDate} AND update_date <![CDATA[ >= ]]> #{lastYear}
+        AND ts_code IN <foreach collection="codeList" item="codeI" open="(" separator="," close=")">#{codeI}</foreach>
+        GROUP BY ts_code
+        ) gp
+        ON t.ts_code = gp.ts_code AND t.period = gp.period
+        WHERE t.ts_code IS NOT NULL
+        GROUP BY t.ts_code, t.period
+        ) gp2
+        ON o.ts_code = gp2.ts_code AND o.period = gp2.period AND o.update_date = gp2.update_date
+        WHERE o.ts_code IS NOT NULL
+        <if test="nameList != null and nameList.size > 0">
+            AND o.name IN <foreach collection="nameList" item="nameI" open="(" separator="," close=")">#{nameI}</foreach>
+        </if>
     </select>
 
 </mapper>

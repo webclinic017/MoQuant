@@ -73,6 +73,7 @@ public class MqInfoQueryService {
 			all.setQuarterIndicators(quarterMap.getOrDefault(tsCode, new HashMap<>()));
 			pageList.add(all);
 		}
+		result.setList(pageList);
 
 		return result;
 	}
@@ -106,6 +107,7 @@ public class MqInfoQueryService {
 			pageList.add(all);
 		}
 
+		result.setList(pageList);
 		return result;
 	}
 
@@ -130,7 +132,7 @@ public class MqInfoQueryService {
 		}
 
 		List<MqDailyIndicator> indicatorList = dailyIndicatorDao.getDailyLatest(codeList, nameList,
-				DateTimeUtils.getYesterdayDt());
+				DateTimeUtils.getTodayDt());
 		for (MqDailyIndicator i: indicatorList) {
 			String tsCode = i.getTsCode();
 			String name = i.getName();
@@ -151,7 +153,7 @@ public class MqInfoQueryService {
 		}
 
 		List<MqQuarterIndicator> indicatorList = quarterIndicatorDao.getQuarterLatest(codeList, nameList,
-				DateTimeUtils.getYesterdayDt());
+				DateTimeUtils.getTodayDt(), DateTimeUtils.getDtFromDelta(-365));
 		for (MqQuarterIndicator i: indicatorList) {
 			String tsCode = i.getTsCode();
 			String name = i.getName();
@@ -229,7 +231,7 @@ public class MqInfoQueryService {
 		}
 		List<MqShareNoteVo> noteList = noteDao.getByCode(param.getTsCode());
 		List<Long> noteIdList = noteList.stream().map(MqShareNoteVo::getId).collect(Collectors.toList());
-		List<MqShareNoteRelationVo> relationList = noteDao.getRelated(noteIdList);
+		List<MqShareNoteRelationVo> relationList = CollectionUtils.isEmpty(noteIdList) ? new ArrayList<>() : noteDao.getRelated(noteIdList);
 		Map<Long, List<MqShareNoteRelationVo>> relationMap = relationList.stream().collect(Collectors.groupingBy(MqShareNoteRelationVo::getNoteId));
 		for (MqShareNoteVo note: noteList) {
 			note.setRelatedShareList(relationMap.get(note.getId()));

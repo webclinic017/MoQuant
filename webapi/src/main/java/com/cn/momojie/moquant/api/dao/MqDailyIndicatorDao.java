@@ -15,5 +15,5 @@ public interface MqDailyIndicatorDao {
 
     List<MqDailyIndicator> getDailyLatest(@Param("codeList") Collection<String> codeList,
 			@Param("nameList") Collection<String> nameList,
-			@Param("yesterday") String yesterday);
+			@Param("underDate") String underDate);
 }

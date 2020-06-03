@@ -11,5 +11,6 @@ public interface MqQuarterIndicatorDao {
 
 	List<MqQuarterIndicator> getQuarterLatest(@Param("codeList") Collection<String> codeList,
 			@Param("nameList") Collection<String> nameList,
-			@Param("fromPeriod") String fromPeriod);
+			@Param("underDate") String underDate,
+			@Param("lastYear") String lastYear);
 }
