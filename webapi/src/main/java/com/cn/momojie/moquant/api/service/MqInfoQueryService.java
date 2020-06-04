@@ -8,12 +8,14 @@ import org.apache.commons.collections.CollectionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.cn.momojie.moquant.api.constant.MqReportType;
 import com.cn.momojie.moquant.api.dao.*;
 import com.cn.momojie.moquant.api.dto.MqDailyIndicator;
 import com.cn.momojie.moquant.api.dto.MqMessage;
 import com.cn.momojie.moquant.api.dto.MqQuarterIndicator;
 import com.cn.momojie.moquant.api.dto.MqShareAll;
 import com.cn.momojie.moquant.api.dto.ts.TsBasic;
+import com.cn.momojie.moquant.api.dto.ts.TsForecast;
 import com.cn.momojie.moquant.api.param.*;
 import com.cn.momojie.moquant.api.util.DateTimeUtils;
 import com.cn.momojie.moquant.api.util.PinYinUtil;
@@ -28,6 +30,9 @@ public class MqInfoQueryService {
 
 	@Autowired
 	private TsBasicDao tsBasicDao;
+
+	@Autowired
+	private TsForecastDao tsForecastDao;
 
     @Autowired
     private MqDailyIndicatorDao dailyIndicatorDao;
@@ -191,7 +196,8 @@ public class MqInfoQueryService {
     }
 
 	public MqShareTrend getTrend(MqTrendParam input) {
-		return null;
+
+    	return null;
 	}
 
 	private Boolean isQ4(String period) {
@@ -243,7 +249,47 @@ public class MqInfoQueryService {
 	}
 
 	public MqForecastInfo getForecastInfo(String code) {
-		return null;
+		MqForecastInfo info = new MqForecastInfo();
+
+		Map<String, Map<String, MqQuarterIndicator>> codeNameMap = getQuarterLatest(Arrays.asList(code), Arrays.asList("nprofit", "dprofit"));
+		Map<String, MqQuarterIndicator> nameMap = codeNameMap.get(code);
+		if (nameMap == null) {
+			return info;
+		}
+
+		MqQuarterIndicator nprofit = nameMap.get("nprofit");
+		if (nprofit == null) {
+			return info;
+		}
+
+		String period = nprofit.getPeriod();
+		Integer reportType = nprofit.getReportType();
+
+		if (reportType == null || !(
+				(reportType & (1 << MqReportType.EXPRESS)) > 0 || (reportType & (1 << MqReportType.FORECAST)) > 0
+		)) {
+			return info;
+		}
+
+		info.setPeriod(period);
+
+		TsForecast forecast = tsForecastDao.selectOne(code, period);
+		if (forecast != null && forecast.getChangeReason() != null) {
+			info.setLatest(true);
+			info.setForecastReason(forecast.getChangeReason());
+		}
+
+
+		if (nprofit != null && nprofit.getValue() != null) {
+			info.setNprofit(nprofit.getValue());
+		}
+
+		MqQuarterIndicator dprofit = nameMap.get("dprofit");
+		if (dprofit != null && dprofit.getValue() != null) {
+			info.setDprofit(dprofit.getValue());
+		}
+
+		return info;
 	}
 
 	public PageResult<MqMessage> getLatestReportList(MqMessageParam param) {

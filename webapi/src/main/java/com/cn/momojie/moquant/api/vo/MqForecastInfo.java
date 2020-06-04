@@ -9,15 +9,17 @@ public class MqForecastInfo {
 
 	private Boolean latest = false;
 
-	private String period;
+	private String period = "";
 
-	private BigDecimal dprofit;
+	private BigDecimal nprofit = BigDecimal.ZERO;
 
-	private String forecastReason;
+	private BigDecimal dprofit = BigDecimal.ZERO;
 
-	private String adjustReason;
+	private String forecastReason = "";
 
-	private Boolean oneTime;
+	private String adjustReason = "";
 
-	private Boolean fromManual;
+	private Boolean oneTime = false;
+
+	private Boolean fromManual = false;
 }
