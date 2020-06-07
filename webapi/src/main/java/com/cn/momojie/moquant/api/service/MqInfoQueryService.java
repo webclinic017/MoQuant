@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.cn.momojie.moquant.api.constant.MqIndicatorEnum;
 import org.apache.commons.collections.CollectionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -196,7 +197,10 @@ public class MqInfoQueryService {
     }
 
 	public MqShareTrend getTrend(MqTrendParam input) {
+		MqIndicatorEnum i = MqIndicatorEnum.fromName(input.getIndicatorName());
+		if (i == null) {
 
+		}
     	return null;
 	}
 

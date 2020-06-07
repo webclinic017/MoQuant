@@ -7,5 +7,5 @@ public class MqTrendParam {
 
     private String tsCode;
 
-    private String trendType;
+    private String indicatorName;
 }
