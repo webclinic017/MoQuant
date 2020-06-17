@@ -8,6 +8,12 @@ public enum MqIndicatorEnum {
     REVENUE(false, "revenue"),
     NPROFIT(false, "nprofit"),
     DPROFIT(false, "dprofit"),
+	REVENUE_QUARTER(false, "revenue_quarter"),
+	NPROFIT_QUARTER(false, "nprofit_quarter"),
+	DPROFIT_QUARTER(false, "dprofit_quarter"),
+	REVENUE_LTM(false, "revenue_ltm"),
+	NPROFIT_LTM(false, "nprofit_ltm"),
+	DPROFIT_LTM(false, "dprofit_ltm"),
     DIVIDEND_YIELDS(true, "dividend_yields"),
     DIVIDEND_RATIO(false, "dividend_ratio"),
     ROE(false, "roe"),
@@ -16,9 +22,9 @@ public enum MqIndicatorEnum {
     EQUITY_MULTIPLIER(false, "equity_multiplier"),
     ;
 
-    private Boolean isDaily;
+    public Boolean isDaily;
 
-    private String name;
+    public String name;
 
     MqIndicatorEnum(Boolean isDaily, String name) {
         this.isDaily = isDaily;
@@ -33,4 +39,5 @@ public enum MqIndicatorEnum {
         }
         return null;
     }
+
 }

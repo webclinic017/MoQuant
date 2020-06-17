@@ -197,11 +197,27 @@ public class MqInfoQueryService {
     }
 
 	public MqShareTrend getTrend(MqTrendParam input) {
+		MqShareTrend trend = new MqShareTrend();
+
 		MqIndicatorEnum i = MqIndicatorEnum.fromName(input.getIndicatorName());
 		if (i == null) {
-
+			log.error("找不到对应的指标");
+			return trend;
 		}
-    	return null;
+
+		if (i.isDaily) {
+			List<MqDailyIndicator> list = dailyIndicatorDao.getTrend(input.getTsCode(), i.name);
+			for (MqDailyIndicator mdi: list) {
+				addToTrend(trend, mdi.getUpdateDate(), mdi.getValue(), null);
+			}
+		} else {
+			List<MqQuarterIndicator> list = quarterIndicatorDao.getTrend(input.getTsCode(), i.name);
+			for (MqQuarterIndicator mqi: list) {
+				addToTrend(trend, DateTimeUtils.convertToQuarter(mqi.getPeriod()), mqi.getValue(), mqi.getYoy());
+			}
+		}
+
+    	return trend;
 	}
 
 	private Boolean isQ4(String period) {

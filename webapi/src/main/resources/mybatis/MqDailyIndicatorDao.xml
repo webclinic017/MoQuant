@@ -48,4 +48,11 @@
         </if>
     </select>
 
+    <select id="getTrend" resultMap="DailyMap">
+        SELECT *
+        FROM mq_daily_indicator
+        WHERE ts_code = #{code} AND name = #{name}
+        ORDER BY update_date ASC
+    </select>
+
 </mapper>

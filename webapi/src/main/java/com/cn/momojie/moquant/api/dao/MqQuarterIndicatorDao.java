@@ -13,4 +13,6 @@ public interface MqQuarterIndicatorDao {
 			@Param("nameList") Collection<String> nameList,
 			@Param("underDate") String underDate,
 			@Param("lastYear") String lastYear);
+
+	List<MqQuarterIndicator> getTrend(@Param("code") String tsCode, @Param("name") String name);
 }
