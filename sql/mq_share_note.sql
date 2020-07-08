@@ -1,0 +1,12 @@
+CREATE TABLE `mq_share_note` (
+	`id` BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT 'id',
+	`create_time` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+	`update_time` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+	`note_detail` VARCHAR(1000) NULL DEFAULT NULL COMMENT '笔记详情' COLLATE 'utf8_general_ci',
+	`note_conclusion` VARCHAR(100) NULL DEFAULT NULL COMMENT '笔记总结' COLLATE 'utf8_general_ci',
+	`event_brief` VARCHAR(100) NULL DEFAULT '' COMMENT '事件简述' COLLATE 'utf8_general_ci',
+	PRIMARY KEY (`id`) USING BTREE
+)
+COLLATE='utf8_general_ci'
+ENGINE=InnoDB
+;
