@@ -26,4 +26,9 @@ public class MqManageController {
 	public OperationResp editNote(@RequestBody NoteEditParam input) {
 		return manageService.editNote(input, false);
 	}
+
+	@RequestMapping(path = "/deleteNote", method = RequestMethod.POST)
+	public OperationResp deleteNote(@RequestBody Long noteId) {
+		return manageService.deleteNote(noteId);
+	}
 }

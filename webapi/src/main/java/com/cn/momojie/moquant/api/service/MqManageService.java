@@ -73,5 +73,16 @@ public class MqManageService {
 		return OperationResp.ok("保存日记成功", note.getId());
 	}
 
-
+	public OperationResp deleteNote(Long noteId) {
+		try {
+			noteDao.deleteById(noteId);
+			Map<String, Object> queryMap = new HashMap<>();
+			queryMap.put("note_id", noteId);
+			noteRelationDao.deleteByMap(queryMap);
+		} catch (Exception e) {
+			log.error("删除数据失败", e);
+			return OperationResp.fail("删除数据失败", null);
+		}
+		return OperationResp.ok("删除数据成功", null);
+	}
 }
