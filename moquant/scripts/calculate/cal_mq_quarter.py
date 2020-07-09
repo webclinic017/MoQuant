@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from moquant.constants import mq_calculate_start_date, mq_report_type, mq_quarter_indicator_enum
 from moquant.dbclient import db_client, mq_quarter_indicator
+from moquant.dbclient.mq_manual_indicator import MqManualIndicator
 from moquant.dbclient.mq_quarter_indicator import MqQuarterIndicator
 from moquant.dbclient.ts_balance_sheet import TsBalanceSheet
 from moquant.dbclient.ts_basic import TsBasic
@@ -78,6 +79,17 @@ def ready_data(ts_code: str, from_date: str):
            fina_arr, dividend_arr, forecast_arr, express_arr
 
 
+def ready_manual_data(ts_code: str, from_date: str):
+    session: Session = db_client.get_session()
+    manual_forecast = session.query(MqManualIndicator) \
+        .filter(
+        MqManualIndicator.ts_code == ts_code, MqManualIndicator.update_date >= from_date,
+        MqManualIndicator.report_type == mq_report_type.man_forecast) \
+        .order_by(MqManualIndicator.update_date.asc(), MqManualIndicator.period.asc()).all()
+
+    return manual_forecast
+
+
 def fit_update_date(date: str, arr: list, field_name: str) -> bool:
     if len(arr) == 0:
         return False
@@ -97,7 +109,7 @@ def common_log_err(ts_code: str, period: str, update_date: str, name: str):
 def add_nx(ts_code: str, report_type: int, period: str, update_date: str,
            name: str, value: Decimal,
            result_list: list, store: MqQuarterStore, period_set: set):
-    if value is None:
+    if value is None or name is None:
         return
     exist = store.find_period_latest(ts_code, name, period)
     if exist is not None and exist.update_date == update_date:
@@ -155,6 +167,11 @@ def extract_from_forecast(result_list: list, store: MqQuarterStore, period_set: 
     call_add_nx(name=mq_quarter_indicator_enum.nprofit.name, value=forecast_nprofit)
 
 
+def extract_from_manual(result_list: list, store: MqQuarterStore, period_set: set, manual: MqManualIndicator):
+    add_nx(ts_code=manual.ts_code, period=manual.period, update_date=manual.update_date, report_type=manual.report_type,
+           store=store, result_list=result_list, period_set=period_set, name=manual.name, value=manual.value)
+
+
 def extract_from_income_adjust(result_list: list, store: MqQuarterStore, period_set: set, income: TsIncome):
     update_date = date_utils.format_delta(income.mq_ann_date, -1)
 
@@ -168,7 +185,7 @@ def extract_from_income_adjust(result_list: list, store: MqQuarterStore, period_
     to_add = None
     if nprofit_new is None:
         log.error('Cant find nprofit in adjust income. %s %s' % (income.ts_code, income.end_date))
-    if nprofit_old is None or dprofit_old is None:
+    elif nprofit_old is None or dprofit_old is None:
         to_add = MqQuarterIndicator(ts_code=income.ts_code, report_type=(1 << mq_report_type.report_adjust),
                                     period=income.end_date, update_date=update_date,
                                     name=mq_quarter_indicator_enum.dprofit.name, value=nprofit_new.value)
@@ -193,7 +210,7 @@ def extract_from_income(result_list: list, store: MqQuarterStore, period_set: se
     for i in mq_quarter_indicator_enum.extract_from_income_list:
         call_add_nx(name=i.name, value=getattr(income, i.from_name))
 
-    # 处理调整
+    # 处理调整 - 净利根据往年调整
     if income.report_type == '4':
         extract_from_income_adjust(result_list, store, period_set, income)
 
@@ -482,6 +499,8 @@ def calculate_one(ts_code: str, share_name: str, from_date: str = None, to_date=
     income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, cash_arr, adjust_cash_arr, \
     fina_arr, dividend_arr, forecast_arr, express_arr = ready_data(ts_code, from_date)
 
+    manual_forecast = ready_manual_data(ts_code, from_date)
+
     result_list = []
     while from_date <= to_date:
         period_set = set([])
@@ -512,7 +531,8 @@ def calculate_one(ts_code: str, share_name: str, from_date: str = None, to_date=
         while fit_update_date(from_date, forecast_arr, 'ann_date'):
             extract_from_forecast(result_list, store, period_set, forecast_arr.pop(0))
 
-        # TODO 人工预测
+        while fit_update_date(from_date, manual_forecast, 'update_date'):
+            extract_from_manual(result_list, store, period_set, manual_forecast.pop(0))
 
         if len(period_set) > 0:
             copy_from_latest(result_list, store, period_set, ts_code, from_date)
@@ -554,6 +574,13 @@ def recalculate_by_code(ts_code: str, to_date=date_utils.get_current_dt()):
     session.query(MqQuarterIndicator).filter(MqQuarterIndicator.ts_code == ts_code).delete()
     session.close()
     calculate_by_code(ts_code, to_date)
+
+
+def remove_from_date(ts_code: str, from_date: str):
+    session: Session = db_client.get_session()
+    session.query(MqQuarterIndicator).filter(MqQuarterIndicator.ts_code == ts_code,
+                                             MqQuarterIndicator.update_date >= from_date).delete()
+    session.close()
 
 
 if __name__ == '__main__':

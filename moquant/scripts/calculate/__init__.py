@@ -51,3 +51,9 @@ def get_val(obj: object, field: str = None, none_ret: Decimal = Decimal(0)) -> D
     if value is None:
         return none_ret
     return value
+
+
+def remove_after_fetch(ts_code: str, from_date: str):
+    cal_mq_quarter.remove_from_date(ts_code, from_date)
+    cal_mq_daily.remove_after_fetch(ts_code, from_date)
+    cal_message.remove_after_fetch(ts_code, from_date)

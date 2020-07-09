@@ -16,6 +16,7 @@ def run():
     args = env_utils.get_args()
     ts_code = args.code
     to_date = args.date
+    parallel = args.parallel
     if to_date is None:
         to_date = date_utils.get_current_dt()
 
@@ -33,7 +34,14 @@ def run():
     session.close()
 
     for basic in basic_list:
-        fetch_data.fetch_data_by_code(basic.ts_code, to_date)
-        threadpool.submit(do_after_fetch, ts_code=basic.ts_code, to_date=to_date)
+        r, from_date = fetch_data.fetch_data_by_code(basic.ts_code, to_date)
+        if not r:
+            continue
+        if from_date is not None:
+            calculate.remove_after_fetch(ts_code, from_date)
+        if parallel == 1:
+            threadpool.submit(do_after_fetch, ts_code=basic.ts_code, to_date=to_date)
+        else:
+            do_after_fetch(ts_code=basic.ts_code, to_date=to_date)
 
     threadpool.join()

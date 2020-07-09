@@ -27,7 +27,8 @@ def get_report_type_name(report_type):
 
 
 def get_report_message_content(dprofit: MqQuarterIndicator, share_name: str) -> str:
-    pub = '%s(%s) 发布%s%s' % (share_name, dprofit.ts_code, date_utils.q_format_period(dprofit.period), get_report_type_name(dprofit.report_type))
+    pub = '%s(%s) 发布%s%s' % (
+    share_name, dprofit.ts_code, date_utils.q_format_period(dprofit.period), get_report_type_name(dprofit.report_type))
     d = '扣非净利为%s' % decimal_utils.unit_format(dprofit.value)
     yoy = '同比增速为%s' % decimal_utils.percent_format(dprofit.yoy) if dprofit is not None else ''
     full = '%s,%s %s' % (pub, d, yoy)
@@ -50,6 +51,7 @@ def generate_report_message_by_code(ts_code: str, share_name: str, to_date: str 
     while from_date <= to_date:  # type: MqQuarterBasic
         latest = quarter_store.find_latest(ts_code, mq_quarter_indicator_enum.dprofit.name, from_date)
         if latest is None:
+            from_date = date_utils.format_delta(from_date, 1)
             continue
         for i in range(5):
             period = date_utils.period_delta(latest.period, -i)
@@ -57,7 +59,7 @@ def generate_report_message_by_code(ts_code: str, share_name: str, to_date: str 
                                                       from_date)
             if dprofit is None:
                 continue
-            # 只保利官方报道
+            # 只保留官方财报
             if not ((dprofit.report_type & (1 << mq_report_type.report)) > 0 or \
                     (dprofit.report_type & (1 << mq_report_type.forecast)) > 0 or \
                     (dprofit.report_type & (1 << mq_report_type.express)) > 0):
@@ -95,5 +97,9 @@ def recalculate_by_code(ts_code: str, to_date: str = date_utils.get_current_dt()
     calculate_by_code(ts_code, to_date)
 
 
-if __name__ == '__main__':
-    recalculate_by_code('300552.SZ')
+def remove_after_fetch(ts_code: str, from_date: str):
+    session: Session = db_client.get_session()
+    session.query(MqMessage).filter(MqMessage.ts_code == ts_code,
+                                    MqMessage.pub_date >= from_date).delete()
+    session.close()
+
