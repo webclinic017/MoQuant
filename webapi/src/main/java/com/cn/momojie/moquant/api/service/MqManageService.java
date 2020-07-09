@@ -35,10 +35,10 @@ public class MqManageService {
 	 */
 	public OperationResp editNote(NoteEditParam input, Boolean add) {
 		if (StringUtils.isEmpty(input.getEventBrief())) {
-			return OperationResp.fail("简述不能为空");
+			return OperationResp.fail("简述不能为空", null);
 		}
-		if (add && (input.getId() == null || Long.valueOf(0).equals(input.getId()))) {
-			return OperationResp.fail("编辑ID为空");
+		if (!add && (input.getId() == null || Long.valueOf(0).equals(input.getId()))) {
+			return OperationResp.fail("编辑ID为空", null);
 		}
 
 		MqShareNote note = new MqShareNote();
@@ -67,10 +67,10 @@ public class MqManageService {
 
 		} catch (Exception e) {
 			log.error("编辑插入数据库失败", e);
-			return OperationResp.fail("编辑插入数据库失败");
+			return OperationResp.fail("编辑插入数据库失败", null);
 		}
 
-		return OperationResp.ok("保存日记成功");
+		return OperationResp.ok("保存日记成功", note.getId());
 	}
 
 

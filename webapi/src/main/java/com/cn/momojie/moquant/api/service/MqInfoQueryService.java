@@ -6,15 +6,13 @@ import java.util.stream.Collectors;
 
 import com.cn.momojie.moquant.api.constant.MqIndicatorEnum;
 import org.apache.commons.collections.CollectionUtils;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.cn.momojie.moquant.api.constant.MqReportType;
 import com.cn.momojie.moquant.api.dao.*;
-import com.cn.momojie.moquant.api.dto.MqDailyIndicator;
-import com.cn.momojie.moquant.api.dto.MqMessage;
-import com.cn.momojie.moquant.api.dto.MqQuarterIndicator;
-import com.cn.momojie.moquant.api.dto.MqShareAll;
+import com.cn.momojie.moquant.api.dto.*;
 import com.cn.momojie.moquant.api.dto.ts.TsBasic;
 import com.cn.momojie.moquant.api.dto.ts.TsForecast;
 import com.cn.momojie.moquant.api.param.*;
@@ -266,6 +264,18 @@ public class MqInfoQueryService {
 			}
 		}
 		return PageResult.fromList(noteList);
+	}
+
+	public MqShareNoteVo getNote(Long noteId) {
+    	MqShareNote note = noteDao.selectById(noteId);
+    	if (note == null) {
+    		return null;
+		}
+    	MqShareNoteVo vo = new MqShareNoteVo();
+		BeanUtils.copyProperties(note, vo);
+    	List<MqShareNoteRelationVo> relationList = noteDao.getRelated(Arrays.asList(noteId));
+    	vo.setRelatedShareList(relationList);
+    	return vo;
 	}
 
 	public MqForecastInfo getForecastInfo(String code) {

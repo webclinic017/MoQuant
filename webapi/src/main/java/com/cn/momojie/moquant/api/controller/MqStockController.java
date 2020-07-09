@@ -7,10 +7,8 @@ import com.cn.momojie.moquant.api.param.MqMessageParam;
 import com.cn.momojie.moquant.api.param.MqShareListParam;
 import com.cn.momojie.moquant.api.param.MqTrendParam;
 import com.cn.momojie.moquant.api.service.MqInfoQueryService;
-import com.cn.momojie.moquant.api.vo.MqForecastInfo;
-import com.cn.momojie.moquant.api.vo.MqShareTrend;
-import com.cn.momojie.moquant.api.vo.PageResult;
-import com.cn.momojie.moquant.api.vo.ShareListItem;
+import com.cn.momojie.moquant.api.vo.*;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -59,6 +57,11 @@ public class MqStockController {
     public PageResult getNoteList(@RequestBody MqCodePageParam param) {
         return mqInfoQueryService.getNotes(param);
     }
+
+	@RequestMapping(path = "getNote", method = RequestMethod.POST)
+    public MqShareNoteVo getNote(@RequestBody Long id) {
+    	return mqInfoQueryService.getNote(id);
+	}
 
 	@RequestMapping(path = "getForecastInfo", method = RequestMethod.POST)
 	public MqForecastInfo getForecastInfo(@RequestBody String tsCode) {
