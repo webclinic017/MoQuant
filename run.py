@@ -21,7 +21,7 @@ if __name__ == '__main__':
     elif args.job == 'fetch_latest':
         fetch_latest.run()
     elif args.job == 'recalculate':
-        calculate.recalculate(args.code)
+        calculate.recalculate(args.code, from_date=args.from_date)
     elif args.job == 'sim':
         loopback.run_grow_strategy('20190101', get_current_dt())
     else:

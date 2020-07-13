@@ -6,6 +6,7 @@ parser.add_argument('--job', metavar='JOB', default='fetch_daily', help='运行�
 parser.add_argument('--code', metavar='N', help='需要运行的ts_code')
 parser.add_argument('--date', metavar='N', help='执行的日期，大部分job可以默认最新')
 parser.add_argument('--parallel', metavar='PARALLEL', default='1', help='是否并发执行')
+parser.add_argument('--from-date', metavar='N', help='重算开始的日期')
 
 
 def get_args():

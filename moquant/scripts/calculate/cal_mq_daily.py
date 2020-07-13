@@ -213,7 +213,7 @@ def recalculate_by_code(ts_code: str, to_date: str = date_utils.get_current_dt()
     calculate_by_code(ts_code, to_date)
 
 
-def remove_after_fetch(ts_code: str, from_date: str):
+def remove_from_date(ts_code: str, from_date: str):
     session: Session = db_client.get_session()
     session.query(MqDailyIndicator).filter(MqDailyIndicator.ts_code == ts_code,
                                            MqDailyIndicator.update_date >= from_date).delete()
