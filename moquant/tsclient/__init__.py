@@ -27,8 +27,9 @@ class TsClient(object):
         return cls.__inst
 
     def init_token(self):
-        self.__ts.set_token(get_env_value('TS_TOKEN'))
-        log.info('Init tushare token successfully')
+        token = get_env_value('TS_TOKEN')
+        self.__ts.set_token(token)
+        log.info('Init tushare token successfully: %s' % token)
         self.__pro = self.__ts.pro_api()
 
     def fetch_all_stock(self) -> DataFrame:

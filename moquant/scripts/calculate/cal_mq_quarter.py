@@ -497,7 +497,7 @@ def calculate_one(ts_code: str, share_name: str, from_date: str = None, to_date=
     store = init_quarter_store(ts_code, date_utils.format_delta(from_date, -1000))
 
     income_arr, adjust_income_arr, balance_arr, adjust_balance_arr, cash_arr, adjust_cash_arr, \
-    fina_arr, dividend_arr, forecast_arr, express_arr = ready_data(ts_code, from_date)
+    fina_arr, dividend_arr, forecast_arr, express_arr = ready_data(ts_code, date_utils.format_delta(from_date, 1))
 
     manual_forecast = ready_manual_data(ts_code, from_date)
 

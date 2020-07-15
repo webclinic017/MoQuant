@@ -81,13 +81,16 @@ def calculate_by_code(ts_code, to_date: str = date_utils.get_current_dt()):
         return
     report_message_list = generate_report_message_by_code(ts_code, basic.name, to_date)
 
-    start = time.time()
-    session: Session = db_client.get_session()
-    for item in report_message_list:  # type: MqMessage
-        session.add(item)
-    session.flush()
-    session.close()
-    log.info("Insert mq_message for %s: %s seconds" % (ts_code, time.time() - start))
+    if len(report_message_list) > 0:
+        start = time.time()
+        session: Session = db_client.get_session()
+        for item in report_message_list:  # type: MqMessage
+            session.add(item)
+        session.flush()
+        session.close()
+        log.info("Insert mq_message for %s: %s seconds" % (ts_code, time.time() - start))
+    else:
+        log.info('Nothing to insert into mq_message %s' % ts_code)
 
 
 def recalculate_by_code(ts_code: str, to_date: str = date_utils.get_current_dt()):

@@ -23,9 +23,11 @@ def recalculate(ts_code: str, to_date=date_utils.get_current_dt(), from_date=Non
         return
     if from_date is not None:
         remove_after_fetch(ts_code, from_date)
-    cal_mq_quarter.recalculate_by_code(ts_code=ts_code, to_date=to_date)
-    cal_mq_daily.recalculate_by_code(ts_code=ts_code, to_date=to_date)
-    cal_message.recalculate_by_code(ts_code=ts_code, to_date=to_date)
+        run(ts_code, to_date)
+    else:
+        cal_mq_quarter.recalculate_by_code(ts_code=ts_code, to_date=to_date)
+        cal_mq_daily.recalculate_by_code(ts_code=ts_code, to_date=to_date)
+        cal_message.recalculate_by_code(ts_code=ts_code, to_date=to_date)
 
 
 def gt(obj: object, target: object, field: str = None, none_ret: bool = False) -> bool:

@@ -12,17 +12,20 @@ log = get_logger(__name__)
 if __name__ == '__main__':
     args = env_utils.get_args()
 
-    if args.job == 'init':
-        init_table.create_table()
-    elif args.job == 'clear_all':
-        clear_all.run()
-    elif args.job == 'fetch_daily':
-        daily.run()
-    elif args.job == 'fetch_latest':
-        fetch_latest.run()
-    elif args.job == 'recalculate':
-        calculate.recalculate(args.code, from_date=args.from_date)
-    elif args.job == 'sim':
-        loopback.run_grow_strategy('20190101', get_current_dt())
-    else:
-        log.error("unsupported job [%s]" % args.job)
+    try:
+        if args.job == 'init':
+            init_table.create_table()
+        elif args.job == 'clear_all':
+            clear_all.run()
+        elif args.job == 'fetch_daily':
+            daily.run()
+        elif args.job == 'fetch_latest':
+            fetch_latest.run()
+        elif args.job == 'recalculate':
+            calculate.recalculate(args.code, from_date=args.from_date)
+        elif args.job == 'sim':
+            loopback.run_grow_strategy('20190101', get_current_dt())
+        else:
+            log.error("unsupported job [%s]" % args.job)
+    except Exception as e:
+        log.exception('Execute fail', exc_info=e)
