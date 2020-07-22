@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """ Interact with TuShare """
+import math
 from operator import methodcaller
 
 import tushare as ts
@@ -42,9 +43,9 @@ class TsClient(object):
     def fetch_daily_basic(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
         df: DataFrame = self.__pro.daily_basic(ts_code=ts_code, start_date=start_date, end_date=end_date)
         if not df.empty:
-            df['total_share'] = df.apply(lambda row:
+            df.loc[:, 'total_share'] = df.apply(lambda row:
                                          decimal_utils.mul(row.total_share, 10000, err_default=None), axis=1)
-            df['total_mv'] = df.apply(lambda row:
+            df.loc[:, 'total_mv'] = df.apply(lambda row:
                                       decimal_utils.mul(row.total_mv, 10000, err_default=None), axis=1)
         return df
 
@@ -56,7 +57,7 @@ class TsClient(object):
         df2: DataFrame = self.__pro.income(ts_code=ts_code, start_date=start_date, end_date=end_date, report_type=4)
         df: DataFrame = df1.append(df2)
         if not df.empty:
-            df['mq_ann_date'] = df.apply(lambda row: mini(row.ann_date, row.f_ann_date), axis=1)
+            df.loc[:, 'mq_ann_date'] = df.apply(lambda row: mini(row.ann_date, row.f_ann_date), axis=1)
         return df
 
     def fetch_balance_sheet(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
@@ -64,11 +65,11 @@ class TsClient(object):
         df2 = self.__pro.balancesheet(ts_code=ts_code, start_date=start_date, end_date=end_date, report_type=4)
         df = df1.append(df2)
         if not df.empty:
-            df['mq_ann_date'] = df.apply(lambda row: mini(row.ann_date, row.f_ann_date), axis=1)
-            df['notes_receiv'] = df.apply(lambda row: decimal_utils.noneToZero(row.notes_receiv), axis=1)
-            df['accounts_receiv'] = df.apply(lambda row: decimal_utils.noneToZero(row.accounts_receiv), axis=1)
-            df['oth_receiv'] = df.apply(lambda row: decimal_utils.noneToZero(row.oth_receiv), axis=1)
-            df['lt_rec'] = df.apply(lambda row: decimal_utils.noneToZero(row.lt_rec), axis=1)
+            df.loc[:, 'mq_ann_date'] = df.apply(lambda row: mini(row.ann_date, row.f_ann_date), axis=1)
+            df.loc[:, 'notes_receiv'] = df.apply(lambda row: decimal_utils.noneToZero(row.notes_receiv), axis=1)
+            df.loc[:, 'accounts_receiv'] = df.apply(lambda row: decimal_utils.noneToZero(row.accounts_receiv), axis=1)
+            df.loc[:, 'oth_receiv'] = df.apply(lambda row: decimal_utils.noneToZero(row.oth_receiv), axis=1)
+            df.loc[:, 'lt_rec'] = df.apply(lambda row: decimal_utils.noneToZero(row.lt_rec), axis=1)
         return df
 
     def fetch_cash_flow(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
@@ -76,22 +77,23 @@ class TsClient(object):
         df2 = self.__pro.cashflow(ts_code=ts_code, start_date=start_date, end_date=end_date, report_type=4)
         df = df1.append(df2)
         if not df.empty:
-            df['mq_ann_date'] = df.apply(lambda row: mini(row.ann_date, row.f_ann_date), axis=1)
+            df.loc[:, 'mq_ann_date'] = df.apply(lambda row: mini(row.ann_date, row.f_ann_date), axis=1)
         return df
 
     def fetch_forecast(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
-        return self._handle_forecast(self.__pro.forecast(ts_code=ts_code, start_date=start_date, end_date=end_date))
+        df: DataFrame = self.__pro.forecast(ts_code=ts_code, start_date=start_date, end_date=end_date)
+        return self._handle_forecast(df.dropna(axis=0, how='any'))
 
     def fetch_forecast_by_date(self, ann_date: str) -> DataFrame:
         return self._handle_forecast(self.__pro.forecast(ann_date=ann_date))
 
     def _handle_forecast(self, df: DataFrame):
         if not df.empty:
-            df['net_profit_min'] = df.apply(lambda row:
+            df.loc[:, 'net_profit_min'] = df.apply(lambda row:
                                             decimal_utils.mul(row.net_profit_min, 10000, err_default=None), axis=1)
-            df['net_profit_max'] = df.apply(lambda row:
+            df.loc[:, 'net_profit_max'] = df.apply(lambda row:
                                             decimal_utils.mul(row.net_profit_max, 10000, err_default=None), axis=1)
-            df['last_parent_net'] = df.apply(lambda row:
+            df.loc[:, 'last_parent_net'] = df.apply(lambda row:
                                              decimal_utils.mul(row.last_parent_net, 10000, err_default=None), axis=1)
         return df
 
