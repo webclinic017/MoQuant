@@ -8,3 +8,10 @@ report_fix = 6
 report_adjust = 7
 report_adjust_fix = 8
 mq_predict = 9
+
+
+def is_report(t: int) -> bool:
+    """
+    返回是否季度报
+    """
+    return t == report or t == report_adjust
