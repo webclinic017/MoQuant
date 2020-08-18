@@ -3,6 +3,7 @@ from sqlalchemy import Column, String, DECIMAL, Boolean, Index, INT
 from moquant.dbclient.base import Base
 from moquant.utils.date_utils import *
 from moquant.utils.decimal_utils import *
+from utils import date_utils
 
 
 class MqQuarterIndicator(Base):
@@ -50,7 +51,10 @@ def cal_quarter(name: str, i1: MqQuarterIndicator, i2: MqQuarterIndicator) -> Mq
                               name=name, value=sub(i1.value, i2.value))
 
 
-def cal_ltm(name: str, i1: MqQuarterIndicator, i2: MqQuarterIndicator, i3: MqQuarterIndicator, i4) -> MqQuarterIndicator:
+def cal_ltm_with_quarter(name: str, i1: MqQuarterIndicator, i2: MqQuarterIndicator, i3: MqQuarterIndicator, i4) -> MqQuarterIndicator:
+    '''
+    用4个单季去计算LTM
+    '''
     if i1 is not None and get_quarter_num(i1.period) == 4:
         return MqQuarterIndicator(ts_code=i1.ts_code, report_type=i1.report_type,
                                   period=i1.period, update_date=i1.update_date,
@@ -64,7 +68,22 @@ def cal_ltm(name: str, i1: MqQuarterIndicator, i2: MqQuarterIndicator, i3: MqQua
                                   name=name, value=add(i1.value, i2.value, i3.value, i4.value))
 
 
-def cal_ltm_avg(i1: MqQuarterIndicator, i2: MqQuarterIndicator, i3: MqQuarterIndicator,
+def cal_ltm_with_period(name: str, current: MqQuarterIndicator, last_year_q4: MqQuarterIndicator, last_year: MqQuarterIndicator) -> MqQuarterIndicator:
+    '''
+    用季度去计算LTM
+    '''
+    if current is None:
+        return None
+
+    if date_utils.get_quarter_num(current.period) == 4:
+        return add_up(name, [current])
+    elif last_year_q4 is None or last_year is None:
+        return None
+    else:
+        return add_up(name, [current, sub_from('_', [last_year_q4, last_year])])
+
+
+def cal_ltm_avg(name: str, i1: MqQuarterIndicator, i2: MqQuarterIndicator, i3: MqQuarterIndicator,
                 i4: MqQuarterIndicator) -> MqQuarterIndicator:
     if i1 is None:
         return None
@@ -80,7 +99,7 @@ def cal_ltm_avg(i1: MqQuarterIndicator, i2: MqQuarterIndicator, i3: MqQuarterInd
             report_type = report_type | i.report_type
             if avg is None:
                 avg = MqQuarterIndicator(ts_code=i.ts_code, period=i.period, update_date=i.update_date,
-                                         name=i.name + '_ltm_avg')
+                                         name=name)
     if avg is not None:
         avg.value = avg_in_exists(*val)
         avg.report_type = report_type

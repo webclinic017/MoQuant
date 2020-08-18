@@ -7,24 +7,22 @@ from moquant.utils.compare_utils import mini, maxi
 def add(*args):
     result = Decimal(0)
     for num in args:
-        if num is None:
-            continue
-        if isinstance(num, Decimal):
-            result += num
+        to_add = none_to_zero(num)
+        if isinstance(to_add, Decimal):
+            result += to_add
         else:
-            result += Decimal(num)
+            result += Decimal(to_add)
     return result
 
 
 def sub(a, *args):
     result = add(a)
     for num in args:
-        if num is None:
-            continue
-        if isinstance(num, Decimal):
-            result -= num
+        to_sub = none_to_zero(num)
+        if isinstance(to_sub, Decimal):
+            result -= to_sub
         else:
-            result -= Decimal(num)
+            result -= Decimal(to_sub)
     return result
 
 
@@ -106,8 +104,15 @@ def percent_format(num):
     return '%s%%' % cut_format(num * 100)
 
 
-def noneToZero(num):
+def none_to_zero(num):
     if num is None or math.isnan(num):
         return 0
     else:
         return num
+
+
+def negative(num):
+    if num is None or math.isnan(num):
+        return 0
+    else:
+        return num * (-1)

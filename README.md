@@ -10,10 +10,7 @@ Key|Value|Desc
 |MQ_DB_SCHEMA|xxx|所用database|
 |DB_USER|root|mysql 用户|
 |DB_PWD|password|mysql 密码|
-|LOG_FILE_NAME|/your-log-path/xx.log|日志保存路径|
 |ECHO_SQL|1|输出Sql
-|FORECAST_SAVED_PATH|/your-path/|预报保存位置，其中应该有forecast.html，为Choice导出的预报列表|
-
 
 
 ## Database - MySql

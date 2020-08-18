@@ -11,8 +11,9 @@ class MqQuarterIndicatorEnum(object):
 revenue = MqQuarterIndicatorEnum('revenue', '营业收入')
 nprofit = MqQuarterIndicatorEnum('nprofit', '归母净利润', from_name='n_income_attr_p')
 total_nprofit = MqQuarterIndicatorEnum('total_nprofit', '净利润', from_name='n_income')
+assets_impair_loss = MqQuarterIndicatorEnum('assets_impair_loss', '资产减值损失')
 
-extract_from_income_list = [revenue, nprofit, total_nprofit]
+extract_from_income_list = [revenue, nprofit, total_nprofit, assets_impair_loss]
 
 # balance sheet
 total_share = MqQuarterIndicatorEnum('total_share', '总股本')
@@ -32,15 +33,30 @@ money_cap = MqQuarterIndicatorEnum('money_cap', '货币资金')
 oth_cur_assets = MqQuarterIndicatorEnum('oth_cur_assets', '其他流动资产')
 lt_borr = MqQuarterIndicatorEnum('lt_borr', '长期借款')
 st_borr = MqQuarterIndicatorEnum('st_borr', '短期借款')
+notes_payable = MqQuarterIndicatorEnum('notes_payable', '应付票据')
+acct_payable = MqQuarterIndicatorEnum('acct_payable', '应付账款')
+prepayment = MqQuarterIndicatorEnum('prepayment', '预付款项')
+adv_receipts = MqQuarterIndicatorEnum('adv_receipts', '预收款项')
+inventories = MqQuarterIndicatorEnum('inventories', '存货')
+lt_amor_exp = MqQuarterIndicatorEnum('lt_amor_exp', '长期待摊费用(原待摊费用)')
+acc_exp = MqQuarterIndicatorEnum('acc_exp', '预提费用')
+total_nca = MqQuarterIndicatorEnum('total_nca', '非流动资产合计')
+fa_avail_for_sale = MqQuarterIndicatorEnum('fa_avail_for_sale', '可供出售金融资产')
 
 extract_from_bs_list = [total_share, notes_receiv, accounts_receiv, oth_receiv, lt_rec, total_cur_liab,
                         total_cur_assets, goodwill, r_and_d, intan_assets, nassets, total_assets, oth_eqt_tools_p_shr,
-                        money_cap, oth_cur_assets, lt_borr, st_borr]
+                        money_cap, oth_cur_assets, lt_borr, st_borr, notes_payable, acct_payable, prepayment,
+                        adv_receipts, inventories, lt_amor_exp, acc_exp, total_nca, fa_avail_for_sale]
 
 # cash flow
 n_cashflow_act = MqQuarterIndicatorEnum('n_cashflow_act', '经营活动产生的现金流量净额')
+depr_fa_coga_dpba = MqQuarterIndicatorEnum('depr_fa_coga_dpba', '固定资产折旧、油气资产折耗、生产性生物资产折旧')
+amort_intang_assets = MqQuarterIndicatorEnum('amort_intang_assets', '无形资产摊销')
+lt_amort_deferred_exp = MqQuarterIndicatorEnum('lt_amort_deferred_exp', '长期待摊费用摊销')
+loss_scr_fa = MqQuarterIndicatorEnum('loss_scr_fa', '固定资产报废损失')
 
-extract_from_cf_list = [n_cashflow_act]
+extract_from_cf_list = [n_cashflow_act, depr_fa_coga_dpba, amort_intang_assets, lt_amort_deferred_exp,
+                        loss_scr_fa]
 
 # fina indicator
 dprofit = MqQuarterIndicatorEnum('dprofit', '归母扣非净利润', from_name='profit_dedt')
@@ -72,9 +88,9 @@ cal_quarter_list = [revenue_quarter, nprofit_quarter, dprofit_quarter]
 cal_ltm_list = [revenue_ltm, nprofit_ltm, dprofit_ltm, dividend_ltm]
 
 # avg
-nassets_ltm_avg = MqQuarterIndicatorEnum('nassets_ltm_avg', '净资产-LTM平均')
-total_assets_ltm_avg = MqQuarterIndicatorEnum('total_assets_ltm_avg', '总资产-LTM平均')
-cal_avg_list = [nassets, total_assets]
+nassets_ltm_avg = MqQuarterIndicatorEnum('nassets_ltm_avg', '净资产-LTM平均', from_name='nassets')
+total_assets_ltm_avg = MqQuarterIndicatorEnum('total_assets_ltm_avg', '总资产-LTM平均', from_name='total_assets')
+cal_avg_list = [nassets_ltm_avg, total_assets_ltm_avg]
 
 # du pont
 roe = MqQuarterIndicatorEnum('roe', '净资产收益率')
@@ -88,38 +104,35 @@ liquidity_risk = MqQuarterIndicatorEnum('liquidity_risk', '流动性风险', is_
 intangible_risk = MqQuarterIndicatorEnum('intangible_risk', '无形风险', is_percent=True)
 cash_debt_rate = MqQuarterIndicatorEnum('cash_debt_rate', '存贷比', is_percent=True)
 
-risk_point = MqQuarterIndicatorEnum('risk_point', '存贷比', is_percent=True)
+risk_point = MqQuarterIndicatorEnum('risk_point', '风险点数', is_percent=True)
 
 # fill
 fill_dividend = MqQuarterIndicatorEnum('dividend', '分红总额', from_name='')
 fill_dprofit = MqQuarterIndicatorEnum('dprofit', '分红总额', from_name='nprofit')
 fill_after_copy_fail_list = [fill_dividend, fill_dprofit]
 
-all_indicators_list = [
-    # income
-    revenue, nprofit, total_nprofit,
-    # balance sheet
-    total_share, notes_receiv, accounts_receiv, oth_receiv, lt_rec, total_cur_liab,
-    total_cur_assets, goodwill, r_and_d, intan_assets, nassets, total_assets, oth_eqt_tools_p_shr,
-    money_cap, oth_cur_assets, lt_borr, st_borr,
-    # cash flow
-    n_cashflow_act,
-    # fina
-    dprofit,
-    # dividend
-    dividend, dividend_ratio,
-    # quarter
-    revenue_quarter, nprofit_quarter, dprofit_quarter,
-    # ltm
-    revenue_ltm, nprofit_ltm, dprofit_ltm, dividend_ltm,
-    # avg
-    nassets_ltm_avg, total_assets_ltm_avg,
-    # du pont
-    roe, dprofit_margin, turnover_rate, equity_multiplier,
-    # risk
-    receive_risk, liquidity_risk, intangible_risk, cash_debt_rate,
-    risk_point
-]
+# fcf
+total_receivable = MqQuarterIndicatorEnum('total_receivable', '应收款项总和')
+total_payable = MqQuarterIndicatorEnum('total_payable', '应付款项总和')
+fcf = MqQuarterIndicatorEnum('fcf', '自由现金流')
+
+fcf_ltm = MqQuarterIndicatorEnum('fcf_ltm', '自由现金流LTM', from_name='fcf')
+
+complex_ltm_list = []
+
+all_indicators_list = extract_from_income_list + extract_from_bs_list + extract_from_cf_list + extract_from_fi_list + \
+                      extract_from_forecast_list + cal_quarter_list + cal_ltm_list + cal_avg_list + \
+                      [
+                          # dividend
+                          dividend, dividend_ratio,
+                          # du pont
+                          roe, dprofit_margin, turnover_rate, equity_multiplier,
+                          # risk
+                          receive_risk, liquidity_risk, intangible_risk, cash_debt_rate,
+                          risk_point,
+                          # fcf
+                          total_receivable, total_payable
+                      ]
 
 all_indicators_map = {}
 for i in all_indicators_list:  # type: MqQuarterIndicatorEnum

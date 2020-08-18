@@ -3,6 +3,7 @@
 """ To init table, will not create if table exists """
 
 import moquant.dbclient as client
+from dbclient.mq_dcf_config import MqDcfConfig
 from moquant.dbclient.base import Base
 from moquant.dbclient.mq_daily_indicator import MqDailyIndicator
 from moquant.dbclient.mq_manual_indicator import MqManualIndicator
@@ -26,7 +27,7 @@ from moquant.dbclient.ts_trade_cal import TsTradeCal
 
 def create_table():
     engine = client.db_client.get_engine()
-    all_table = [MqSysParam, MqManualIndicator,
+    all_table = [MqSysParam, MqManualIndicator, MqDcfConfig,
                  MqQuarterIndicator, MqDailyIndicator, MqMessage,
                  TsBasic, TsDailyBasic, TsDailyTradeInfo, StockAdjFactor,
                  TsIncome, TsBalanceSheet, TsCashFlow, TsForecast, TsExpress,

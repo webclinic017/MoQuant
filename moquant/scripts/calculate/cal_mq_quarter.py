@@ -24,6 +24,7 @@ from moquant.utils import decimal_utils, date_utils
 
 log = get_logger(__name__)
 
+
 class PeriodObj(object):
 
     def __init__(self, end_date: str, report_type: int):
@@ -270,7 +271,8 @@ def extract_from_dividend(result_list: list, store: MqQuarterStore, period_dict:
     call_add_nx(name='dividend', value=dividend)
 
 
-def copy_indicator_from_latest(result_list: list, store: MqQuarterStore, period: PeriodObj, ts_code: str, update_date: str,
+def copy_indicator_from_latest(result_list: list, store: MqQuarterStore, period: PeriodObj, ts_code: str,
+                               update_date: str,
                                name: str, from_name: str = None):
     if from_name is None:
         from_name = name
@@ -326,7 +328,7 @@ def fill_empty(result_list: list, store: MqQuarterStore, period_dict: dict, ts_c
                         add.report_type = from_indicator.report_type
 
 
-def cal_ltm(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_code: str, update_date: str):
+def cal_quarter_ltm(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_code: str, update_date: str):
     period = period_o.end_date
     report_type = period_o.report_type
     call_find_now = partial(store.find_period_exact, ts_code=ts_code, update_date=update_date)
@@ -351,7 +353,7 @@ def cal_ltm(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_co
         i2 = call_find_pre(period=date_utils.period_delta(period, -1), name=from_name)
         i3 = call_find_pre(period=date_utils.period_delta(period, -2), name=from_name)
         i4 = call_find_pre(period=date_utils.period_delta(period, -3), name=from_name)
-        ltm = mq_quarter_indicator.cal_ltm(name, i1, i2, i3, i4)
+        ltm = mq_quarter_indicator.cal_ltm_with_quarter(name, i1, i2, i3, i4)
         if ltm is None:
             common_log_err(ts_code, period, report_type, update_date, name)
         else:
@@ -365,14 +367,14 @@ def cal_avg(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_co
     call_find_pre = partial(store.find_period_latest, ts_code=ts_code)
     call_add = partial(common_add, result_list=result_list, store=store)
     for k in mq_quarter_indicator_enum.cal_avg_list:
-        name = k.name
-        i1 = call_find_now(period=period, name=name)
-        i2 = call_find_pre(period=date_utils.period_delta(period, -1), name=name)
-        i3 = call_find_pre(period=date_utils.period_delta(period, -2), name=name)
-        i4 = call_find_pre(period=date_utils.period_delta(period, -3), name=name)
-        avg = mq_quarter_indicator.cal_ltm_avg(i1, i2, i3, i4)
+        from_name = k.from_name
+        i1 = call_find_now(period=period, name=from_name)
+        i2 = call_find_pre(period=date_utils.period_delta(period, -1), name=from_name)
+        i3 = call_find_pre(period=date_utils.period_delta(period, -2), name=from_name)
+        i4 = call_find_pre(period=date_utils.period_delta(period, -3), name=from_name)
+        avg = mq_quarter_indicator.cal_ltm_avg(k.name, i1, i2, i3, i4)
         if avg is None:
-            common_log_err(ts_code, period, report_type, update_date, '%s_ltm_avg' % name)
+            common_log_err(ts_code, period, report_type, update_date, k.name)
         else:
             call_add(to_add=avg)
 
@@ -384,6 +386,15 @@ def common_dividend(call_add: partial, call_log: partial, i1: MqQuarterIndicator
     else:
         call_add(to_add=i)
     return i
+
+
+def common_cal_delta(call_find: partial, call_find_lp: partial, name: str) -> MqQuarterIndicator:
+    '''
+    计算本期减上期的增量，用于资产等累计值
+    '''
+    current_period = call_find(name=name)
+    last_period = call_find_lp(name=name)
+    return mq_quarter_indicator.sub_from('%_delta' % name, [current_period, last_period])
 
 
 def cal_du_pont(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_code: str, update_date: str):
@@ -404,22 +415,23 @@ def cal_du_pont(result_list: list, store: MqQuarterStore, period_o: PeriodObj, t
 
 
 def cal_ratio(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_code: str, update_date: str):
+    '''
+    计算一些指标比例，依赖 cal_rev_pay
+    '''
     period = period_o.end_date
     report_type = period_o.report_type
     call_find = partial(store.find_period_exact, ts_code=ts_code, period=period, update_date=update_date)
     call_add = partial(common_add, result_list=result_list, store=store)
     call_log = partial(common_log_err, ts_code=ts_code, period=period, update_date=update_date, report_type=report_type)
-    notes_receiv = call_find(name='notes_receiv')
-    accounts_receiv = call_find(name='accounts_receiv')
-    oth_receiv = call_find(name='oth_receiv')
-    lt_rec = call_find(name='lt_rec')
-    total_receive = mq_quarter_indicator.add_up('total_receive',
-                                                [notes_receiv, accounts_receiv, oth_receiv, lt_rec])
+
+    total_receivable = call_find(name='total_receivable')
     revenue = call_find(name='revenue_ltm')
-    receive_risk = common_dividend(call_add, call_log, total_receive, revenue, 'receive_risk')
+    # 应收风险 = 各种应收总和 / 营业收入
+    receive_risk = common_dividend(call_add, call_log, total_receivable, revenue, 'receive_risk')
 
     total_cur_liab = call_find(name='total_cur_liab')
     total_cur_assets = call_find(name='total_cur_assets')
+    # 流动性风险 = 流动负债合计 / 流动资产合计
     liquidity_risk = common_dividend(call_add, call_log, total_cur_liab, total_cur_assets, 'liquidity_risk')
 
     goodwill = call_find(name='goodwill')
@@ -429,6 +441,7 @@ def cal_ratio(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_
     nassets = call_find(name='nassets')
     oth_eqt_tools_p_shr = call_find(name='oth_eqt_tools_p_shr')
     nassets1 = mq_quarter_indicator.sub_from('nassets1', [nassets, oth_eqt_tools_p_shr])
+    # 无形资产风险 = (商誉 + 研发支出 + 无形资产) / (净资产 - 优先股,永续债)
     intangible_risk = common_dividend(call_add, call_log, total_intangible, nassets1, 'intangible_risk')
 
     money_cap = call_find(name='money_cap')
@@ -437,10 +450,12 @@ def cal_ratio(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_
     st_borr = call_find(name='st_borr')
     cur = mq_quarter_indicator.add_up('cur', [money_cap, oth_cur_assets])
     borr = mq_quarter_indicator.add_up('borr', [lt_borr, st_borr])
+    # 存贷比 = (货币资金 + 其它流动资产) / (短期借款 + 长期借款)
     cash_debt_rate = common_dividend(call_add, call_log, cur, borr, 'cash_debt_rate')
 
     nprofit_ltm = call_find(name=mq_quarter_indicator_enum.nprofit_ltm.name)
     dividend_ltm = call_find(name=mq_quarter_indicator_enum.dividend_ltm.name)
+    # 分红率 = 分红总额LTM / 净利润LTM
     dividend_ratio = common_dividend(call_add, call_log, dividend_ltm, nprofit_ltm,
                                      mq_quarter_indicator_enum.dividend_ratio.name)
 
@@ -474,20 +489,126 @@ def cal_risk_point(result_list: list, store: MqQuarterStore, period_o: PeriodObj
     common_add(result_list, store, to_add)
 
 
+def cal_rev_pay(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_code: str, update_date: str):
+    '''
+    计算应收以及应付总和
+    '''
+    period = period_o.end_date
+    report_type = period_o.report_type
+    call_find = partial(store.find_period_exact, ts_code=ts_code, period=period, update_date=update_date)
+    call_add = partial(common_add, result_list=result_list, store=store)
+    call_log = partial(common_log_err, ts_code=ts_code, period=period, update_date=update_date, report_type=report_type)
+
+    notes_receiv = call_find(name='notes_receiv')
+    accounts_receiv = call_find(name='accounts_receiv')
+    oth_receiv = call_find(name='oth_receiv')
+    lt_rec = call_find(name='lt_rec')
+    total_receivable = mq_quarter_indicator.add_up('total_receivable',
+                                                   [notes_receiv, accounts_receiv, oth_receiv, lt_rec])
+    if total_receivable is None:
+        call_log(name='total_receivable')
+    else:
+        call_add(to_add=total_receivable)
+
+    notes_payable = call_find(name='notes_payable')
+    acct_payable = call_find(name='acct_payable')
+    total_payable = mq_quarter_indicator.add_up('total_payable', [notes_payable, acct_payable])
+    if total_payable is None:
+        call_log(name='total_payable')
+    else:
+        call_add(to_add=total_payable)
+
+
 def cal_fcf(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_code: str, update_date: str):
     '''
-    计算自由现金流
-    FCF = 归母扣非净利 + 折旧与摊销 - 营运资本净增加 - 资本支出
-    DAA = 资产简直损失 + 固定资产折旧 + 无形资产、长期待摊费用摊销 + 固定资产报废损失
+    计算自由现金流，依赖于 cal_rev_pay
     '''
-    pass
+    period = period_o.end_date
+    report_type = period_o.report_type
+    call_find = partial(store.find_period_exact, ts_code=ts_code, period=period, update_date=update_date)
+    call_find_lp = partial(store.find_period_latest, ts_code=ts_code, period=date_utils.q4_last_year(period))
+    call_add = partial(common_add, result_list=result_list, store=store)
+    call_log = partial(common_log_err, ts_code=ts_code, period=period, update_date=update_date, report_type=report_type)
+
+    total_receivable_delta = common_cal_delta(call_find, call_find_lp, 'total_receivable')
+    prepayment_delta = common_cal_delta(call_find, call_find_lp, 'prepayment')
+    # 经营性应收项目增加 = 应收账款增加 + 预付账款增加 + 应收票据增加
+    op_recv_delta = mq_quarter_indicator.add_up('op_recv_delta', [total_receivable_delta, prepayment_delta])
+
+    total_payable_delta = common_cal_delta(call_find, call_find_lp, 'total_payable')
+    adv_receipts_delta = common_cal_delta(call_find, call_find_lp, 'adv_receipts')
+    # 经营性应付项目增加 = 应付账款增加 + 预收账款增加 + 应付票据增加
+    op_pay_delta = mq_quarter_indicator.add_up('op_pay_delta', [total_payable_delta, adv_receipts_delta])
+
+    inventories_delta = common_cal_delta(call_find, call_find_lp, 'inventories')
+    lt_amor_exp_delta = common_cal_delta(call_find, call_find_lp, 'lt_amor_exp')
+    acc_exp_delta = common_cal_delta(call_find, call_find_lp, 'acc_exp')
+
+    # 营运资本增加 = 存货增加 + 经营性应收项目增加 + 待摊费用增加 - 经营性应付项目增加 - 预提费用增加
+    op_cap_delta = mq_quarter_indicator.sub_from('op_cap_delta', [
+        mq_quarter_indicator.add_up('_', [inventories_delta, op_recv_delta, lt_amor_exp_delta]),
+        op_pay_delta, acc_exp_delta
+    ])
+
+    assets_impair_loss = call_find(name='assets_impair_loss')
+    depr_fa_coga_dpba = call_find(name='depr_fa_coga_dpba')
+    amort_intang_assets = call_find(name='amort_intang_assets')
+    lt_amort_deferred_exp = call_find(name='lt_amort_deferred_exp')
+    loss_scr_fa = call_find(name='loss_scr_fa')
+    # 折旧与摊销 = -资产减值损失(负数) + 固定资产折旧 + 无形资产摊销 + 长期待摊费用摊销 + 固定资产报废损失
+    daa = mq_quarter_indicator.sub_from('daa', [
+        mq_quarter_indicator.add_up('_', [depr_fa_coga_dpba, amort_intang_assets, lt_amort_deferred_exp, loss_scr_fa]),
+        assets_impair_loss
+    ])
+
+    # 资本支出 = 非流动性资产增加 - 可供出售金融资产增加
+    total_nca_delta = common_cal_delta(call_find, call_find_lp, 'total_nca')
+    fa_avail_for_sale_delta = common_cal_delta(call_find, call_find_lp, 'fa_avail_for_sale')
+    cap_cost = mq_quarter_indicator.sub_from('cap_cost', [total_nca_delta, fa_avail_for_sale_delta])
+
+    dprofit = call_find(name='dprofit')
+    # 自由现金流 = 归母扣非净利 + 折旧与摊销 - 营运资本增加 - 资本支出
+    fcf = mq_quarter_indicator.sub_from('fcf', [
+        mq_quarter_indicator.add_up('_', dprofit, daa), op_cap_delta, cap_cost
+    ])
+
+    if fcf is None:
+        call_log(name='fcf')
+    else:
+        call_add(to_add=fcf)
+
+
+def cal_complex_ltm(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_code: str, update_date: str):
+    '''
+    计算复杂指标的ltm, 在所有复杂指标计算后座
+    '''
+    period = period_o.end_date
+    report_type = period_o.report_type
+    call_find_now = partial(store.find_period_exact, ts_code=ts_code, update_date=update_date)
+    call_find_pre = partial(store.find_period_latest, ts_code=ts_code, update_date=update_date)
+    call_add = partial(common_add, result_list=result_list, store=store)
+
+    for k in mq_quarter_indicator_enum.complex_ltm_list:
+        name = k.name
+        from_name = k.from_name
+        current = call_find_now(period=period, name=from_name)
+        last_year_q4 = call_find_pre(period=date_utils.q4_last_year(period), name=from_name)
+        last_year = call_find_pre(period=date_utils.period_delta(period, -4), name=from_name)
+        ltm = mq_quarter_indicator.cal_ltm_with_period(name, current, last_year_q4, last_year)
+        if ltm is None:
+            common_log_err(ts_code, period, report_type, update_date, name)
+        else:
+            call_add(to_add=ltm)
+
 
 def cal_indicator(result_list: list, store: MqQuarterStore, period: PeriodObj, ts_code: str, update_date: str):
-    cal_ltm(result_list, store, period, ts_code, update_date)
+    cal_quarter_ltm(result_list, store, period, ts_code, update_date)
     cal_avg(result_list, store, period, ts_code, update_date)
     cal_du_pont(result_list, store, period, ts_code, update_date)
+    cal_rev_pay(result_list, store, period, ts_code, update_date)
     cal_fcf(result_list, store, period, ts_code, update_date)
     cal_ratio(result_list, store, period, ts_code, update_date)
+    cal_complex_ltm(result_list, store, period, ts_code, update_date)
     cal_risk_point(result_list, store, period, ts_code, update_date)
 
 

@@ -65,7 +65,7 @@ def init_quarter_store_by_date(ts_code, from_date=mq_calculate_start_date) -> Mq
     session: Session = db_client.get_session()
     arr = session.query(MqQuarterIndicator).filter(MqQuarterIndicator.ts_code == ts_code,
                                                    MqQuarterIndicator.update_date >= from_date).all()
+    session.close()
     for i in arr:
         store.add(i)
-    session.close()
     return store

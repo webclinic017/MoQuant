@@ -67,3 +67,8 @@ def q_format_period(period: str) -> str:
     year = period[0:4]
     q = get_quarter_num(period)
     return '%sQ%d' % (year, q)
+
+
+def q4_last_year(period: str) -> str:
+    year = period[0:4]
+    return get_period(int(year) - 1, 12)

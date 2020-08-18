@@ -58,6 +58,9 @@ class TsClient(object):
         df: DataFrame = df1.append(df2)
         if not df.empty:
             df.loc[:, 'mq_ann_date'] = df.apply(lambda row: mini(row.ann_date, row.f_ann_date), axis=1)
+            # 资产减值损失 - 2019Q2开始计入其他收益，应该为负数，不可转回。2019Q2之前为成本，所以需要取反
+            df.loc[:, 'assets_impair_loss'] = df.apply(lambda row: decimal_utils.none_to_zero(row.assets_impair_loss), axis=1)
+            df.loc[:, 'assets_impair_loss'] = df.apply(lambda row: decimal_utils.negative(row.assets_impair_loss) if row.end_date < '20190630' or (row.end_date >= '20190630' and row.assets_impair_loss > 0) else row.assets_impair_loss, axis=1)
         return df
 
     def fetch_balance_sheet(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
@@ -66,10 +69,16 @@ class TsClient(object):
         df = df1.append(df2)
         if not df.empty:
             df.loc[:, 'mq_ann_date'] = df.apply(lambda row: mini(row.ann_date, row.f_ann_date), axis=1)
-            df.loc[:, 'notes_receiv'] = df.apply(lambda row: decimal_utils.noneToZero(row.notes_receiv), axis=1)
-            df.loc[:, 'accounts_receiv'] = df.apply(lambda row: decimal_utils.noneToZero(row.accounts_receiv), axis=1)
-            df.loc[:, 'oth_receiv'] = df.apply(lambda row: decimal_utils.noneToZero(row.oth_receiv), axis=1)
-            df.loc[:, 'lt_rec'] = df.apply(lambda row: decimal_utils.noneToZero(row.lt_rec), axis=1)
+            df.loc[:, 'notes_receiv'] = df.apply(lambda row: decimal_utils.none_to_zero(row.notes_receiv), axis=1)
+            df.loc[:, 'accounts_receiv'] = df.apply(lambda row: decimal_utils.none_to_zero(row.accounts_receiv), axis=1)
+            df.loc[:, 'oth_receiv'] = df.apply(lambda row: decimal_utils.none_to_zero(row.oth_receiv), axis=1)
+            df.loc[:, 'lt_rec'] = df.apply(lambda row: decimal_utils.none_to_zero(row.lt_rec), axis=1)
+            df.loc[:, 'notes_payable'] = df.apply(lambda row: decimal_utils.none_to_zero(row.notes_payable), axis=1)
+            df.loc[:, 'acct_payable'] = df.apply(lambda row: decimal_utils.none_to_zero(row.acct_payable), axis=1)
+            df.loc[:, 'total_nca'] = df.apply(lambda row: decimal_utils.none_to_zero(row.total_nca), axis=1)
+            df.loc[:, 'fa_avail_for_sale'] = df.apply(lambda row: decimal_utils.none_to_zero(row.fa_avail_for_sale), axis=1)
+            # 待摊费用(新会计准则取消) -> 长期待摊费用
+            df.loc[:, 'lt_amor_exp'] = df.apply(lambda row: decimal_utils.add(row.amor_exp, row.lt_amor_exp), axis=1)
         return df
 
     def fetch_cash_flow(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
@@ -78,6 +87,10 @@ class TsClient(object):
         df = df1.append(df2)
         if not df.empty:
             df.loc[:, 'mq_ann_date'] = df.apply(lambda row: mini(row.ann_date, row.f_ann_date), axis=1)
+            df.loc[:, 'depr_fa_coga_dpba'] = df.apply(lambda row: decimal_utils.none_to_zero(row.depr_fa_coga_dpba), axis=1)
+            df.loc[:, 'amort_intang_assets'] = df.apply(lambda row: decimal_utils.none_to_zero(row.amort_intang_assets), axis=1)
+            df.loc[:, 'lt_amort_deferred_exp'] = df.apply(lambda row: decimal_utils.none_to_zero(row.lt_amort_deferred_exp), axis=1)
+            df.loc[:, 'loss_scr_fa'] = df.apply(lambda row: decimal_utils.none_to_zero(row.loss_scr_fa), axis=1)
         return df
 
     def fetch_forecast(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:

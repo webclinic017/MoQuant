@@ -38,7 +38,7 @@ def init_daily_store_by_date(ts_code, from_date=mq_calculate_start_date) -> MqDa
     session: Session = db_client.get_session()
     arr = session.query(MqDailyIndicator).filter(MqDailyIndicator.ts_code == ts_code,
                                                  MqDailyIndicator.update_date >= from_date).all()
+    session.close()
     for i in arr:
         store.add(i)
-    session.close()
     return store

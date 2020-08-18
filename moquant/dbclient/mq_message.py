@@ -16,4 +16,4 @@ class MqMessage(Base):
     ts_code = Column('ts_code', String(10), comment='TS股票代码')
     msg_type = Column('msg_type', INT, comment='消息种类 1-业绩')
     message = Column('message', String(100), comment='消息体')
-    pub_date = Column('pub_date', String(100), comment='消息发布日期')
+    pub_date = Column('pub_date', String(10), comment='消息发布日期')
