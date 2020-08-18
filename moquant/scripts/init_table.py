@@ -3,9 +3,9 @@
 """ To init table, will not create if table exists """
 
 import moquant.dbclient as client
-from dbclient.mq_dcf_config import MqDcfConfig
 from moquant.dbclient.base import Base
 from moquant.dbclient.mq_daily_indicator import MqDailyIndicator
+from moquant.dbclient.mq_dcf_config import MqDcfConfig
 from moquant.dbclient.mq_manual_indicator import MqManualIndicator
 from moquant.dbclient.mq_message import MqMessage
 from moquant.dbclient.mq_quarter_indicator import MqQuarterIndicator

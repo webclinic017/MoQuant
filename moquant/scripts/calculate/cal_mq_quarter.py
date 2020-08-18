@@ -394,7 +394,7 @@ def common_cal_delta(call_find: partial, call_find_lp: partial, name: str) -> Mq
     '''
     current_period = call_find(name=name)
     last_period = call_find_lp(name=name)
-    return mq_quarter_indicator.sub_from('%_delta' % name, [current_period, last_period])
+    return mq_quarter_indicator.sub_from('%s_delta' % name, [current_period, last_period])
 
 
 def cal_du_pont(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_code: str, update_date: str):
@@ -569,7 +569,7 @@ def cal_fcf(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_co
     dprofit = call_find(name='dprofit')
     # 自由现金流 = 归母扣非净利 + 折旧与摊销 - 营运资本增加 - 资本支出
     fcf = mq_quarter_indicator.sub_from('fcf', [
-        mq_quarter_indicator.add_up('_', dprofit, daa), op_cap_delta, cap_cost
+        mq_quarter_indicator.add_up('_', [dprofit, daa]), op_cap_delta, cap_cost
     ])
 
     if fcf is None:

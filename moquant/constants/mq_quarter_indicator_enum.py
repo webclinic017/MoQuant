@@ -131,7 +131,7 @@ all_indicators_list = extract_from_income_list + extract_from_bs_list + extract_
                           receive_risk, liquidity_risk, intangible_risk, cash_debt_rate,
                           risk_point,
                           # fcf
-                          total_receivable, total_payable
+                          total_receivable, total_payable, fcf, fcf_ltm
                       ]
 
 all_indicators_map = {}

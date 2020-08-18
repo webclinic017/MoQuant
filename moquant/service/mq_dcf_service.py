@@ -2,11 +2,9 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from algo.tree.avl import AvlTree
-from dbclient import db_client
-from dbclient.mq_dcf_config import MqDcfConfig
-from utils import decimal_utils
-
+from moquant.dbclient import db_client
+from moquant.dbclient.mq_dcf_config import MqDcfConfig
+from moquant.utils import decimal_utils
 
 
 class MqDcfService(object):
@@ -16,8 +14,10 @@ class MqDcfService(object):
 
     def __init__(self, ts_code: str):
         session: Session = db_client.get_session()
-        self.arr = session.query(MqDcfConfig).filter(MqDcfConfig.ts_code == ts_code).order_by(MqDcfConfig.update_date.asc()).all()
-        self.global_arr = session.query(MqDcfConfig).filter(MqDcfConfig.ts_code == 'all').order_by(MqDcfConfig.update_date.asc()).all()
+        self.arr = session.query(MqDcfConfig).filter(MqDcfConfig.ts_code == ts_code)\
+            .order_by(MqDcfConfig.update_date.asc()).all()
+        self.global_arr = session.query(MqDcfConfig).filter(MqDcfConfig.ts_code == 'all')\
+            .order_by(MqDcfConfig.update_date.asc()).all()
         session.close()
 
     def cal_dcf(self, fcf: Decimal, year: int, date: str) -> Decimal:
@@ -30,7 +30,7 @@ class MqDcfService(object):
 
         mv = fcf
         inc_rate = 0
-        discount_rate = 0.05
+        discount_rate = 0.09
 
         # 计算10年的
         for i in range(0, 10):
@@ -44,6 +44,11 @@ class MqDcfService(object):
                 fcf = 0
             mv = decimal_utils.add(mv, fcf)
 
+        mv_forever = decimal_utils.add(mv, decimal_utils.div(
+            decimal_utils.mul(fcf, (1 + inc_rate)),
+            (discount_rate - inc_rate)))
+
+        return mv, mv_forever
 
     def _get_map_by_name(self, name: str, date: str) -> dict:
         year_map = {}

@@ -16,5 +16,8 @@ pb = MqDailyIndicatorEnum('pb', 'PB')
 
 dividend_yields = MqDailyIndicatorEnum('dividend_yields', '股息率')
 
+mv_10 = MqDailyIndicatorEnum('mv_10', '10年现金流折现')
+mv = MqDailyIndicatorEnum('mv', '永续现金流折现')
+
 grow_score = MqDailyIndicatorEnum('grow_score', '成长评分')
 val_score = MqDailyIndicatorEnum('val_score', '价值评分')

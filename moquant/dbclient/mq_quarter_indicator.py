@@ -1,9 +1,9 @@
 from sqlalchemy import Column, String, DECIMAL, Boolean, Index, INT
 
 from moquant.dbclient.base import Base
+from moquant.utils import date_utils
 from moquant.utils.date_utils import *
 from moquant.utils.decimal_utils import *
-from utils import date_utils
 
 
 class MqQuarterIndicator(Base):

@@ -1,4 +1,3 @@
-import sys
 import time
 from decimal import Decimal
 from functools import partial
@@ -15,6 +14,7 @@ from moquant.dbclient.ts_daily_basic import TsDailyBasic
 from moquant.log import get_logger
 from moquant.scripts.calculate import cal_grow
 from moquant.service import mq_quarter_store, mq_daily_store
+from moquant.service.mq_dcf_service import MqDcfService
 from moquant.utils import decimal_utils, date_utils
 
 log = get_logger(__name__)
@@ -116,16 +116,34 @@ def cal_dividend(result_list: list, daily_store: mq_daily_store.MqDailyStore,
     qd_dividend(call_add, call_log, dividend_ltm, total_mv, mq_daily_indicator_enum.dividend_yields.name)
 
 
-def cal_dcf(result_list: list, daily_store: mq_daily_store.MqDailyStore,
-                 quarter_store: mq_quarter_store.MqQuarterStore,
-                 ts_code: str, update_date: str):
+def cal_dcf(result_list: list, daily_store: mq_daily_store.MqDailyStore, quarter_store: mq_quarter_store.MqQuarterStore,
+            dcf_service: MqDcfService, ts_code: str, update_date: str):
     '''
         根据自由现金流估算市值
     '''
     call_add = partial(common_add, result_list=result_list, store=daily_store)
-    call_log = partial(common_log_err, ts_code=ts_code, update_date=update_date)
 
+    fcf = quarter_store.find_latest(ts_code, mq_quarter_indicator_enum.fcf_ltm, update_date)
+    mv_10, mv = 0, 0
+    report_type = mq_report_type.report
+    period = '20000331'
 
+    if fcf is not None:
+        year = int(fcf.period[0:4])
+        report_type = fcf.report_type
+        period = fcf.period
+        mv_10, mv = dcf_service.cal_dcf(fcf.value, year, update_date)
+    else:
+        log.error('Cant find fcf %s %s' % (ts_code, update_date))
+
+    daily_mv_10 = MqDailyIndicator(ts_code=ts_code, report_type=report_type, period=period, update_date=update_date,
+                                   name=mq_daily_indicator_enum.mv_10.name, value=mv_10)
+
+    daily_mv = MqDailyIndicator(ts_code=ts_code, report_type=report_type, period=period, update_date=update_date,
+                                name=mq_daily_indicator_enum.mv.name, value=mv)
+
+    call_add(to_add=daily_mv_10)
+    call_add(to_add=daily_mv)
 
 
 def cal_score(result_list: list, daily_store: mq_daily_store.MqDailyStore,
@@ -135,7 +153,6 @@ def cal_score(result_list: list, daily_store: mq_daily_store.MqDailyStore,
 
     grow_score = cal_grow.cal(daily_store, quarter_store, ts_code, update_date)
     call_add(to_add=grow_score)
-
 
 
 def calculate_one(ts_code: str, share_name: str, to_date: str = date_utils.get_current_dt()):
@@ -171,6 +188,7 @@ def calculate_one(ts_code: str, share_name: str, to_date: str = date_utils.get_c
 
     quarter_store = mq_quarter_store.init_quarter_store_by_date(ts_code, date_utils.format_delta(from_date, -360))
     daily_store = mq_daily_store.init_daily_store_by_date(ts_code, date_utils.format_delta(from_date, -360))
+    dcf_service = MqDcfService(ts_code)
 
     prepare_time = time.time()
     log.info("Prepare data for %s: %s seconds" % (ts_code, prepare_time - start_time))
@@ -185,7 +203,7 @@ def calculate_one(ts_code: str, share_name: str, to_date: str = date_utils.get_c
 
         cal_pepb(result_list, daily_store, quarter_store, ts_code, from_date)
         cal_dividend(result_list, daily_store, quarter_store, ts_code, from_date)
-        cal_dcf(result_list, daily_store, quarter_store, ts_code, from_date)
+        cal_dcf(result_list, daily_store, quarter_store, dcf_service, ts_code, from_date)
         cal_score(result_list, daily_store, quarter_store, ts_code, from_date)
 
         from_date = date_utils.format_delta(from_date, 1)
