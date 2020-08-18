@@ -116,6 +116,18 @@ def cal_dividend(result_list: list, daily_store: mq_daily_store.MqDailyStore,
     qd_dividend(call_add, call_log, dividend_ltm, total_mv, mq_daily_indicator_enum.dividend_yields.name)
 
 
+def cal_dcf(result_list: list, daily_store: mq_daily_store.MqDailyStore,
+                 quarter_store: mq_quarter_store.MqQuarterStore,
+                 ts_code: str, update_date: str):
+    '''
+        根据自由现金流估算市值
+    '''
+    call_add = partial(common_add, result_list=result_list, store=daily_store)
+    call_log = partial(common_log_err, ts_code=ts_code, update_date=update_date)
+
+
+
+
 def cal_score(result_list: list, daily_store: mq_daily_store.MqDailyStore,
               quarter_store: mq_quarter_store.MqQuarterStore,
               ts_code: str, update_date: str):
@@ -173,6 +185,7 @@ def calculate_one(ts_code: str, share_name: str, to_date: str = date_utils.get_c
 
         cal_pepb(result_list, daily_store, quarter_store, ts_code, from_date)
         cal_dividend(result_list, daily_store, quarter_store, ts_code, from_date)
+        cal_dcf(result_list, daily_store, quarter_store, ts_code, from_date)
         cal_score(result_list, daily_store, quarter_store, ts_code, from_date)
 
         from_date = date_utils.format_delta(from_date, 1)

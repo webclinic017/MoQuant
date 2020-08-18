@@ -46,6 +46,8 @@ class AvlTree(object):
             current.left = self._add(current.left, to_add)
         elif to_add > current:
             current.right = self._add(current.right, to_add)
+        else:  # 已存在时不再插入
+            return current
 
         self.update_height(current)
         bl = self.get_balance(current)
