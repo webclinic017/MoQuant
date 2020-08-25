@@ -123,7 +123,7 @@ def cal_dcf(result_list: list, daily_store: mq_daily_store.MqDailyStore, quarter
     '''
     call_add = partial(common_add, result_list=result_list, store=daily_store)
 
-    fcf = quarter_store.find_latest(ts_code, mq_quarter_indicator_enum.fcf_ltm, update_date)
+    fcf = quarter_store.find_latest(ts_code, mq_quarter_indicator_enum.fcf_ltm.name, update_date)
     mv_10, mv = 0, 0
     report_type = mq_report_type.report
     period = '20000331'

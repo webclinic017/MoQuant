@@ -550,54 +550,58 @@ def cal_fcf(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_co
     period = period_o.end_date
     report_type = period_o.report_type
     call_find = partial(store.find_period_exact, ts_code=ts_code, period=period, update_date=update_date)
-    call_find_lp = partial(store.find_period_latest, ts_code=ts_code, period=date_utils.q4_last_year(period))
+    call_find_ly = partial(store.find_period_latest, ts_code=ts_code, period=date_utils.q4_last_year(period))
+    call_find_lp = partial(store.find_period_latest, ts_code=ts_code, period=date_utils.period_delta(period, -1))
     call_add = partial(common_add, result_list=result_list, store=store)
     call_log = partial(common_log_err, ts_code=ts_code, period=period, update_date=update_date, report_type=report_type)
 
-    total_receivable_delta = common_cal_delta(call_find, call_find_lp, 'total_receivable')
-    prepayment_delta = common_cal_delta(call_find, call_find_lp, 'prepayment')
-    # 经营性应收项目增加 = 应收账款增加 + 预付账款增加 + 应收票据增加
-    op_recv_delta = mq_quarter_indicator.add_up('op_recv_delta', [total_receivable_delta, prepayment_delta])
+    if mq_report_type.is_report(report_type):
+        total_receivable_delta = common_cal_delta(call_find, call_find_ly, 'total_receivable')
+        prepayment_delta = common_cal_delta(call_find, call_find_ly, 'prepayment')
+        # 经营性应收项目增加 = 应收账款增加 + 预付账款增加 + 应收票据增加
+        op_recv_delta = mq_quarter_indicator.add_up('op_recv_delta', [total_receivable_delta, prepayment_delta])
 
-    total_payable_delta = common_cal_delta(call_find, call_find_lp, 'total_payable')
-    adv_receipts_delta = common_cal_delta(call_find, call_find_lp, 'adv_receipts')
-    # 经营性应付项目增加 = 应付账款增加 + 预收账款增加 + 应付票据增加
-    op_pay_delta = mq_quarter_indicator.add_up('op_pay_delta', [total_payable_delta, adv_receipts_delta])
+        total_payable_delta = common_cal_delta(call_find, call_find_ly, 'total_payable')
+        adv_receipts_delta = common_cal_delta(call_find, call_find_ly, 'adv_receipts')
+        # 经营性应付项目增加 = 应付账款增加 + 预收账款增加 + 应付票据增加
+        op_pay_delta = mq_quarter_indicator.add_up('op_pay_delta', [total_payable_delta, adv_receipts_delta])
 
-    inventories_delta = common_cal_delta(call_find, call_find_lp, 'inventories')
-    lt_amor_exp_delta = common_cal_delta(call_find, call_find_lp, 'lt_amor_exp')
+        inventories_delta = common_cal_delta(call_find, call_find_ly, 'inventories')
+        lt_amor_exp_delta = common_cal_delta(call_find, call_find_ly, 'lt_amor_exp')
 
-    # 营运资本增加 = 存货增加 + 经营性应收项目增加 + 长期待摊费用增加 - 经营性应付项目增加 - 预提费用增加 (已经取消)
-    op_cap_delta = mq_quarter_indicator.sub_from('op_cap_delta', [
-        mq_quarter_indicator.add_up('_', [inventories_delta, op_recv_delta, lt_amor_exp_delta]),
-        op_pay_delta
-    ])
+        # 营运资本增加 = 存货增加 + 经营性应收项目增加 + 长期待摊费用增加 - 经营性应付项目增加 - 预提费用增加 (已经取消)
+        op_cap_delta = mq_quarter_indicator.sub_from('op_cap_delta', [
+            mq_quarter_indicator.add_up('_', [inventories_delta, op_recv_delta, lt_amor_exp_delta]),
+            op_pay_delta
+        ])
 
-    prov_depr_assets = call_find(name='prov_depr_assets')
-    depr_fa_coga_dpba = call_find(name='depr_fa_coga_dpba')
-    amort_intang_assets = call_find(name='amort_intang_assets')
-    lt_amort_deferred_exp = call_find(name='lt_amort_deferred_exp')
-    loss_scr_fa = call_find(name='loss_scr_fa')
-    # 折旧与摊销 = 资产减值准备 + 固定资产折旧 + 无形资产摊销 + 长期待摊费用摊销 + 固定资产报废损失
-    daa = mq_quarter_indicator.add_up('daa', [prov_depr_assets, depr_fa_coga_dpba, amort_intang_assets,
-                                              lt_amort_deferred_exp, loss_scr_fa])
+        prov_depr_assets = call_find(name='prov_depr_assets')
+        depr_fa_coga_dpba = call_find(name='depr_fa_coga_dpba')
+        amort_intang_assets = call_find(name='amort_intang_assets')
+        lt_amort_deferred_exp = call_find(name='lt_amort_deferred_exp')
+        loss_scr_fa = call_find(name='loss_scr_fa')
+        # 折旧与摊销 = 资产减值准备 + 固定资产折旧 + 无形资产摊销 + 长期待摊费用摊销 + 固定资产报废损失
+        daa = mq_quarter_indicator.add_up('daa', [prov_depr_assets, depr_fa_coga_dpba, amort_intang_assets,
+                                                  lt_amort_deferred_exp, loss_scr_fa])
 
-    # 资本支出 = 非流动性资产增加 - 可供出售金融资产增加
-    total_nca_delta = common_cal_delta(call_find, call_find_lp, 'total_nca')
-    fa_avail_for_sale_delta = common_cal_delta(call_find, call_find_lp, 'fa_avail_for_sale')
-    fa_avail_for_sale_delta = None  # 取消了
-    cap_cost = mq_quarter_indicator.sub_from('cap_cost', [total_nca_delta, fa_avail_for_sale_delta])
+        # 资本支出 = 非流动性资产增加 - 可供出售金融资产增加
+        total_nca_delta = common_cal_delta(call_find, call_find_ly, 'total_nca')
+        fa_avail_for_sale_delta = common_cal_delta(call_find, call_find_ly, 'fa_avail_for_sale')
+        fa_avail_for_sale_delta = None  # 取消了
+        cap_cost = mq_quarter_indicator.sub_from('cap_cost', [total_nca_delta, fa_avail_for_sale_delta])
 
-    dprofit = call_find(name='dprofit')
-    # 自由现金流 = 归母扣非净利 + 折旧与摊销 - 营运资本增加 - 资本支出
-    fcf = mq_quarter_indicator.sub_from('fcf', [
-        mq_quarter_indicator.add_up('_', [dprofit, daa]), op_cap_delta, cap_cost
-    ])
+        dprofit = call_find(name='dprofit')
+        # 自由现金流 = 归母扣非净利 + 折旧与摊销 - 营运资本增加 - 资本支出
+        fcf = mq_quarter_indicator.sub_from('fcf', [
+            mq_quarter_indicator.add_up('_', [dprofit, daa]), op_cap_delta, cap_cost
+        ])
 
-    if fcf is None:
-        call_log(name='fcf')
+        if fcf is None:
+            call_log(name='fcf')
+        else:
+            call_add(to_add=fcf)
     else:
-        call_add(to_add=fcf)
+        dprofit_ltm_lp = call_find_lp(name='dprofit_ltm')
 
 
 def cal_complex_quarter_ltm(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_code: str, update_date: str):
