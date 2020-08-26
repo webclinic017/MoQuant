@@ -2,8 +2,7 @@ from sqlalchemy import Column, String, DECIMAL, Boolean, Index, INT
 
 from moquant.dbclient.base import Base
 from moquant.utils import date_utils
-from moquant.utils.date_utils import *
-from moquant.utils.decimal_utils import *
+from utils import decimal_utils
 
 
 class MqQuarterIndicator(Base):
@@ -40,7 +39,7 @@ class MqQuarterIndicator(Base):
 
 
 def cal_quarter(name: str, i1: MqQuarterIndicator, i2: MqQuarterIndicator) -> MqQuarterIndicator:
-    if i1 is not None and get_quarter_num(i1.period) == 1:
+    if i1 is not None and date_utils.get_quarter_num(i1.period) == 1:
         return MqQuarterIndicator(ts_code=i1.ts_code, report_type=i1.report_type,
                                   period=i1.period, update_date=i1.update_date,
                                   name=name, value=i1.value)
@@ -48,14 +47,14 @@ def cal_quarter(name: str, i1: MqQuarterIndicator, i2: MqQuarterIndicator) -> Mq
         return None
     return MqQuarterIndicator(ts_code=i1.ts_code, report_type=i1.report_type | i2.report_type,
                               period=i1.period, update_date=i1.update_date,
-                              name=name, value=sub(i1.value, i2.value))
+                              name=name, value=decimal_utils.sub(i1.value, i2.value))
 
 
 def cal_ltm_with_quarter(name: str, i1: MqQuarterIndicator, i2: MqQuarterIndicator, i3: MqQuarterIndicator, i4) -> MqQuarterIndicator:
     '''
     用4个单季去计算LTM
     '''
-    if i1 is not None and get_quarter_num(i1.period) == 4:
+    if i1 is not None and date_utils.get_quarter_num(i1.period) == 4:
         return MqQuarterIndicator(ts_code=i1.ts_code, report_type=i1.report_type,
                                   period=i1.period, update_date=i1.update_date,
                                   name=name, value=i1.value)
@@ -65,7 +64,7 @@ def cal_ltm_with_quarter(name: str, i1: MqQuarterIndicator, i2: MqQuarterIndicat
         return MqQuarterIndicator(ts_code=i1.ts_code,
                                   report_type=i1.report_type | i2.report_type | i3.report_type | i4.report_type,
                                   period=i1.period, update_date=i1.update_date,
-                                  name=name, value=add(i1.value, i2.value, i3.value, i4.value))
+                                  name=name, value=decimal_utils.add(i1.value, i2.value, i3.value, i4.value))
 
 
 def cal_ltm_with_period(name: str, current: MqQuarterIndicator, last_year_q4: MqQuarterIndicator, last_year: MqQuarterIndicator) -> MqQuarterIndicator:
@@ -101,7 +100,7 @@ def cal_ltm_avg(name: str, i1: MqQuarterIndicator, i2: MqQuarterIndicator, i3: M
                 avg = MqQuarterIndicator(ts_code=i.ts_code, period=i.period, update_date=i.update_date,
                                          name=name)
     if avg is not None:
-        avg.value = avg_in_exists(*val)
+        avg.value = decimal_utils.avg_in_exists(*val)
         avg.report_type = report_type
     return avg
 
@@ -111,7 +110,15 @@ def dividend(i1: MqQuarterIndicator, i2: MqQuarterIndicator, name: str) -> MqQua
         return None
     return MqQuarterIndicator(ts_code=i1.ts_code, report_type=i1.report_type | i2.report_type,
                               period=i1.period, update_date=i1.update_date,
-                              name=name, value=div(i1.value, i2.value))
+                              name=name, value=decimal_utils.div(i1.value, i2.value))
+
+
+def multiply(i1: MqQuarterIndicator, i2: MqQuarterIndicator, name: str) -> MqQuarterIndicator:
+    if i1 is None or i2 is None:
+        return None
+    return MqQuarterIndicator(ts_code=i1.ts_code, report_type=i1.report_type | i2.report_type,
+                              period=i1.period, update_date=i1.update_date,
+                              name=name, value=decimal_utils.mul(i1.value, i2.value))
 
 
 def add_up(name: str, arr: list) -> MqQuarterIndicator:
@@ -123,7 +130,7 @@ def add_up(name: str, arr: list) -> MqQuarterIndicator:
                 sum = MqQuarterIndicator(ts_code=i.ts_code, period=i.period, update_date=i.update_date,
                                          name=name)
             report_type = report_type | i.report_type
-            sum.value = add(sum.value, i.value)
+            sum.value = decimal_utils.add(sum.value, i.value)
     if sum is not None:
         sum.report_type = report_type
     return sum
@@ -139,9 +146,9 @@ def sub_from(name: str, arr: list) -> MqQuarterIndicator:
                                          name=name)
             report_type = report_type | i.report_type
             if index == 0:
-                sum.value = add(sum.value, i.value)
+                sum.value = decimal_utils.add(sum.value, i.value)
             else:
-                sum.value = sub(sum.value, i.value)
+                sum.value = decimal_utils.sub(sum.value, i.value)
     if sum is not None:
         sum.report_type = report_type
     return sum

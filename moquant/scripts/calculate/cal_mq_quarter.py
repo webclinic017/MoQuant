@@ -545,7 +545,7 @@ def cal_rev_pay(result_list: list, store: MqQuarterStore, period_o: PeriodObj, t
 
 def cal_fcf(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_code: str, update_date: str):
     '''
-    计算自由现金流，依赖于 cal_rev_pay
+    计算自由现金流，依赖于 cal_rev_pay, cal_quarter_ltm
     '''
     period = period_o.end_date
     report_type = period_o.report_type
@@ -596,17 +596,24 @@ def cal_fcf(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_co
             mq_quarter_indicator.add_up('_', [dprofit, daa]), op_cap_delta, cap_cost
         ])
 
-        if fcf is None:
-            call_log(name='fcf')
-        else:
-            call_add(to_add=fcf)
     else:
         dprofit_ltm_lp = call_find_lp(name='dprofit_ltm')
+        fcf_ltm_lp = call_find_lp(name='fcf_ltm')
+        dprofit = call_find(name='dprofit')
+        fcf = mq_quarter_indicator.multiply(
+            dprofit, mq_quarter_indicator.dividend(fcf_ltm_lp, dprofit_ltm_lp, '_'), 'fcf'
+        )
+
+    if fcf is None:
+        call_log(name='fcf')
+    else:
+        call_add(to_add=fcf)
 
 
 def cal_complex_quarter_ltm(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_code: str, update_date: str):
     '''
-    计算复杂指标的单季和ltm, 在所有复杂指标计算后座
+    计算复杂指标的单季和ltm, 在所有复杂指标计算后
+    依赖 cal_fcf
     '''
     period = period_o.end_date
     report_type = period_o.report_type
