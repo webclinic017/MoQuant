@@ -5,6 +5,7 @@ from moquant.dbclient.ts_basic import TsBasic
 from moquant.scripts import calculate
 from moquant.scripts.fetch import fetch_dividend, fetch_stk_limit, fetch_trade_cal, fetch_data, clear_after_fetch
 from moquant.utils import date_utils, threadpool, env_utils
+from scripts.fetch import init_ts_basic
 
 
 def do_after_fetch(ts_code: str, to_date: str = date_utils.get_current_dt()):
@@ -29,7 +30,7 @@ def run():
     if ts_code is not None and ts_code != '':
         basic_list = session.query(TsBasic).filter(TsBasic.ts_code == ts_code).all()
     else:
-        fetch_data.init_stock_basic()
+        init_ts_basic.init()
         basic_list = session.query(TsBasic).all()
     session.close()
 

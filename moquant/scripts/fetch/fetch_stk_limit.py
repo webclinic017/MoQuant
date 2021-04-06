@@ -21,6 +21,7 @@ def fetch_stk_limit_by_date(dt: str):
     for cnt in range(2):
         log.info('To fetch stk limit of %s' % dt)
         try:
+            # https://tushare.pro/document/2?doc_id=183
             df = ts_client.fetch_stk_limit(trade_date=dt)
             break
         except Exception as e:

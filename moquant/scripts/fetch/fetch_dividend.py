@@ -16,12 +16,13 @@ log = get_logger(__name__)
 param_key = 'DIVIDEND_DATE'
 
 
-def common_fetch_dividend(ts_code: str = None, dt: str = None):
+def common_fetch_dividend(dt: str = None):
     df: DataFrame = None
     for cnt in range(2):
-        log.info('To fetch dividend of stock %s %s' % (ts_code, dt))
+        log.info('To fetch dividend %s' % dt)
         try:
-            df = ts_client.fetch_dividend(ts_code=ts_code, ann_date=dt)
+            # https://tushare.pro/document/2?doc_id=103 分红
+            df = ts_client.fetch_dividend(ann_date=dt)
             break
         except Exception as e:
             log.error('Calling TuShare too fast. Will sleep 1 minutes...')
@@ -30,7 +31,7 @@ def common_fetch_dividend(ts_code: str = None, dt: str = None):
 
     if df is not None and not df.empty:
         db_client.store_dataframe(df, TsDividend.__tablename__)
-        print('Successfully save dividend of stock %s %s' % (ts_code, dt))
+        print('Successfully save dividend %s' % dt)
 
 
 def fetch_dividend_by_date(dt: str):

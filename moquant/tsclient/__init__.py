@@ -133,8 +133,8 @@ class TsClient(object):
                                               is_open=is_open)
         return df1.append(df2)
 
-    def fetch_dividend(self, ts_code: str = None, ann_date: str = None) -> DataFrame:
-        return self.__pro.dividend(ts_code=ts_code, ann_date=ann_date)
+    def fetch_dividend(self, ann_date: str = None) -> DataFrame:
+        return self.__pro.dividend(ann_date=ann_date)
 
     def fetch_stk_limit(self, ts_code: str = None, trade_date: str = None, start_date: str = None,
                         end_date: str = None):

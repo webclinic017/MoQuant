@@ -111,7 +111,7 @@ risk_point = MqQuarterIndicatorEnum('risk_point', '风险点数', is_percent=Tru
 
 # fill
 fill_dividend = MqQuarterIndicatorEnum('dividend', '分红总额', from_name='')
-fill_dprofit = MqQuarterIndicatorEnum('dprofit', '分红总额', from_name='nprofit')
+fill_dprofit = MqQuarterIndicatorEnum('dprofit', '归母扣非净利润', from_name='nprofit')
 fill_after_copy_fail_list = [fill_dividend, fill_dprofit]
 
 # fcf
