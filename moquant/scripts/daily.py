@@ -25,12 +25,13 @@ def run():
     fetch_stk_limit.update_stk_limit_to(dt=to_date)
     fetch_trade_cal.fetch()
 
+    init_ts_basic.init()
+
     basic_list = []
     session: Session = db_client.get_session()
     if ts_code is not None and ts_code != '':
         basic_list = session.query(TsBasic).filter(TsBasic.ts_code == ts_code).all()
     else:
-        init_ts_basic.init()
         basic_list = session.query(TsBasic).all()
     session.close()
 

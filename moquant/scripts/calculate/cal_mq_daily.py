@@ -11,6 +11,8 @@ from moquant.dbclient.mq_daily_indicator import MqDailyIndicator
 from moquant.dbclient.mq_quarter_indicator import MqQuarterIndicator
 from moquant.dbclient.ts_basic import TsBasic
 from moquant.dbclient.ts_daily_basic import TsDailyBasic
+from moquant.dbclient.ts_daily_trade_info import TsDailyTradeInfo
+from moquant.dbclient.ts_stk_limit import TsStkLimit
 from moquant.log import get_logger
 from moquant.scripts.calculate import cal_grow
 from moquant.service import mq_quarter_store, mq_daily_store
@@ -47,21 +49,54 @@ def extract_from_daily_basic(result_list: list, store: mq_daily_store.MqDailySto
         add_nx, ts_code=daily.ts_code, period=daily.trade_date, update_date=daily.trade_date,
         report_type=mq_report_type.report, store=store, result_list=result_list
     )
-    for i in mq_daily_indicator_enum.extract_from_daily_list:
+    for i in mq_daily_indicator_enum.extract_from_daily_basic:
         call_add_nx(name=i.name, value=getattr(daily, i.name))
 
 
-def copy_basic_from_yesterday(result_list: list, store: mq_daily_store.MqDailyStore, ts_code, now_date):
-    yesterday_date = date_utils.format_delta(now_date, -1)
-    for i in mq_daily_indicator_enum.extract_from_daily_list:
-        yesterday = store.find_date_exact(ts_code, i.name, yesterday_date)
+def extract_from_daily_trade_info(result_list: list, store: mq_daily_store.MqDailyStore, daily: TsDailyTradeInfo):
+    call_add_nx = partial(
+        add_nx, ts_code=daily.ts_code, period=daily.trade_date, update_date=daily.trade_date,
+        report_type=mq_report_type.report, store=store, result_list=result_list
+    )
+    for i in mq_daily_indicator_enum.extract_from_daily_trade:
+        call_add_nx(name=i.name, value=getattr(daily, i.name))
+
+
+def copy_for_suspend(
+        result_list: dict(type=list, help="需要插入结果的列表"),
+        store: dict(type=mq_daily_store.MqDailyStore, help="日指标存放"),
+        ts_code: dict(type=str, help="股票编码"),
+        now_date: dict(type=str, help="日期")):
+    """
+    针对停牌日，从上一个交易日复制
+    """
+    for i in mq_daily_indicator_enum.copy_for_suspend:
+        now = store.find_date_exact(ts_code, i.name, now_date)
+        if now is not None:
+            continue
+        yesterday = store.find_latest(ts_code, i.name, now_date)
         if yesterday is None:
-            log.error('Cant find daily data of %s %s to copy for non-trade-day' % (ts_code, yesterday))
+            log.error('Cant find latest daily data of %s %s to copy for non-trade-day' % (ts_code, now_date))
         else:
             to_add = MqDailyIndicator(ts_code=yesterday.ts_code, report_type=yesterday.report_type,
                                       period=yesterday.period, update_date=now_date,
                                       name=yesterday.name, value=yesterday.value)
             common_add(result_list, store, to_add)
+
+
+def add_trade_status(
+        result_list: dict(type=list, help="需要插入结果的列表"),
+        store: dict(type=mq_daily_store.MqDailyStore, help="日指标存放"),
+        ts_code: dict(type=str, help="股票编码"),
+        now_date: dict(type=str, help="日期"),
+        is_suspend: dict(type=int, help="是否停牌")):
+    """
+    记录这天是否停牌
+    """
+    to_add = MqDailyIndicator(ts_code=ts_code, report_type=mq_report_type.none_report_type,
+                              period='-', update_date=now_date,
+                              name=mq_daily_indicator_enum.suspend.name, value=is_suspend)
+    common_add(result_list, store, to_add)
 
 
 # daily / quarter
@@ -164,25 +199,25 @@ def calculate_one(ts_code: str, share_name: str, to_date: str = date_utils.get_c
 
     from_date = mq_calculate_start_date
     if len(last_mq_daily) > 0:
+        # 上次计算到的日期
         from_date = date_utils.format_delta(last_mq_daily[0].update_date, 1)
     else:
+        # 上市日期
         ts_basic_arr = session.query(TsBasic).filter(TsBasic.ts_code == ts_code).all()
         if len(ts_basic_arr) > 0 and ts_basic_arr[0].list_date > from_date:
             from_date = ts_basic_arr[0].list_date
 
-    # Get all daily basic from a date
-    last_ts_daily = session.query(TsDailyBasic) \
-        .filter(TsDailyBasic.ts_code == ts_code, TsDailyBasic.trade_date < from_date) \
-        .order_by(TsDailyBasic.trade_date.desc()) \
-        .limit(1) \
-        .all()
-    daily_start_date = last_ts_daily[0].trade_date if len(last_ts_daily) > 0 else from_date
-
-    daily_arr = session.query(TsDailyBasic) \
-        .filter(TsDailyBasic.ts_code == ts_code, TsDailyBasic.trade_date >= daily_start_date) \
+    daily_basic_arr = session.query(TsDailyBasic) \
+        .filter(TsDailyBasic.ts_code == ts_code, TsDailyBasic.trade_date >= from_date) \
         .order_by(TsDailyBasic.trade_date.asc()).all()
-    if len(daily_arr) > 0 and daily_arr[0].trade_date > from_date:
-        from_date = daily_arr[0].trade_date
+
+    daily_trade_arr = session.query(TsDailyTradeInfo) \
+        .filter(TsDailyTradeInfo.ts_code == ts_code, TsDailyTradeInfo.trade_date >= from_date) \
+        .order_by(TsDailyTradeInfo.trade_date.asc()).all()
+
+    stk_limit_arr = session.query(TsStkLimit) \
+        .filter(TsStkLimit.ts_code == ts_code, TsStkLimit.trade_date >= from_date) \
+        .order_by(TsStkLimit.trade_date.asc()).all()
 
     session.close()
 
@@ -194,17 +229,33 @@ def calculate_one(ts_code: str, share_name: str, to_date: str = date_utils.get_c
     log.info("Prepare data for %s: %s seconds" % (ts_code, prepare_time - start_time))
 
     while from_date <= to_date:
-        is_trade_day: bool = (len(daily_arr) > 0 and daily_arr[0].trade_date == from_date)
+        is_trade_day: bool = False
+        if len(stk_limit_arr) > 0 and stk_limit_arr[0].trade_date == from_date:
+            is_trade_day = True
 
         if is_trade_day:
-            extract_from_daily_basic(result_list, daily_store, daily_arr.pop(0))
-        else:
-            copy_basic_from_yesterday(result_list, daily_store, ts_code, from_date)
+            on_trade: int = 0
+            if len(daily_basic_arr) > 0 and daily_basic_arr[0].trade_date == from_date:
+                extract_from_daily_basic(result_list, daily_store, daily_basic_arr.pop(0))
+                on_trade += 1
 
-        cal_pepb(result_list, daily_store, quarter_store, ts_code, from_date)
-        cal_dividend(result_list, daily_store, quarter_store, ts_code, from_date)
-        cal_dcf(result_list, daily_store, quarter_store, dcf_service, ts_code, from_date)
-        cal_score(result_list, daily_store, quarter_store, ts_code, from_date)
+            if len(daily_trade_arr) > 0 and daily_trade_arr[0].trade_date == from_date:
+                extract_from_daily_trade_info(result_list, daily_store, daily_trade_arr.pop(0))
+                on_trade += 1
+
+            if on_trade == 1:
+                log.error("ts_daily_basic doesn't match ts_daily_trade_info %s %s" % (ts_code, from_date))
+                break
+
+            if on_trade == 0:
+                copy_for_suspend(result_list, daily_store, ts_code, from_date)
+
+            add_trade_status(result_list, daily_store, ts_code, from_date, 1 if on_trade == 2 else 0)
+
+            cal_pepb(result_list, daily_store, quarter_store, ts_code, from_date)
+            cal_dividend(result_list, daily_store, quarter_store, ts_code, from_date)
+            cal_dcf(result_list, daily_store, quarter_store, dcf_service, ts_code, from_date)
+            cal_score(result_list, daily_store, quarter_store, ts_code, from_date)
 
         from_date = date_utils.format_delta(from_date, 1)
 

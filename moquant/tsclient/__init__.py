@@ -44,9 +44,13 @@ class TsClient(object):
         df: DataFrame = self.__pro.daily_basic(ts_code=ts_code, start_date=start_date, end_date=end_date)
         if not df.empty:
             df.loc[:, 'total_share'] = df.apply(lambda row:
-                                         decimal_utils.mul(row.total_share, 10000, err_default=None), axis=1)
+                                                decimal_utils.mul(row.total_share, 10000, err_default=None), axis=1)
+            df.loc[:, 'float_share'] = df.apply(lambda row:
+                                                decimal_utils.mul(row.float_share, 10000, err_default=None), axis=1)
+            df.loc[:, 'free_share'] = df.apply(lambda row:
+                                               decimal_utils.mul(row.free_share, 10000, err_default=None), axis=1)
             df.loc[:, 'total_mv'] = df.apply(lambda row:
-                                      decimal_utils.mul(row.total_mv, 10000, err_default=None), axis=1)
+                                             decimal_utils.mul(row.total_mv, 10000, err_default=None), axis=1)
         return df
 
     def fetch_adj_factor(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:

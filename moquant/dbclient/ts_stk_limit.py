@@ -1,3 +1,8 @@
+"""
+涨跌停价格信息
+节假日没有
+停牌日有
+"""
 from sqlalchemy import Column, String, DECIMAL, BIGINT, Index
 
 from moquant.dbclient.base import Base

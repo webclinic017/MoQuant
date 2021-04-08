@@ -32,6 +32,12 @@ class MqDailyStore(object):
         target = tree.find_equal(max_to_find)
         return self.val(target)
 
+    def find_latest(self, ts_code: str, name: str, update_date: str) -> MqDailyIndicator:
+        tree = self.get_tree(ts_code, name)
+        max_to_find = MqDailyIndicator(update_date=update_date)
+        target = tree.find_max_under(max_to_find)
+        return self.val(target)
+
 
 def init_daily_store_by_date(ts_code, from_date=mq_calculate_start_date) -> MqDailyStore:
     store = MqDailyStore()

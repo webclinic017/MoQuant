@@ -9,6 +9,8 @@ report_adjust = 7
 report_adjust_fix = 8
 mq_predict = 9
 
+none_report_type = 99
+
 
 def is_report(t: int) -> bool:
     """

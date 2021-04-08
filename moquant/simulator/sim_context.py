@@ -1,11 +1,9 @@
-import json
 import math
 from decimal import Decimal
 
 from moquant.dbclient.ts_daily_trade_info import TsDailyTradeInfo
 from moquant.dbclient.ts_dividend import TsDividend
 from moquant.dbclient.ts_stk_limit import TsStkLimit
-from moquant.json.mq_encoder import MqEncoder
 from moquant.log import get_logger
 from moquant.simulator.sim_daily_record import SimDailyRecord
 from moquant.simulator.sim_data_service import SimDataService
@@ -14,7 +12,6 @@ from moquant.simulator.sim_order import SimOrder
 from moquant.simulator.sim_share_hold import SimShareHold
 from moquant.simulator.sim_share_price import SimSharePrice
 from moquant.utils.date_utils import format_delta
-from moquant.utils.env_utils import get_env_value
 
 log = get_logger(__name__)
 

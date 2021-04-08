@@ -1,4 +1,9 @@
-""" Declaration of table `ts_daily_trade_info` """
+"""
+Declaration of table `ts_daily_trade_info`
+每日交易数据
+非交易日、停牌日无数据
+上一个交易日收盘价会前复权
+"""
 
 from sqlalchemy import Column, String, DECIMAL, Index, BIGINT
 
