@@ -1,8 +1,8 @@
 from sqlalchemy.orm import Session
 
-from dbclient import db_client
+from moquant.dbclient import db_client
 from moquant.dbclient.ts_basic import TsBasic
-from tsclient import ts_client
+from moquant.tsclient import ts_client
 
 
 def init():
