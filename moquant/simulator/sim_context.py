@@ -1,68 +1,47 @@
 import math
 from decimal import Decimal
 
-from moquant.dbclient.ts_daily_trade_info import TsDailyTradeInfo
 from moquant.dbclient.ts_dividend import TsDividend
-from moquant.dbclient.ts_stk_limit import TsStkLimit
 from moquant.log import get_logger
 from moquant.simulator.sim_daily_record import SimDailyRecord
-from moquant.simulator.sim_data_service import SimDataService
 from moquant.simulator.sim_dividend import SimDividend
 from moquant.simulator.sim_order import SimOrder
 from moquant.simulator.sim_share_hold import SimShareHold
 from moquant.simulator.sim_share_price import SimSharePrice
 from moquant.utils.date_utils import format_delta
+from simulator.data import SimDataService
 
 log = get_logger(__name__)
 
 
 class SimContext(object):
-    __sd: str
-    __ed: str
-    __init_cash: Decimal
-    __cash: Decimal
-    __charge: Decimal
-    __tax: Decimal
-    __pass: Decimal
+    def __init__(self,
+                 ds: dict(type=SimDataService, help="获取数据服务"),
+                 sd: dict(type=str, help="回测开始日期"),
+                 ed: dict(type=str, help="回测结束日期"),
+                 cash: dict(type=Decimal, help="起始现金") = 500000,
+                 charge: dict(type=Decimal, help="交易费率") = 0.00025,
+                 tax: dict(type=Decimal, help="印花税率") = 0.001,
+                 pass_tax: dict(type=Decimal, help="过户费率") = 0.00002):
+        self.__sd = sd  # 回测开始日期
+        self.__ed = ed  # 回测结束日期
+        self.__init_cash = Decimal(cash)  # 初始现金
+        self.__cash = Decimal(cash)  # 现金
+        self.__charge = Decimal(charge)  # 交易费率
+        self.__tax = Decimal(tax)  # 印花税率
+        self.__pass = Decimal(pass_tax)  # 过户费率
 
-    __sz: set  # trade date
-    __sh: set  # trade date
+        self.__sz = ds.get_sz_trade_cal()  # 深市交易日历
+        self.__sh = ds.get_sh_trade_cal()  # 沪市交易日历
 
-    __orders: dict
-    __cd: str  # current date
-    __shares: dict
-    __shares_just_buy: dict
-    __dividend: dict
-    __records: dict
+        self.__shares = {}  # 拥有的股票
+        self.__shares_just_buy = {}  # 当日买的股票
+        self.__dividend = {}  # 登记了分红送股的
+        self.__records = {}  #
+        self.__orders = {}  # 订单
 
-    __data: SimDataService
-
-    def __init__(self, sd: str, ed: str, cash: Decimal = 500000, charge: Decimal = 0.00025,
-                 tax: Decimal = 0.001, pass_tax: Decimal = 0.00002):
-        self.__sd = sd
-        self.__ed = ed
-        self.__init_cash = Decimal(cash)
-        self.__cash = Decimal(cash)
-        self.__charge = Decimal(charge)
-        self.__tax = Decimal(tax)
-        self.__pass = Decimal(pass_tax)
-
-        self.__data = SimDataService(sd, ed)
-
-        self.__sz = self.__data.get_sz_trade_cal()
-        self.__sh = self.__data.get_sh_trade_cal()
-
-        self.__shares = {}
-        self.__shares_just_buy = {}
-        self.__dividend = {}
-        self.__records = {}
-        self.__orders = {}
-        self.__price = {}
-        self.__dividend = {}
-
-        self.__cd = format_delta(sd, -1)
-        # find next trade day
-        self.__next_day()
+        self.__cd = format_delta(sd, -1)  # 当前日期
+        self.__next_day()  # 进入下一个交易日
 
     """##################################### flow part #####################################"""
 
@@ -70,30 +49,10 @@ class SimContext(object):
         self.__merge_yesterday_buy()
         self.__update_for_dividend()
 
-        self.__orders[self.__cd] = []
-        self.__price = {}
-        daily_info_list: list = self.__data.get_daily_info(self.__cd)
-
-        for (ts_code, share) in self.__shares.items():  # type: str, SimShareHold
-            share.update_can_trade(False)
-
-        # Init price info
-        for daily in daily_info_list:  # type: TsDailyTradeInfo
-            self.__price[daily.ts_code] = SimSharePrice(pre_close=daily.pre_close, open=daily.open, close=daily.close,
-                                                        low=daily.low, high=daily.high)
-            if daily.ts_code in self.__shares:
-                hold: SimShareHold = self.__shares[daily.ts_code]
-                hold.update_price(daily.pre_close)
-                hold.update_can_trade(True)
-
-        # Update limit
-        stk_limit_lit: list = self.__data.get_stk_limit(self.__cd)
-        for stk_limit in stk_limit_lit:  # type: TsStkLimit
-            if stk_limit.ts_code in self.__price:
-                price: SimSharePrice = self.__price[stk_limit.ts_code]
-                price.update_limit(stk_limit.up_limit, stk_limit.down_limit)
-
     def __merge_yesterday_buy(self):
+        """
+        把前一天买的票合并到可卖列表中
+        """
         for (ts_code, share) in self.__shares_just_buy.items():  # type: str, SimShareHold
             if ts_code in self.__shares:
                 self.__shares[ts_code].update_after_deal(share.get_num(), share.get_earn(), share.get_cost())
@@ -101,8 +60,10 @@ class SimContext(object):
                 self.__shares[ts_code] = share
         self.__shares_just_buy = {}
 
-    # Add cash and share for dividend
     def __update_for_dividend(self):
+        """
+        处理分红
+        """
         finish_dividend = set([])
         for ts_code in self.__dividend:
             dividend: SimDividend = self.__dividend[ts_code]
@@ -159,43 +120,21 @@ class SimContext(object):
                                     order.get_price() if order.get_price() < price.get_high() else price.get_high())
 
     def day_end(self):
-        # update price after trade is closed
-        for (ts_code, price) in self.__price.items():  # type: str, SimSharePrice
-            if ts_code in self.__shares:
-                share: SimShareHold = self.__shares[ts_code]
-                share.update_price(price.get_close())
-            if ts_code in self.__shares_just_buy:
-                share: SimShareHold = self.__shares_just_buy[ts_code]
-                share.update_price(price.get_close())
+        """
+        交易日结束
+        """
+        self.__update_price_to_close()
+        self.__orders.pop(self.__cd, None)
+        self.__register_dividend()
+        self.__mark_record()
+        self.__next_day()
 
-        # clear empty hold
-        to_clear: set = set()
-        for (ts_code, share) in self.__shares.items():  # type: str, SimShareHold
-            if share.get_num() != 0:
-                continue
-            if ts_code not in self.__shares_just_buy:
-                to_clear.add(ts_code)
-        for ts_code in to_clear:  # type: str
-            share: SimShareHold = self.__shares[ts_code]
-            self.info("Finish trade of %s, earn %s" % (share.get_ts_code(), share.get_net_earn()))
-            self.__shares.pop(ts_code)
-
-        # failure order
-        for order in self.__orders[self.__cd]:  # type: SimOrder
-            if order.available():
-                order.day_pass()
-                if order.get_order_type() == 1:  # buy
-                    self.__cash = self.__cash + order.get_num() * order.get_price()
-                elif order.get_order_type() == 0:  # sell
-                    hold: SimShareHold = self.get_hold(order.get_ts_code())
-                    if hold is None:
-                        self.error('A sell order without share hold')
-                    else:
-                        hold.update_on_sell(order.get_num() * (-1))
-
-        # register dividend
-        dividend_list = self.__data.get_dividend(self.__cd)
-
+    def __register_dividend(self,
+                            ds: dict(type=SimDataService, help="获取数据服务")):
+        """
+        根据持股登记分红配股
+        """
+        dividend_list = ds.get_dividend(self.__cd)
         for dividend in dividend_list:  # type: TsDividend
             total_num = 0
             if dividend.ts_code in self.__shares:
@@ -213,8 +152,33 @@ class SimContext(object):
                                                             dividend.pay_date, dividend.div_listdate)
             self.info(
                 'Dividend register. code: %s, num: %s, cash: %s' % (dividend.ts_code, dividend_num, dividend_cash))
-        self.__mark_record()
-        self.__next_day()
+
+    def __update_price_to_close(self):
+        """
+        每天结束后更新价格到收盘价
+        """
+        for (ts_code, price) in self.__price.items():  # type: str, SimSharePrice
+            if ts_code in self.__shares:
+                share: SimShareHold = self.__shares[ts_code]
+                share.update_price(price.get_close())
+            if ts_code in self.__shares_just_buy:
+                share: SimShareHold = self.__shares_just_buy[ts_code]
+                share.update_price(price.get_close())
+
+    def __clear_empty_hold(self):
+        """
+        清空今天已经卖光的股票
+        """
+        to_clear: set = set()
+        for (ts_code, share) in self.__shares.items():  # type: str, SimShareHold
+            if share.get_num() != 0:
+                continue
+            if ts_code not in self.__shares_just_buy:
+                to_clear.add(ts_code)
+        for ts_code in to_clear:  # type: str
+            share: SimShareHold = self.__shares[ts_code]
+            self.info("Finish trade of %s, earn %s" % (share.get_ts_code(), share.get_net_earn()))
+            self.__shares.pop(ts_code)
 
     def __mark_record(self):
         record = SimDailyRecord()
@@ -234,6 +198,9 @@ class SimContext(object):
             self.__next_day()
 
     def is_finish(self):
+        """
+        是否回测结束
+        """
         return self.__cd > self.__ed
 
     """##################################### deal part #####################################"""
@@ -254,7 +221,8 @@ class SimContext(object):
         deal_cost = charge_cost + pass_cost + tax_cost
         hold.update_after_deal(order.get_num() * (-1), earn, deal_cost)
         self.__cash = self.__cash + earn - deal_cost
-        self.info("Sell %s of %s with price %s. Tax: %s" % (order.get_num(), order.get_ts_code(), deal_price, deal_cost))
+        self.info(
+            "Sell %s of %s with price %s. Tax: %s" % (order.get_num(), order.get_ts_code(), deal_price, deal_cost))
         order.deal()
 
     def __deal_buy(self, order: SimOrder, deal_price: Decimal):
@@ -353,12 +321,14 @@ class SimContext(object):
     def __add_order(self, order: SimOrder):
         self.__orders[self.__cd].append(order)
         if order.available():
-            self.info('Send order successfully. type: %d, code: %s, price: %s' % (order.get_order_type(), order.get_ts_code(), order.get_price()))
+            self.info('Send order successfully. type: %d, code: %s, price: %s' % (
+            order.get_order_type(), order.get_ts_code(), order.get_price()))
         else:
             self.warn('Send order fail. type: %d, code: %s, reason: %s' %
                       (order.get_order_type(), order.get_ts_code(), order.get_msg()))
 
     """##################################### get info part #####################################"""
+
     def get_simulate_period(self):
         return self.__sd, self.__ed
 
