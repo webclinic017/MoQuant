@@ -597,12 +597,20 @@ def cal_fcf(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_co
         ])
 
     else:
+        dprofit = call_find(name='dprofit')
+
         dprofit_ltm_lp = call_find_lp(name='dprofit_ltm')
         fcf_ltm_lp = call_find_lp(name='fcf_ltm')
-        dprofit = call_find(name='dprofit')
-        fcf = mq_quarter_indicator.multiply(
-            dprofit, mq_quarter_indicator.dividend(fcf_ltm_lp, dprofit_ltm_lp, '_'), 'fcf'
-        )
+        dprofit_lp = call_find_lp(name='dprofit')
+        fcf_lp = call_find_lp(name='fcf')
+        if dprofit_ltm_lp is not None and fcf_ltm_lp is not None and \
+            dprofit_ltm_lp.value > 0 and fcf_ltm_lp.value > 0:
+            fcf = mq_quarter_indicator.multiply(
+                dprofit, mq_quarter_indicator.dividend(fcf_ltm_lp, dprofit_ltm_lp, '_'), 'fcf'
+            )
+        else:
+            fcf = mq_quarter_indicator.add_up('fcf', [dprofit,
+                                                      mq_quarter_indicator.sub_from('_', [fcf_lp, dprofit_lp])])
 
     if fcf is None:
         call_log(name='fcf')
