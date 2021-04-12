@@ -3,8 +3,8 @@ from sqlalchemy import Column, String, DECIMAL, INT, Index
 from moquant.dbclient.base import Base
 
 
-class MqDailyIndicator(Base):
-    __tablename__ = 'mq_daily_indicator'
+class MqDailyMetric(Base):
+    __tablename__ = 'mq_daily_metric'
     __table_args__ = (
         Index('score_list', 'name', 'update_date'),
         {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}

@@ -5,10 +5,10 @@ from functools import partial
 
 from sqlalchemy.orm import Session
 
-from moquant.constants import mq_calculate_start_date, mq_report_type, mq_quarter_indicator_enum
-from moquant.dbclient import db_client, mq_quarter_indicator
-from moquant.dbclient.mq_manual_indicator import MqManualIndicator
-from moquant.dbclient.mq_quarter_indicator import MqQuarterIndicator
+from moquant.constants import mq_calculate_start_date, mq_report_type, mq_quarter_metric_enum
+from moquant.dbclient import db_client
+from moquant.dbclient.mq_manual_metric import MqManualMetric
+from moquant.dbclient.mq_quarter_metric import MqQuarterMetric
 from moquant.dbclient.ts_balance_sheet import TsBalanceSheet
 from moquant.dbclient.ts_basic import TsBasic
 from moquant.dbclient.ts_cashflow import TsCashFlow
@@ -20,7 +20,7 @@ from moquant.dbclient.ts_income import TsIncome
 from moquant.log import get_logger
 from moquant.scripts import calculate
 from moquant.service.mq_quarter_store import MqQuarterStore, init_quarter_store
-from moquant.utils import decimal_utils, date_utils
+from moquant.utils import decimal_utils, date_utils, quarter_cal_utils
 
 log = get_logger(__name__)
 
@@ -88,17 +88,17 @@ def ready_data(ts_code: str, from_date: str):
 
 def ready_manual_data(ts_code: str, from_date: str):
     session: Session = db_client.get_session()
-    manual_forecast = session.query(MqManualIndicator) \
+    manual_forecast = session.query(MqManualMetric) \
         .filter(
-        MqManualIndicator.ts_code == ts_code, MqManualIndicator.update_date >= from_date,
-        MqManualIndicator.report_type == mq_report_type.man_forecast) \
-        .order_by(MqManualIndicator.update_date.asc(), MqManualIndicator.period.asc()).all()
+        MqManualMetric.ts_code == ts_code, MqManualMetric.update_date >= from_date,
+        MqManualMetric.report_type == mq_report_type.man_forecast) \
+        .order_by(MqManualMetric.update_date.asc(), MqManualMetric.period.asc()).all()
 
-    report_fix = session.query(MqManualIndicator) \
+    report_fix = session.query(MqManualMetric) \
         .filter(
-        MqManualIndicator.ts_code == ts_code, MqManualIndicator.update_date >= from_date,
-        MqManualIndicator.report_type == mq_report_type.report_fix) \
-        .order_by(MqManualIndicator.update_date.asc(), MqManualIndicator.period.asc()).all()
+        MqManualMetric.ts_code == ts_code, MqManualMetric.update_date >= from_date,
+        MqManualMetric.report_type == mq_report_type.report_fix) \
+        .order_by(MqManualMetric.update_date.asc(), MqManualMetric.period.asc()).all()
 
     return manual_forecast, report_fix
 
@@ -110,7 +110,7 @@ def fit_update_date(date: str, arr: list, field_name: str) -> bool:
     return target_date is not None and target_date == date_utils.format_delta(date, 1)
 
 
-def common_add(result_list: list, store: MqQuarterStore, to_add: MqQuarterIndicator):
+def common_add(result_list: list, store: MqQuarterStore, to_add: MqQuarterMetric):
     store.add(to_add)
     result_list.append(to_add)
 
@@ -132,8 +132,8 @@ def add_nx(ts_code: str, report_type: int, period: str, update_date: str,
     exist = store.find_period_latest(ts_code, name, period)
     if exist is not None and exist.update_date == update_date:
         return None
-    to_add = MqQuarterIndicator(ts_code=ts_code, report_type=(1 << report_type), period=period, update_date=update_date,
-                                name=name, value=value)
+    to_add = MqQuarterMetric(ts_code=ts_code, report_type=(1 << report_type), period=period, update_date=update_date,
+                             name=name, value=value)
     common_add(result_list, store, to_add)
     period_dict[period] = PeriodObj(period, report_type)
     return to_add
@@ -147,7 +147,7 @@ def extract_from_express(result_list: list, store: MqQuarterStore, period_dict: 
         store=store, result_list=result_list, period_dict=period_dict
     )
 
-    for i in mq_quarter_indicator_enum.extract_from_express_list:
+    for i in mq_quarter_metric_enum.extract_from_express_list:
         call_add_nx(name=i.name, value=getattr(express, i.from_name))
 
 
@@ -177,15 +177,15 @@ def extract_from_forecast(result_list: list, store: MqQuarterStore, period_dict:
             if forecast.last_parent_net is not None:
                 forecast_nprofit = percent * forecast.last_parent_net
             else:
-                nprofit_ly = store.find_period_latest(forecast.ts_code, mq_quarter_indicator_enum.nprofit.name,
+                nprofit_ly = store.find_period_latest(forecast.ts_code, mq_quarter_metric_enum.nprofit.name,
                                                       forecast.end_date, update_date)
                 if nprofit_ly is not None and nprofit_ly.value is not None:
                     forecast_nprofit = percent * nprofit_ly.value
 
-    call_add_nx(name=mq_quarter_indicator_enum.nprofit.name, value=forecast_nprofit)
+    call_add_nx(name=mq_quarter_metric_enum.nprofit.name, value=forecast_nprofit)
 
 
-def extract_from_manual(result_list: list, store: MqQuarterStore, period_dict: dict, manual: MqManualIndicator):
+def extract_from_manual(result_list: list, store: MqQuarterStore, period_dict: dict, manual: MqManualMetric):
     add_nx(ts_code=manual.ts_code, period=manual.period, update_date=date_utils.format_delta(manual.update_date, -1),
            report_type=manual.report_type,
            store=store, result_list=result_list, period_dict=period_dict, name=manual.name, value=manual.value)
@@ -194,26 +194,26 @@ def extract_from_manual(result_list: list, store: MqQuarterStore, period_dict: d
 def extract_from_income_adjust(result_list: list, store: MqQuarterStore, period_dict: dict, income: TsIncome):
     update_date = date_utils.format_delta(income.mq_ann_date, -1)
 
-    nprofit_new = store.find_period_exact(income.ts_code, mq_quarter_indicator_enum.nprofit.name, income.end_date,
+    nprofit_new = store.find_period_exact(income.ts_code, mq_quarter_metric_enum.nprofit.name, income.end_date,
                                           update_date)
-    nprofit_old = store.find_period_latest(income.ts_code, mq_quarter_indicator_enum.nprofit.name, income.end_date,
+    nprofit_old = store.find_period_latest(income.ts_code, mq_quarter_metric_enum.nprofit.name, income.end_date,
                                            date_utils.format_delta(update_date, -1))
-    dprofit_old = store.find_period_latest(income.ts_code, mq_quarter_indicator_enum.dprofit.name, income.end_date,
+    dprofit_old = store.find_period_latest(income.ts_code, mq_quarter_metric_enum.dprofit.name, income.end_date,
                                            date_utils.format_delta(update_date, -2))
 
     to_add = None
     if nprofit_new is None:
         log.error('Cant find nprofit in adjust income. %s %s' % (income.ts_code, income.end_date))
     elif nprofit_old is None or dprofit_old is None:
-        to_add = MqQuarterIndicator(ts_code=income.ts_code, report_type=(1 << mq_report_type.report_adjust),
-                                    period=income.end_date, update_date=update_date,
-                                    name=mq_quarter_indicator_enum.dprofit.name, value=nprofit_new.value)
+        to_add = MqQuarterMetric(ts_code=income.ts_code, report_type=(1 << mq_report_type.report_adjust),
+                                 period=income.end_date, update_date=update_date,
+                                 name=mq_quarter_metric_enum.dprofit.name, value=nprofit_new.value)
     else:
-        to_add = MqQuarterIndicator(ts_code=income.ts_code, report_type=(1 << mq_report_type.report_adjust),
-                                    period=income.end_date, update_date=update_date,
-                                    name=mq_quarter_indicator_enum.dprofit.name,
-                                    value=decimal_utils.sub(nprofit_new.value,
-                                                            decimal_utils.sub(nprofit_old.value, dprofit_old.value)))
+        to_add = MqQuarterMetric(ts_code=income.ts_code, report_type=(1 << mq_report_type.report_adjust),
+                                 period=income.end_date, update_date=update_date,
+                                 name=mq_quarter_metric_enum.dprofit.name,
+                                 value=decimal_utils.sub(nprofit_new.value,
+                                                         decimal_utils.sub(nprofit_old.value, dprofit_old.value)))
 
     if to_add is not None:
         common_add(result_list, store, to_add)
@@ -226,7 +226,7 @@ def extract_from_income(result_list: list, store: MqQuarterStore, period_dict: d
         report_type=mq_report_type.report if income.report_type == '1' else mq_report_type.report_adjust,
         store=store, result_list=result_list, period_dict=period_dict
     )
-    for i in mq_quarter_indicator_enum.extract_from_income_list:
+    for i in mq_quarter_metric_enum.extract_from_income_list:
         call_add_nx(name=i.name, value=getattr(income, i.from_name))
 
     # 处理调整 - 净利根据往年调整
@@ -241,7 +241,7 @@ def extract_from_balance(result_list: list, store: MqQuarterStore, period_dict: 
         store=store, result_list=result_list, period_dict=period_dict
     )
 
-    for i in mq_quarter_indicator_enum.extract_from_bs_list:
+    for i in mq_quarter_metric_enum.extract_from_bs_list:
         call_add_nx(name=i.name, value=getattr(bs, i.from_name))
 
 
@@ -256,11 +256,11 @@ def extract_from_cash_flow(result_list: list, store: MqQuarterStore, period_dict
         store=store, result_list=result_list, period_dict=period_dict
     )
 
-    for i in mq_quarter_indicator_enum.extract_from_cf_list:
+    for i in mq_quarter_metric_enum.extract_from_cf_list:
         if i.is_cf_h and date_utils.get_quarter_num(cf.end_date) == 3:
-            q2: MqManualIndicator = store.find_period_latest(ts_code=cf.ts_code, name=i.name,
-                                                             period=date_utils.period_delta(cf.end_date, -1),
-                                                             update_date=update_date)
+            q2: MqManualMetric = store.find_period_latest(ts_code=cf.ts_code, name=i.name,
+                                                          period=date_utils.period_delta(cf.end_date, -1),
+                                                          update_date=update_date)
             if q2 is None:
                 log.error('Cant find q2 in cash flow %s %s %s' % (cf.ts_code, cf.end_date, cf.mq_ann_date))
                 call_add_nx(name=i.name, value=getattr(cf, i.from_name))
@@ -277,7 +277,7 @@ def extract_from_fina_indicator(result_list: list, store: MqQuarterStore, period
         store=store, result_list=result_list, period_dict=period_dict
     )
 
-    for i in mq_quarter_indicator_enum.extract_from_fi_list:
+    for i in mq_quarter_metric_enum.extract_from_fi_list:
         call_add_nx(name=i.name, value=getattr(fina, i.from_name))
 
 
@@ -300,8 +300,8 @@ def copy_indicator_from_latest(result_list: list, store: MqQuarterStore, period:
     i = store.find_period_latest(ts_code, from_name, period.end_date, update_date)
     if i is None or i.update_date == update_date:
         return
-    ni = MqQuarterIndicator(ts_code=i.ts_code, report_type=i.report_type, period=i.period, update_date=update_date,
-                            name=name, value=i.value)
+    ni = MqQuarterMetric(ts_code=i.ts_code, report_type=i.report_type, period=i.period, update_date=update_date,
+                         name=name, value=i.value)
     common_add(result_list, store, ni)
 
 
@@ -311,13 +311,13 @@ def copy_from_latest(result_list: list, store: MqQuarterStore, period_dict: dict
     period_list = list(period_dict.keys())
     period_list.sort()
     for period in period_list:
-        for i in mq_quarter_indicator_enum.extract_from_income_list:
+        for i in mq_quarter_metric_enum.extract_from_income_list:
             call_copy(period=period_dict[period], name=i.name)
-        for i in mq_quarter_indicator_enum.extract_from_bs_list:
+        for i in mq_quarter_metric_enum.extract_from_bs_list:
             call_copy(period=period_dict[period], name=i.name)
-        for i in mq_quarter_indicator_enum.extract_from_cf_list:
+        for i in mq_quarter_metric_enum.extract_from_cf_list:
             call_copy(period=period_dict[period], name=i.name)
-        for i in mq_quarter_indicator_enum.extract_from_fi_list:
+        for i in mq_quarter_metric_enum.extract_from_fi_list:
             call_copy(period=period_dict[period], name=i.name)
 
         call_copy(period=period_dict[period], name='dividend')
@@ -329,7 +329,7 @@ def fill_empty(result_list: list, store: MqQuarterStore, period_dict: dict, ts_c
     for key in period_list:
         period_o: PeriodObj = period_dict[key]
         period = period_o.end_date
-        for i in mq_quarter_indicator_enum.fill_after_copy_fail_list:
+        for i in mq_quarter_metric_enum.fill_after_copy_fail_list:
             exist = store.find_period_latest(ts_code, i.name, period, update_date)
             if exist is None:
                 call_add_nx = partial(
@@ -356,25 +356,25 @@ def cal_quarter_ltm(result_list: list, store: MqQuarterStore, period_o: PeriodOb
     call_find_pre = partial(store.find_period_latest, ts_code=ts_code, update_date=update_date)
     call_add = partial(common_add, result_list=result_list, store=store)
 
-    for k in mq_quarter_indicator_enum.cal_quarter_list:
+    for k in mq_quarter_metric_enum.cal_quarter_list:
         name = k.name
         from_name = k.from_name
         i1 = call_find_now(period=period, name=from_name)
         i2 = call_find_pre(period=date_utils.period_delta(period, -1), name=from_name)
-        quarter = mq_quarter_indicator.cal_quarter(name, i1, i2)
+        quarter = quarter_cal_utils.cal_quarter(name, i1, i2)
         if quarter is None:
             common_log_err(ts_code, period, report_type, update_date, name)
         else:
             call_add(to_add=quarter)
 
-    for k in mq_quarter_indicator_enum.cal_ltm_list:
+    for k in mq_quarter_metric_enum.cal_ltm_list:
         name = k.name
         from_name = k.from_name
         i1 = call_find_now(period=period, name=from_name)
         i2 = call_find_pre(period=date_utils.period_delta(period, -1), name=from_name)
         i3 = call_find_pre(period=date_utils.period_delta(period, -2), name=from_name)
         i4 = call_find_pre(period=date_utils.period_delta(period, -3), name=from_name)
-        ltm = mq_quarter_indicator.cal_ltm_with_quarter(name, i1, i2, i3, i4)
+        ltm = quarter_cal_utils.cal_ltm_with_quarter(name, i1, i2, i3, i4)
         if ltm is None:
             common_log_err(ts_code, period, report_type, update_date, name)
         else:
@@ -387,21 +387,21 @@ def cal_avg(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_co
     call_find_now = partial(store.find_period_exact, ts_code=ts_code, update_date=update_date)
     call_find_pre = partial(store.find_period_latest, ts_code=ts_code)
     call_add = partial(common_add, result_list=result_list, store=store)
-    for k in mq_quarter_indicator_enum.cal_avg_list:
+    for k in mq_quarter_metric_enum.cal_avg_list:
         from_name = k.from_name
         i1 = call_find_now(period=period, name=from_name)
         i2 = call_find_pre(period=date_utils.period_delta(period, -1), name=from_name)
         i3 = call_find_pre(period=date_utils.period_delta(period, -2), name=from_name)
         i4 = call_find_pre(period=date_utils.period_delta(period, -3), name=from_name)
-        avg = mq_quarter_indicator.cal_ltm_avg(k.name, i1, i2, i3, i4)
+        avg = quarter_cal_utils.cal_ltm_avg(k.name, i1, i2, i3, i4)
         if avg is None:
             common_log_err(ts_code, period, report_type, update_date, k.name)
         else:
             call_add(to_add=avg)
 
 
-def common_dividend(call_add: partial, call_log: partial, i1: MqQuarterIndicator, i2: MqQuarterIndicator, name: str):
-    i = mq_quarter_indicator.dividend(i1, i2, name)
+def common_dividend(call_add: partial, call_log: partial, i1: MqQuarterMetric, i2: MqQuarterMetric, name: str):
+    i = quarter_cal_utils.dividend(i1, i2, name)
     if i is None:
         call_log(name=name)
     else:
@@ -409,13 +409,13 @@ def common_dividend(call_add: partial, call_log: partial, i1: MqQuarterIndicator
     return i
 
 
-def common_cal_delta(call_find: partial, call_find_lp: partial, name: str) -> MqQuarterIndicator:
+def common_cal_delta(call_find: partial, call_find_lp: partial, name: str) -> MqQuarterMetric:
     '''
     计算本期减上期的增量，用于资产等累计值
     '''
     current_period = call_find(name=name)
     last_period = call_find_lp(name=name)
-    return mq_quarter_indicator.sub_from('%s_delta' % name, [current_period, last_period])
+    return quarter_cal_utils.sub_from('%s_delta' % name, [current_period, last_period])
 
 
 def cal_du_pont(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_code: str, update_date: str):
@@ -458,10 +458,10 @@ def cal_ratio(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_
     goodwill = call_find(name='goodwill')
     r_and_d = call_find(name='r_and_d')
     intan_assets = call_find(name='intan_assets')
-    total_intangible = mq_quarter_indicator.add_up('total_intangible', [goodwill, r_and_d, intan_assets])
+    total_intangible = quarter_cal_utils.add_up('total_intangible', [goodwill, r_and_d, intan_assets])
     nassets = call_find(name='nassets')
     oth_eqt_tools_p_shr = call_find(name='oth_eqt_tools_p_shr')
-    nassets1 = mq_quarter_indicator.sub_from('nassets1', [nassets, oth_eqt_tools_p_shr])
+    nassets1 = quarter_cal_utils.sub_from('nassets1', [nassets, oth_eqt_tools_p_shr])
     # 无形资产风险 = (商誉 + 研发支出 + 无形资产) / (净资产 - 优先股,永续债)
     intangible_risk = common_dividend(call_add, call_log, total_intangible, nassets1, 'intangible_risk')
 
@@ -469,24 +469,24 @@ def cal_ratio(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_
     oth_cur_assets = call_find(name='oth_cur_assets')
     lt_borr = call_find(name='lt_borr')
     st_borr = call_find(name='st_borr')
-    cur = mq_quarter_indicator.add_up('cur', [money_cap, oth_cur_assets])
-    borr = mq_quarter_indicator.add_up('borr', [lt_borr, st_borr])
+    cur = quarter_cal_utils.add_up('cur', [money_cap, oth_cur_assets])
+    borr = quarter_cal_utils.add_up('borr', [lt_borr, st_borr])
     # 存贷比 = (货币资金 + 其它流动资产) / (短期借款 + 长期借款)
     cash_debt_rate = common_dividend(call_add, call_log, cur, borr, 'cash_debt_rate')
 
-    nprofit_ltm = call_find(name=mq_quarter_indicator_enum.nprofit_ltm.name)
-    dividend_ltm = call_find(name=mq_quarter_indicator_enum.dividend_ltm.name)
+    nprofit_ltm = call_find(name=mq_quarter_metric_enum.nprofit_ltm.name)
+    dividend_ltm = call_find(name=mq_quarter_metric_enum.dividend_ltm.name)
     # 分红率 = 分红总额LTM / 净利润LTM
     dividend_ratio = common_dividend(call_add, call_log, dividend_ltm, nprofit_ltm,
-                                     mq_quarter_indicator_enum.dividend_ratio.name)
+                                     mq_quarter_metric_enum.dividend_ratio.name)
 
 
 def cal_risk_point(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_code: str, update_date: str):
     period = period_o.end_date
     call_find = partial(store.find_period_exact, ts_code=ts_code, period=period, update_date=update_date)
-    receive_risk = call_find(name=mq_quarter_indicator_enum.receive_risk.name)
-    liquidity_risk = call_find(name=mq_quarter_indicator_enum.liquidity_risk.name)
-    intangible_risk = call_find(name=mq_quarter_indicator_enum.intangible_risk.name)
+    receive_risk = call_find(name=mq_quarter_metric_enum.receive_risk.name)
+    liquidity_risk = call_find(name=mq_quarter_metric_enum.liquidity_risk.name)
+    intangible_risk = call_find(name=mq_quarter_metric_enum.intangible_risk.name)
 
     risk_point = Decimal(0)
     report_type = 0
@@ -504,9 +504,9 @@ def cal_risk_point(result_list: list, store: MqQuarterStore, period_o: PeriodObj
         if calculate.gt(intangible_risk, 0.25, field='value'):
             risk_point = risk_point + 1
 
-    to_add = MqQuarterIndicator(ts_code=ts_code, report_type=report_type,
-                                period=period, update_date=update_date,
-                                name=mq_quarter_indicator_enum.risk_point.name, value=risk_point)
+    to_add = MqQuarterMetric(ts_code=ts_code, report_type=report_type,
+                             period=period, update_date=update_date,
+                             name=mq_quarter_metric_enum.risk_point.name, value=risk_point)
     common_add(result_list, store, to_add)
 
 
@@ -526,7 +526,7 @@ def cal_rev_pay(result_list: list, store: MqQuarterStore, period_o: PeriodObj, t
     lt_rec = call_find(name='lt_rec')
     div_receiv = call_find(name='div_receiv')
     int_receiv = call_find(name='int_receiv')
-    total_receivable = mq_quarter_indicator.add_up('total_receivable',
+    total_receivable = quarter_cal_utils.add_up('total_receivable',
                                                    [notes_receiv, accounts_receiv, lt_rec,
                                                     oth_receiv, div_receiv, int_receiv])
     if total_receivable is None:
@@ -536,7 +536,7 @@ def cal_rev_pay(result_list: list, store: MqQuarterStore, period_o: PeriodObj, t
 
     notes_payable = call_find(name='notes_payable')
     acct_payable = call_find(name='acct_payable')
-    total_payable = mq_quarter_indicator.add_up('total_payable', [notes_payable, acct_payable])
+    total_payable = quarter_cal_utils.add_up('total_payable', [notes_payable, acct_payable])
     if total_payable is None:
         call_log(name='total_payable')
     else:
@@ -559,19 +559,19 @@ def cal_fcf(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_co
         total_receivable_delta = common_cal_delta(call_find, call_find_ly, 'total_receivable')
         prepayment_delta = common_cal_delta(call_find, call_find_ly, 'prepayment')
         # 经营性应收项目增加 = 应收账款增加 + 预付账款增加 + 应收票据增加
-        op_recv_delta = mq_quarter_indicator.add_up('op_recv_delta', [total_receivable_delta, prepayment_delta])
+        op_recv_delta = quarter_cal_utils.add_up('op_recv_delta', [total_receivable_delta, prepayment_delta])
 
         total_payable_delta = common_cal_delta(call_find, call_find_ly, 'total_payable')
         adv_receipts_delta = common_cal_delta(call_find, call_find_ly, 'adv_receipts')
         # 经营性应付项目增加 = 应付账款增加 + 预收账款增加 + 应付票据增加
-        op_pay_delta = mq_quarter_indicator.add_up('op_pay_delta', [total_payable_delta, adv_receipts_delta])
+        op_pay_delta = quarter_cal_utils.add_up('op_pay_delta', [total_payable_delta, adv_receipts_delta])
 
         inventories_delta = common_cal_delta(call_find, call_find_ly, 'inventories')
         lt_amor_exp_delta = common_cal_delta(call_find, call_find_ly, 'lt_amor_exp')
 
         # 营运资本增加 = 存货增加 + 经营性应收项目增加 + 长期待摊费用增加 - 经营性应付项目增加 - 预提费用增加 (已经取消)
-        op_cap_delta = mq_quarter_indicator.sub_from('op_cap_delta', [
-            mq_quarter_indicator.add_up('_', [inventories_delta, op_recv_delta, lt_amor_exp_delta]),
+        op_cap_delta = quarter_cal_utils.sub_from('op_cap_delta', [
+            quarter_cal_utils.add_up('_', [inventories_delta, op_recv_delta, lt_amor_exp_delta]),
             op_pay_delta
         ])
 
@@ -581,19 +581,19 @@ def cal_fcf(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_co
         lt_amort_deferred_exp = call_find(name='lt_amort_deferred_exp')
         loss_scr_fa = call_find(name='loss_scr_fa')
         # 折旧与摊销 = 资产减值准备 + 固定资产折旧 + 无形资产摊销 + 长期待摊费用摊销 + 固定资产报废损失
-        daa = mq_quarter_indicator.add_up('daa', [prov_depr_assets, depr_fa_coga_dpba, amort_intang_assets,
+        daa = quarter_cal_utils.add_up('daa', [prov_depr_assets, depr_fa_coga_dpba, amort_intang_assets,
                                                   lt_amort_deferred_exp, loss_scr_fa])
 
         # 资本支出 = 非流动性资产增加 - 可供出售金融资产增加
         total_nca_delta = common_cal_delta(call_find, call_find_ly, 'total_nca')
         fa_avail_for_sale_delta = common_cal_delta(call_find, call_find_ly, 'fa_avail_for_sale')
         fa_avail_for_sale_delta = None  # 取消了
-        cap_cost = mq_quarter_indicator.sub_from('cap_cost', [total_nca_delta, fa_avail_for_sale_delta])
+        cap_cost = quarter_cal_utils.sub_from('cap_cost', [total_nca_delta, fa_avail_for_sale_delta])
 
         dprofit = call_find(name='dprofit')
         # 自由现金流 = 归母扣非净利 + 折旧与摊销 - 营运资本增加 - 资本支出
-        fcf = mq_quarter_indicator.sub_from('fcf', [
-            mq_quarter_indicator.add_up('_', [dprofit, daa]), op_cap_delta, cap_cost
+        fcf = quarter_cal_utils.sub_from('fcf', [
+            quarter_cal_utils.add_up('_', [dprofit, daa]), op_cap_delta, cap_cost
         ])
 
     else:
@@ -601,16 +601,10 @@ def cal_fcf(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_co
 
         dprofit_ltm_lp = call_find_lp(name='dprofit_ltm')
         fcf_ltm_lp = call_find_lp(name='fcf_ltm')
-        dprofit_lp = call_find_lp(name='dprofit')
-        fcf_lp = call_find_lp(name='fcf')
-        if dprofit_ltm_lp is not None and fcf_ltm_lp is not None and \
-            dprofit_ltm_lp.value > 0 and fcf_ltm_lp.value > 0:
-            fcf = mq_quarter_indicator.multiply(
-                dprofit, mq_quarter_indicator.dividend(fcf_ltm_lp, dprofit_ltm_lp, '_'), 'fcf'
-            )
-        else:
-            fcf = mq_quarter_indicator.add_up('fcf', [dprofit,
-                                                      mq_quarter_indicator.sub_from('_', [fcf_lp, dprofit_lp])])
+        dprofit = call_find(name='dprofit')
+        fcf = quarter_cal_utils.multiply(
+            dprofit, quarter_cal_utils.dividend(fcf_ltm_lp, dprofit_ltm_lp, '_'), 'fcf'
+        )
 
     if fcf is None:
         call_log(name='fcf')
@@ -618,7 +612,8 @@ def cal_fcf(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_co
         call_add(to_add=fcf)
 
 
-def cal_complex_quarter_ltm(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_code: str, update_date: str):
+def cal_complex_quarter_ltm(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_code: str,
+                            update_date: str):
     '''
     计算复杂指标的单季和ltm, 在所有复杂指标计算后
     依赖 cal_fcf
@@ -629,24 +624,24 @@ def cal_complex_quarter_ltm(result_list: list, store: MqQuarterStore, period_o: 
     call_find_pre = partial(store.find_period_latest, ts_code=ts_code, update_date=update_date)
     call_add = partial(common_add, result_list=result_list, store=store)
 
-    for k in mq_quarter_indicator_enum.complex_quarter_list:
+    for k in mq_quarter_metric_enum.complex_quarter_list:
         name = k.name
         from_name = k.from_name
         current = call_find_now(period=period, name=from_name)
         lp = call_find_pre(period=date_utils.period_delta(period, -1), name=from_name)
-        quarter = mq_quarter_indicator.cal_quarter(name, current, lp)
+        quarter = quarter_cal_utils.cal_quarter(name, current, lp)
         if quarter is None:
             common_log_err(ts_code, period, report_type, update_date, name)
         else:
             call_add(to_add=quarter)
 
-    for k in mq_quarter_indicator_enum.complex_ltm_list:
+    for k in mq_quarter_metric_enum.complex_ltm_list:
         name = k.name
         from_name = k.from_name
         current = call_find_now(period=period, name=from_name)
         last_year_q4 = call_find_pre(period=date_utils.q4_last_year(period), name=from_name)
         last_year = call_find_pre(period=date_utils.period_delta(period, -4), name=from_name)
-        ltm = mq_quarter_indicator.cal_ltm_with_period(name, current, last_year_q4, last_year)
+        ltm = quarter_cal_utils.cal_ltm_with_period(name, current, last_year_q4, last_year)
         if ltm is None:
             common_log_err(ts_code, period, report_type, update_date, name)
         else:
@@ -671,18 +666,18 @@ def cal_complex(result_list: list, store: MqQuarterStore, period_dict: dict, ts_
         cal_indicator(result_list, store, period_dict[key], ts_code, update_date)
 
 
-def cal_inc_rate(n: MqQuarterIndicator, l: MqQuarterIndicator):
+def cal_inc_rate(n: MqQuarterMetric, l: MqQuarterMetric):
     if n is None or l is None:
         return None
     else:
-        if mq_quarter_indicator_enum.is_percent_indicator(n.name):
+        if mq_quarter_metric_enum.is_percent_indicator(n.name):
             return decimal_utils.sub(n.value, l.value)
         else:
             return decimal_utils.yoy(n.value, l.value)
 
 
 def cal_yoy_mom(result_list: list, store: MqQuarterStore):
-    for i in result_list:  # type: MqQuarterIndicator
+    for i in result_list:  # type: MqQuarterMetric
         lm = store.find_period_latest(i.ts_code, i.name, date_utils.period_delta(i.period, -1))
         i.mom = cal_inc_rate(i, lm)
         ly = store.find_period_latest(i.ts_code, i.name, date_utils.period_delta(i.period, -4))
@@ -692,8 +687,8 @@ def cal_yoy_mom(result_list: list, store: MqQuarterStore):
 def calculate_one(ts_code: str, share_name: str, from_date: str = None, to_date=date_utils.get_current_dt()):
     session: Session = db_client.get_session()
     if from_date is None:
-        latest: list = session.query(MqQuarterIndicator).filter(MqQuarterIndicator.ts_code == ts_code) \
-            .order_by(MqQuarterIndicator.update_date.desc()).limit(1).all()
+        latest: list = session.query(MqQuarterMetric).filter(MqQuarterMetric.ts_code == ts_code) \
+            .order_by(MqQuarterMetric.update_date.desc()).limit(1).all()
         if len(latest) > 0:
             from_date = date_utils.format_delta(latest[0].update_date, 1)
         else:
@@ -776,15 +771,15 @@ def calculate_by_code(ts_code: str, to_date=date_utils.get_current_dt()):
 
 def recalculate_by_code(ts_code: str, to_date=date_utils.get_current_dt()):
     session: Session = db_client.get_session()
-    session.query(MqQuarterIndicator).filter(MqQuarterIndicator.ts_code == ts_code).delete()
+    session.query(MqQuarterMetric).filter(MqQuarterMetric.ts_code == ts_code).delete()
     session.close()
     calculate_by_code(ts_code, to_date)
 
 
 def remove_from_date(ts_code: str, from_date: str):
     session: Session = db_client.get_session()
-    session.query(MqQuarterIndicator).filter(MqQuarterIndicator.ts_code == ts_code,
-                                             MqQuarterIndicator.update_date >= from_date).delete()
+    session.query(MqQuarterMetric).filter(MqQuarterMetric.ts_code == ts_code,
+                                          MqQuarterMetric.update_date >= from_date).delete()
     session.close()
 
 

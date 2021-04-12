@@ -3,10 +3,10 @@ import time
 from sqlalchemy.orm import Session
 
 from moquant.constants import mq_calculate_start_date, mq_message_type, \
-    mq_quarter_indicator_enum, mq_report_type
+    mq_quarter_metric_enum, mq_report_type
 from moquant.dbclient import db_client
 from moquant.dbclient.mq_message import MqMessage
-from moquant.dbclient.mq_quarter_indicator import MqQuarterIndicator
+from moquant.dbclient.mq_quarter_metric import MqQuarterMetric
 from moquant.dbclient.ts_basic import TsBasic
 from moquant.log import get_logger
 from moquant.service import mq_quarter_store
@@ -26,7 +26,7 @@ def get_report_type_name(report_type):
     return report_type_name
 
 
-def get_report_message_content(dprofit: MqQuarterIndicator, share_name: str) -> str:
+def get_report_message_content(dprofit: MqQuarterMetric, share_name: str) -> str:
     pub = '%s(%s) 发布%s%s' % (
     share_name, dprofit.ts_code, date_utils.q_format_period(dprofit.period), get_report_type_name(dprofit.report_type))
     d = '扣非净利为%s' % decimal_utils.unit_format(dprofit.value)
@@ -49,13 +49,13 @@ def generate_report_message_by_code(ts_code: str, share_name: str, to_date: str 
     session.close()
 
     while from_date <= to_date:  # type: MqQuarterBasic
-        latest = quarter_store.find_latest(ts_code, mq_quarter_indicator_enum.dprofit.name, from_date)
+        latest = quarter_store.find_latest(ts_code, mq_quarter_metric_enum.dprofit.name, from_date)
         if latest is None:
             from_date = date_utils.format_delta(from_date, 1)
             continue
         for i in range(5):
             period = date_utils.period_delta(latest.period, -i)
-            dprofit = quarter_store.find_period_exact(ts_code, mq_quarter_indicator_enum.dprofit.name, period,
+            dprofit = quarter_store.find_period_exact(ts_code, mq_quarter_metric_enum.dprofit.name, period,
                                                       from_date)
             if dprofit is None:
                 continue

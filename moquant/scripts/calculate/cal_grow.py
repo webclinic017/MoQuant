@@ -14,8 +14,8 @@ PEG
 
 from decimal import Decimal
 
-from moquant.constants import mq_daily_indicator_enum, mq_quarter_indicator_enum
-from moquant.dbclient.mq_daily_indicator import MqDailyIndicator
+from moquant.constants import mq_daily_metric_enum, mq_quarter_metric_enum
+from moquant.dbclient.mq_daily_metric import MqDailyMetric
 from moquant.log import get_logger
 from moquant.scripts import calculate
 from moquant.service import mq_daily_store, mq_quarter_store
@@ -34,17 +34,17 @@ min_dprofit_percent = Decimal(0.15)
 
 def cal(daily_store: mq_daily_store.MqDailyStore,
         quarter_store: mq_quarter_store.MqQuarterStore,
-        ts_code: str, update_date: str) -> MqDailyIndicator:
+        ts_code: str, update_date: str) -> MqDailyMetric:
     score = 0
     report_type = 0
     period = '00000000'
-    pe: MqDailyIndicator = daily_store.find_date_exact(ts_code, mq_daily_indicator_enum.pe.name, update_date)
-    dprofit_quarter = quarter_store.find_latest(ts_code, mq_quarter_indicator_enum.dprofit_quarter.name, update_date)
+    pe: MqDailyMetric = daily_store.find_date_exact(ts_code, mq_daily_metric_enum.pe.name, update_date)
+    dprofit_quarter = quarter_store.find_latest(ts_code, mq_quarter_metric_enum.dprofit_quarter.name, update_date)
     dprofit_quarter_ly = quarter_store.find_period_latest(
-        ts_code, mq_quarter_indicator_enum.dprofit_quarter.name,
+        ts_code, mq_quarter_metric_enum.dprofit_quarter.name,
         period=date_utils.period_delta(dprofit_quarter.period, -1),
         update_date=update_date) if dprofit_quarter is not None else None
-    dprofit_ltm = quarter_store.find_latest(ts_code, mq_quarter_indicator_enum.dprofit_ltm.name, update_date)
+    dprofit_ltm = quarter_store.find_latest(ts_code, mq_quarter_metric_enum.dprofit_ltm.name, update_date)
 
     if pe is None or dprofit_quarter is None or dprofit_quarter_ly is None or dprofit_ltm is None:
         score = -1
@@ -67,7 +67,7 @@ def cal(daily_store: mq_daily_store.MqDailyStore,
         else:
             score = (1 - peg / max_peg) * 100
 
-    return MqDailyIndicator(ts_code=ts_code, report_type=report_type,
-                            period=period, update_date=update_date,
-                            name=mq_daily_indicator_enum.grow_score.name,
-                            value=valid_score(score))
+    return MqDailyMetric(ts_code=ts_code, report_type=report_type,
+                         period=period, update_date=update_date,
+                         name=mq_daily_metric_enum.grow_score.name,
+                         value=valid_score(score))

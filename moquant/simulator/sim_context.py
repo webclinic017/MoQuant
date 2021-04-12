@@ -9,7 +9,7 @@ from moquant.simulator.sim_order import SimOrder
 from moquant.simulator.sim_share_hold import SimShareHold
 from moquant.simulator.sim_share_price import SimSharePrice
 from moquant.utils.date_utils import format_delta
-from simulator.data import SimDataService
+from moquant.simulator.data import SimDataService
 
 log = get_logger(__name__)
 
@@ -31,8 +31,8 @@ class SimContext(object):
         self.__tax = Decimal(tax)  # 印花税率
         self.__pass = Decimal(pass_tax)  # 过户费率
 
-        self.__sz = ds.get_sz_trade_cal()  # 深市交易日历
-        self.__sh = ds.get_sh_trade_cal()  # 沪市交易日历
+        self.__data = ds
+        self.__sz, self.__sh = ds.get_trade_calendar()  # 深沪市交易日历
 
         self.__shares = {}  # 拥有的股票
         self.__shares_just_buy = {}  # 当日买的股票

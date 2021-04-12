@@ -19,7 +19,7 @@ from decimal import Decimal
 from functools import partial
 
 from constants import mq_report_type
-from moquant.constants import mq_quarter_indicator_enum, mq_daily_indicator_enum
+from moquant.constants import mq_quarter_metric_enum, mq_daily_metric_enum
 from moquant.dbclient.mq_daily_indicator import MqDailyIndicator
 from moquant.log import get_logger
 from moquant.scripts import calculate
@@ -45,9 +45,9 @@ def earn_and_dividend_in_year(quarter_store: mq_quarter_store.MqQuarterStore,
     period = period_delta(period, 4)
     for i in range(year):
         period = period_delta(period, -4)
-        dprofit_ltm = quarter_store.find_period_latest(ts_code, mq_quarter_indicator_enum.dprofit_ltm.name,
+        dprofit_ltm = quarter_store.find_period_latest(ts_code, mq_quarter_metric_enum.dprofit_ltm.name,
                                                        period, update_date)
-        dividend_ltm = quarter_store.find_period_latest(ts_code, mq_quarter_indicator_enum.dividend_ltm.name,
+        dividend_ltm = quarter_store.find_period_latest(ts_code, mq_quarter_metric_enum.dividend_ltm.name,
                                                         period, update_date)
         if calculate.lt(dprofit_ltm, zero, 'value', True):
             return False
@@ -62,7 +62,7 @@ def earn_in_period(quarter_store: mq_quarter_store.MqQuarterStore,
     period = period_delta(report_period, 1)
     for i in range(quarter_num):
         period = period_delta(period, -1)
-        dprofit_quarter = quarter_store.find_period_latest(ts_code, mq_quarter_indicator_enum.dprofit_quarter.name,
+        dprofit_quarter = quarter_store.find_period_latest(ts_code, mq_quarter_metric_enum.dprofit_quarter.name,
                                                            period, update_date)
         if calculate.lt(dprofit_quarter, zero, 'value', True):
             return False
@@ -78,7 +78,7 @@ def history_profit_yoy_score(quarter_store: mq_quarter_store.MqQuarterStore,
     yoy_list = []
     for i in range(year):
         period = period_delta(period, -4)
-        dprofit_ltm = quarter_store.find_period_latest(ts_code, mq_quarter_indicator_enum.dprofit_ltm.name,
+        dprofit_ltm = quarter_store.find_period_latest(ts_code, mq_quarter_metric_enum.dprofit_ltm.name,
                                                        period, update_date)
         yoy_list.append(calculate.get_val(dprofit_ltm, 'yoy', zero))
 
@@ -101,7 +101,7 @@ def history_dividend_yoy_score(quarter_store: mq_quarter_store.MqQuarterStore,
     yoy_list = []
     for i in range(year):
         period = period_delta(period, -4)
-        dividend_ltm = quarter_store.find_period_latest(ts_code, mq_quarter_indicator_enum.dividend_ltm.name,
+        dividend_ltm = quarter_store.find_period_latest(ts_code, mq_quarter_metric_enum.dividend_ltm.name,
                                                         period, update_date)
         yoy_list.append(calculate.get_val(dividend_ltm, 'yoy', zero))
 
@@ -121,10 +121,10 @@ def cal(daily_store: mq_daily_store.MqDailyStore,
     daily_find = partial(daily_store.find_date_exact, ts_code=ts_code, update_date=update_date)
     quarter_find = partial(quarter_store.find_latest, ts_code=ts_code, update_date=update_date)
     score = 0
-    dividend_yields = daily_find(name=mq_daily_indicator_enum.dividend_yields.name)
-    risk_point = quarter_find(name=mq_quarter_indicator_enum.risk_point.name)
-    revenue_quarter = quarter_find(name=mq_quarter_indicator_enum.revenue_quarter.name)
-    dprofit_quarter = quarter_find(name=mq_quarter_indicator_enum.dprofit_quarter.name)
+    dividend_yields = daily_find(name=mq_daily_metric_enum.dividend_yields.name)
+    risk_point = quarter_find(name=mq_quarter_metric_enum.risk_point.name)
+    revenue_quarter = quarter_find(name=mq_quarter_metric_enum.revenue_quarter.name)
+    dprofit_quarter = quarter_find(name=mq_quarter_metric_enum.dprofit_quarter.name)
 
     if calculate.gt(risk_point, 0, 'value', True) or \
             calculate.lt(dividend_yields, 0.03, 'value', True) or \
@@ -134,8 +134,8 @@ def cal(daily_store: mq_daily_store.MqDailyStore,
             calculate.lt(revenue_quarter, dprofit_quarter, 'yoy', True):
         score = -1
     else:
-        pe = daily_find(name=mq_daily_indicator_enum.pe.name)
-        pb = daily_find(name=mq_daily_indicator_enum.pb.name)
+        pe = daily_find(name=mq_daily_metric_enum.pe.name)
+        pb = daily_find(name=mq_daily_metric_enum.pb.name)
 
         dividend_score = decimal_utils.mul(dividend_yields, Decimal(1000))  # * 100 / 10 * 100
         pe_score = decimal_utils.valid_score(
@@ -163,7 +163,7 @@ def cal(daily_store: mq_daily_store.MqDailyStore,
 
     return MqDailyIndicator(ts_code=ts_code, report_type=mq_report_type.mq_predict,
                             period=dividend_yields.period, update_date=update_date,
-                            name=mq_daily_indicator_enum.grow_score.name,
+                            name=mq_daily_metric_enum.grow_score.name,
                             value=decimal_utils.valid_score(score))
 
     return decimal_utils.valid_score(score)

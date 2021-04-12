@@ -1,5 +1,5 @@
 from moquant.simulator.sim_context import SimContext
-from simulator.data import SimDataService
+from moquant.simulator.data import SimDataService
 
 
 class SimHandler(object):

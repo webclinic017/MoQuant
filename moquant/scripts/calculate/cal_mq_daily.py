@@ -4,11 +4,11 @@ from functools import partial
 
 from sqlalchemy.orm import Session
 
-from moquant.constants import mq_calculate_start_date, mq_daily_indicator_enum, mq_report_type, \
-    mq_quarter_indicator_enum
+from moquant.constants import mq_calculate_start_date, mq_daily_metric_enum, mq_report_type, \
+    mq_quarter_metric_enum
 from moquant.dbclient import db_client
-from moquant.dbclient.mq_daily_indicator import MqDailyIndicator
-from moquant.dbclient.mq_quarter_indicator import MqQuarterIndicator
+from moquant.dbclient.mq_daily_metric import MqDailyMetric
+from moquant.dbclient.mq_quarter_metric import MqQuarterMetric
 from moquant.dbclient.ts_basic import TsBasic
 from moquant.dbclient.ts_daily_basic import TsDailyBasic
 from moquant.dbclient.ts_daily_trade_info import TsDailyTradeInfo
@@ -22,7 +22,7 @@ from moquant.utils import decimal_utils, date_utils
 log = get_logger(__name__)
 
 
-def common_add(result_list: list, store: mq_daily_store.MqDailyStore, to_add: MqDailyIndicator):
+def common_add(result_list: list, store: mq_daily_store.MqDailyStore, to_add: MqDailyMetric):
     store.add(to_add)
     result_list.append(to_add)
 
@@ -39,8 +39,8 @@ def add_nx(ts_code: str, report_type: int, period: str, update_date: str,
     exist = store.find_date_exact(ts_code, name, period)
     if exist is not None:
         return
-    to_add = MqDailyIndicator(ts_code=ts_code, report_type=(1 << report_type), period=period, update_date=update_date,
-                              name=name, value=value)
+    to_add = MqDailyMetric(ts_code=ts_code, report_type=(1 << report_type), period=period, update_date=update_date,
+                           name=name, value=value)
     common_add(result_list, store, to_add)
 
 
@@ -49,7 +49,7 @@ def extract_from_daily_basic(result_list: list, store: mq_daily_store.MqDailySto
         add_nx, ts_code=daily.ts_code, period=daily.trade_date, update_date=daily.trade_date,
         report_type=mq_report_type.report, store=store, result_list=result_list
     )
-    for i in mq_daily_indicator_enum.extract_from_daily_basic:
+    for i in mq_daily_metric_enum.extract_from_daily_basic:
         call_add_nx(name=i.name, value=getattr(daily, i.name))
 
 
@@ -58,7 +58,7 @@ def extract_from_daily_trade_info(result_list: list, store: mq_daily_store.MqDai
         add_nx, ts_code=daily.ts_code, period=daily.trade_date, update_date=daily.trade_date,
         report_type=mq_report_type.report, store=store, result_list=result_list
     )
-    for i in mq_daily_indicator_enum.extract_from_daily_trade:
+    for i in mq_daily_metric_enum.extract_from_daily_trade:
         call_add_nx(name=i.name, value=getattr(daily, i.name))
 
 
@@ -70,7 +70,7 @@ def copy_for_suspend(
     """
     针对停牌日，从上一个交易日复制
     """
-    for i in mq_daily_indicator_enum.copy_for_suspend:
+    for i in mq_daily_metric_enum.copy_for_suspend:
         now = store.find_date_exact(ts_code, i.name, now_date)
         if now is not None:
             continue
@@ -78,9 +78,9 @@ def copy_for_suspend(
         if yesterday is None:
             log.error('Cant find latest daily data of %s %s to copy for non-trade-day' % (ts_code, now_date))
         else:
-            to_add = MqDailyIndicator(ts_code=yesterday.ts_code, report_type=yesterday.report_type,
-                                      period=yesterday.period, update_date=now_date,
-                                      name=yesterday.name, value=yesterday.value)
+            to_add = MqDailyMetric(ts_code=yesterday.ts_code, report_type=yesterday.report_type,
+                                   period=yesterday.period, update_date=now_date,
+                                   name=yesterday.name, value=yesterday.value)
             common_add(result_list, store, to_add)
 
 
@@ -93,34 +93,34 @@ def add_trade_status(
     """
     记录这天是否停牌
     """
-    to_add = MqDailyIndicator(ts_code=ts_code, report_type=mq_report_type.none_report_type,
-                              period='-', update_date=now_date,
-                              name=mq_daily_indicator_enum.suspend.name, value=is_suspend)
+    to_add = MqDailyMetric(ts_code=ts_code, report_type=mq_report_type.none_report_type,
+                           period='-', update_date=now_date,
+                           name=mq_daily_metric_enum.suspend.name, value=is_suspend)
     common_add(result_list, store, to_add)
 
 
 # daily / quarter
-def dq_dividend(call_add: partial, call_log: partial, i1: MqDailyIndicator, i2: MqQuarterIndicator, name: str):
+def dq_dividend(call_add: partial, call_log: partial, i1: MqDailyMetric, i2: MqQuarterMetric, name: str):
     if i1 is None or i2 is None:
         call_log(name=name)
         return None
     else:
-        to_add = MqDailyIndicator(ts_code=i1.ts_code, report_type=i1.report_type | i2.report_type,
-                                  period=i2.period, update_date=i1.update_date,
-                                  name=name, value=decimal_utils.div(i1.value, i2.value))
+        to_add = MqDailyMetric(ts_code=i1.ts_code, report_type=i1.report_type | i2.report_type,
+                               period=i2.period, update_date=i1.update_date,
+                               name=name, value=decimal_utils.div(i1.value, i2.value))
         call_add(to_add=to_add)
         return to_add
 
 
 # quarter / daily
-def qd_dividend(call_add: partial, call_log: partial, i1: MqQuarterIndicator, i2: MqDailyIndicator, name: str):
+def qd_dividend(call_add: partial, call_log: partial, i1: MqQuarterMetric, i2: MqDailyMetric, name: str):
     if i1 is None or i2 is None:
         call_log(name=name)
         return None
     else:
-        to_add = MqDailyIndicator(ts_code=i1.ts_code, report_type=i1.report_type | i2.report_type,
-                                  period=i1.period, update_date=i2.update_date,
-                                  name=name, value=decimal_utils.div(i1.value, i2.value))
+        to_add = MqDailyMetric(ts_code=i1.ts_code, report_type=i1.report_type | i2.report_type,
+                               period=i1.period, update_date=i2.update_date,
+                               name=name, value=decimal_utils.div(i1.value, i2.value))
         call_add(to_add=to_add)
         return to_add
 
@@ -131,13 +131,13 @@ def cal_pepb(result_list: list, daily_store: mq_daily_store.MqDailyStore,
     call_add = partial(common_add, result_list=result_list, store=daily_store)
     call_log = partial(common_log_err, ts_code=ts_code, update_date=update_date)
 
-    total_mv = daily_store.find_date_exact(ts_code, mq_daily_indicator_enum.total_mv.name, update_date)
+    total_mv = daily_store.find_date_exact(ts_code, mq_daily_metric_enum.total_mv.name, update_date)
 
-    dprofit_ltm = quarter_store.find_latest(ts_code, mq_quarter_indicator_enum.dprofit_ltm.name, update_date)
-    dq_dividend(call_add, call_log, total_mv, dprofit_ltm, mq_daily_indicator_enum.pe.name)
+    dprofit_ltm = quarter_store.find_latest(ts_code, mq_quarter_metric_enum.dprofit_ltm.name, update_date)
+    dq_dividend(call_add, call_log, total_mv, dprofit_ltm, mq_daily_metric_enum.pe.name)
 
-    nassets = quarter_store.find_latest(ts_code, mq_quarter_indicator_enum.nassets.name, update_date)
-    dq_dividend(call_add, call_log, total_mv, nassets, mq_daily_indicator_enum.pb.name)
+    nassets = quarter_store.find_latest(ts_code, mq_quarter_metric_enum.nassets.name, update_date)
+    dq_dividend(call_add, call_log, total_mv, nassets, mq_daily_metric_enum.pb.name)
 
 
 def cal_dividend(result_list: list, daily_store: mq_daily_store.MqDailyStore,
@@ -146,9 +146,9 @@ def cal_dividend(result_list: list, daily_store: mq_daily_store.MqDailyStore,
     call_add = partial(common_add, result_list=result_list, store=daily_store)
     call_log = partial(common_log_err, ts_code=ts_code, update_date=update_date)
 
-    dividend_ltm = quarter_store.find_latest(ts_code, mq_quarter_indicator_enum.dividend_ltm.name, update_date)
-    total_mv = daily_store.find_date_exact(ts_code, mq_daily_indicator_enum.total_mv.name, update_date)
-    qd_dividend(call_add, call_log, dividend_ltm, total_mv, mq_daily_indicator_enum.dividend_yields.name)
+    dividend_ltm = quarter_store.find_latest(ts_code, mq_quarter_metric_enum.dividend_ltm.name, update_date)
+    total_mv = daily_store.find_date_exact(ts_code, mq_daily_metric_enum.total_mv.name, update_date)
+    qd_dividend(call_add, call_log, dividend_ltm, total_mv, mq_daily_metric_enum.dividend_yields.name)
 
 
 def cal_dcf(result_list: list, daily_store: mq_daily_store.MqDailyStore, quarter_store: mq_quarter_store.MqQuarterStore,
@@ -158,7 +158,7 @@ def cal_dcf(result_list: list, daily_store: mq_daily_store.MqDailyStore, quarter
     '''
     call_add = partial(common_add, result_list=result_list, store=daily_store)
 
-    fcf = quarter_store.find_latest(ts_code, mq_quarter_indicator_enum.fcf_ltm.name, update_date)
+    fcf = quarter_store.find_latest(ts_code, mq_quarter_metric_enum.fcf_ltm.name, update_date)
     mv_10, mv = 0, 0
     report_type = mq_report_type.report
     period = '20000331'
@@ -171,11 +171,11 @@ def cal_dcf(result_list: list, daily_store: mq_daily_store.MqDailyStore, quarter
     else:
         log.error('Cant find fcf %s %s' % (ts_code, update_date))
 
-    daily_mv_10 = MqDailyIndicator(ts_code=ts_code, report_type=report_type, period=period, update_date=update_date,
-                                   name=mq_daily_indicator_enum.mv_10.name, value=mv_10)
+    daily_mv_10 = MqDailyMetric(ts_code=ts_code, report_type=report_type, period=period, update_date=update_date,
+                                name=mq_daily_metric_enum.mv_10.name, value=mv_10)
 
-    daily_mv = MqDailyIndicator(ts_code=ts_code, report_type=report_type, period=period, update_date=update_date,
-                                name=mq_daily_indicator_enum.mv.name, value=mv)
+    daily_mv = MqDailyMetric(ts_code=ts_code, report_type=report_type, period=period, update_date=update_date,
+                             name=mq_daily_metric_enum.mv.name, value=mv)
 
     call_add(to_add=daily_mv_10)
     call_add(to_add=daily_mv)
@@ -194,8 +194,8 @@ def calculate_one(ts_code: str, share_name: str, to_date: str = date_utils.get_c
     start_time = time.time()
     result_list = []
     session = db_client.get_session()
-    last_mq_daily = session.query(MqDailyIndicator).filter(MqDailyIndicator.ts_code == ts_code) \
-        .order_by(MqDailyIndicator.update_date.desc()).limit(1).all()
+    last_mq_daily = session.query(MqDailyMetric).filter(MqDailyMetric.ts_code == ts_code) \
+        .order_by(MqDailyMetric.update_date.desc()).limit(1).all()
 
     from_date = mq_calculate_start_date
     if len(last_mq_daily) > 0:
@@ -269,7 +269,7 @@ def calculate_and_insert(ts_code: str, share_name: str, to_date: str = date_util
     if len(result_list) > 0:
         start_time = time.time()
         session: Session = db_client.get_session()
-        for item in result_list:  # type: MqDailyIndicator
+        for item in result_list:  # type: MqDailyMetric
             session.add(item)
         session.flush()
         session.close()
@@ -290,14 +290,13 @@ def calculate_by_code(ts_code: str, to_date: str = date_utils.get_current_dt()):
 
 def recalculate_by_code(ts_code: str, to_date: str = date_utils.get_current_dt()):
     session: Session = db_client.get_session()
-    session.query(MqDailyIndicator).filter(MqDailyIndicator.ts_code == ts_code).delete()
+    session.query(MqDailyMetric).filter(MqDailyMetric.ts_code == ts_code).delete()
     session.close()
     calculate_by_code(ts_code, to_date)
 
 
 def remove_from_date(ts_code: str, from_date: str):
     session: Session = db_client.get_session()
-    session.query(MqDailyIndicator).filter(MqDailyIndicator.ts_code == ts_code,
-                                           MqDailyIndicator.update_date >= from_date).delete()
+    session.query(MqDailyMetric).filter(MqDailyMetric.ts_code == ts_code,
+                                        MqDailyMetric.update_date >= from_date).delete()
     session.close()
-

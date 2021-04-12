@@ -3,8 +3,8 @@ from sqlalchemy import Column, String, DECIMAL, INT, Index, BIGINT
 from moquant.dbclient.base import Base
 
 
-class MqManualIndicator(Base):
-    __tablename__ = 'mq_manual_indicator'
+class MqManualMetric(Base):
+    __tablename__ = 'mq_manual_metric'
     __table_args__ = (
         Index('unique_indicator', 'ts_code', 'update_date', 'period', 'name', unique=True),
         {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}

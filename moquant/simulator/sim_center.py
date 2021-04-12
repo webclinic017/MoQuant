@@ -3,7 +3,7 @@ from decimal import Decimal
 from moquant.log import get_logger
 from moquant.simulator.sim_context import SimContext
 from moquant.simulator.sim_handler import SimHandler
-from simulator.data import SimDataService
+from moquant.simulator.data import SimDataService
 
 log = get_logger(__name__)
 

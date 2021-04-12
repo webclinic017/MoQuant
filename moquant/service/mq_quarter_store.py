@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from moquant.algo.tree.avl import AvlTree, AvlTreeNode
 from moquant.constants import mq_calculate_start_date
 from moquant.dbclient import db_client
-from moquant.dbclient.mq_quarter_indicator import MqQuarterIndicator
+from moquant.dbclient.mq_quarter_metric import MqQuarterMetric
 
 
 class MqQuarterStore(object):
@@ -19,7 +19,7 @@ class MqQuarterStore(object):
             code_data[name] = AvlTree()
         return code_data[name]
 
-    def add(self, to_add: MqQuarterIndicator):
+    def add(self, to_add: MqQuarterMetric):
         tree = self.get_tree(to_add.ts_code, to_add.name)
         tree.add(to_add)
 
@@ -27,24 +27,24 @@ class MqQuarterStore(object):
         return node.value if node is not None else None
 
     def find_latest(self, ts_code: str, name: str,
-                    update_date: str = '99999999') -> MqQuarterIndicator:
+                    update_date: str = '99999999') -> MqQuarterMetric:
         tree = self.get_tree(ts_code, name)
-        max_to_find = MqQuarterIndicator(period=update_date, update_date=update_date)
+        max_to_find = MqQuarterMetric(period=update_date, update_date=update_date)
         target = tree.find_max_under(max_to_find)
-        ret: MqQuarterIndicator = self.val(target)
+        ret: MqQuarterMetric = self.val(target)
         return ret
 
     def find_period_latest(self, ts_code: str, name: str, period: str,
-                           update_date: str = '99999999') -> MqQuarterIndicator:
+                           update_date: str = '99999999') -> MqQuarterMetric:
         tree = self.get_tree(ts_code, name)
-        max_to_find = MqQuarterIndicator(period=period, update_date=update_date)
+        max_to_find = MqQuarterMetric(period=period, update_date=update_date)
         target = tree.find_max_under(max_to_find)
-        ret: MqQuarterIndicator = self.val(target)
+        ret: MqQuarterMetric = self.val(target)
         return ret if ret is not None and ret.period == period else None
 
-    def find_period_exact(self, ts_code: str, name: str, period: str, update_date: str) -> MqQuarterIndicator:
+    def find_period_exact(self, ts_code: str, name: str, period: str, update_date: str) -> MqQuarterMetric:
         tree = self.get_tree(ts_code, name)
-        max_to_find = MqQuarterIndicator(period=period, update_date=update_date)
+        max_to_find = MqQuarterMetric(period=period, update_date=update_date)
         target = tree.find_equal(max_to_find)
         return self.val(target)
 
@@ -52,8 +52,8 @@ class MqQuarterStore(object):
 def init_quarter_store(ts_code, from_period=mq_calculate_start_date) -> MqQuarterStore:
     store = MqQuarterStore()
     session: Session = db_client.get_session()
-    arr = session.query(MqQuarterIndicator).filter(MqQuarterIndicator.ts_code == ts_code,
-                                                   MqQuarterIndicator.period >= from_period).all()
+    arr = session.query(MqQuarterMetric).filter(MqQuarterMetric.ts_code == ts_code,
+                                                   MqQuarterMetric.period >= from_period).all()
     for i in arr:
         store.add(i)
     session.close()
@@ -63,8 +63,8 @@ def init_quarter_store(ts_code, from_period=mq_calculate_start_date) -> MqQuarte
 def init_quarter_store_by_date(ts_code, from_date=mq_calculate_start_date) -> MqQuarterStore:
     store = MqQuarterStore()
     session: Session = db_client.get_session()
-    arr = session.query(MqQuarterIndicator).filter(MqQuarterIndicator.ts_code == ts_code,
-                                                   MqQuarterIndicator.update_date >= from_date).all()
+    arr = session.query(MqQuarterMetric).filter(MqQuarterMetric.ts_code == ts_code,
+                                                   MqQuarterMetric.update_date >= from_date).all()
     session.close()
     for i in arr:
         store.add(i)
