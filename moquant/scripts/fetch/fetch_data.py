@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from moquant.constants import fetch_data_start_date
 from moquant.dbclient import db_client
-from moquant.dbclient.ts_adj_factor import StockAdjFactor
+from moquant.dbclient.ts_adj_factor import TsAdjFactor
 from moquant.dbclient.ts_balance_sheet import TsBalanceSheet
 from moquant.dbclient.ts_cashflow import TsCashFlow
 from moquant.dbclient.ts_daily_basic import TsDailyBasic
@@ -118,8 +118,8 @@ def fetch_data_by_code(ts_code: dict(type=str, help='股票编码'),
                               TsDailyTradeInfo.trade_date, TsDailyTradeInfo.ts_code,
                               to_date=to_date, to_do=r)
     # https://tushare.pro/document/2?doc_id=28 复权因子
-    r, d3 = common_fetch_data(ts_code, 'fetch_adj_factor', StockAdjFactor,
-                              StockAdjFactor.trade_date, StockAdjFactor.ts_code,
+    r, d3 = common_fetch_data(ts_code, 'fetch_adj_factor', TsAdjFactor,
+                              TsAdjFactor.trade_date, TsAdjFactor.ts_code,
                               to_date=to_date, to_do=r)
     # 季报等
     r, d4 = fetch_period_report(ts_code, to_date, to_do=r)

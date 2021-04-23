@@ -29,7 +29,3 @@ class TsDailyTradeInfo(Base):
     pct_chg = Column('pct_chg', DECIMAL(30, 10), comment='涨跌幅, 未复权')
     vol = Column('vol', DECIMAL(30, 10), comment='成交量 手')
     amount = Column('amount', DECIMAL(30, 10), comment='成交额 千')
-
-
-def create(engine):
-    Base.metadata.create_all(engine)

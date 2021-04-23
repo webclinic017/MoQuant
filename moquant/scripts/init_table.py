@@ -10,7 +10,7 @@ from moquant.dbclient.mq_manual_metric import MqManualMetric
 from moquant.dbclient.mq_message import MqMessage
 from moquant.dbclient.mq_quarter_metric import MqQuarterMetric
 from moquant.dbclient.mq_sys_param import MqSysParam
-from moquant.dbclient.ts_adj_factor import StockAdjFactor
+from moquant.dbclient.ts_adj_factor import TsAdjFactor
 from moquant.dbclient.ts_balance_sheet import TsBalanceSheet
 from moquant.dbclient.ts_basic import TsBasic
 from moquant.dbclient.ts_cashflow import TsCashFlow
@@ -29,7 +29,7 @@ def create_table():
     engine = client.db_client.get_engine()
     all_table = [MqSysParam, MqManualMetric, MqDcfConfig,
                  MqQuarterMetric, MqDailyMetric, MqMessage,
-                 TsBasic, TsDailyBasic, TsDailyTradeInfo, StockAdjFactor,
+                 TsBasic, TsDailyBasic, TsDailyTradeInfo, TsAdjFactor,
                  TsIncome, TsBalanceSheet, TsCashFlow, TsForecast, TsExpress,
                  TsFinaIndicator, TsDividend, TsStkLimit, TsTradeCal]
 

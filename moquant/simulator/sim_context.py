@@ -15,14 +15,17 @@ log = get_logger(__name__)
 
 
 class SimContext(object):
-    def __init__(self,
-                 ds: dict(type=SimDataService, help="获取数据服务"),
-                 sd: dict(type=str, help="回测开始日期"),
-                 ed: dict(type=str, help="回测结束日期"),
-                 cash: dict(type=Decimal, help="起始现金") = 500000,
-                 charge: dict(type=Decimal, help="交易费率") = 0.00025,
-                 tax: dict(type=Decimal, help="印花税率") = 0.001,
-                 pass_tax: dict(type=Decimal, help="过户费率") = 0.00002):
+    def __init__(self, ds: SimDataService, sd: str, ed: str, cash: Decimal = 500000,
+                 charge: Decimal = 0.00025, tax: Decimal = 0.001, pass_tax: Decimal = 0.00002):
+        """
+        :param ds: 获取数据服务
+        :param sd: 回测开始日期
+        :param ed: 回测结束日期
+        :param cash: 起始现金
+        :param charge: 交易费率
+        :param tax: 印花税率
+        :param pass_tax: 过户费率
+        """
         self.__sd = sd  # 回测开始日期
         self.__ed = ed  # 回测结束日期
         self.__init_cash = Decimal(cash)  # 初始现金
@@ -32,7 +35,7 @@ class SimContext(object):
         self.__pass = Decimal(pass_tax)  # 过户费率
 
         self.__data = ds
-        self.__sz, self.__sh = ds.get_trade_calendar()  # 深沪市交易日历
+        self.__sz, self.__sh = ds.get_trade_calendar(sd, ed)  # 深沪市交易日历
 
         self.__shares = {}  # 拥有的股票
         self.__shares_just_buy = {}  # 当日买的股票
@@ -129,12 +132,11 @@ class SimContext(object):
         self.__mark_record()
         self.__next_day()
 
-    def __register_dividend(self,
-                            ds: dict(type=SimDataService, help="获取数据服务")):
+    def __register_dividend(self):
         """
         根据持股登记分红配股
         """
-        dividend_list = ds.get_dividend(self.__cd)
+        dividend_list = self.__data.get_dividend(self.__cd)
         for dividend in dividend_list:  # type: TsDividend
             total_num = 0
             if dividend.ts_code in self.__shares:
@@ -150,8 +152,8 @@ class SimContext(object):
             dividend_cash = total_num * dividend.cash_div
             self.__dividend[dividend.ts_code] = SimDividend(dividend.ts_code, dividend_num, dividend_cash,
                                                             dividend.pay_date, dividend.div_listdate)
-            self.info(
-                'Dividend register. code: %s, num: %s, cash: %s' % (dividend.ts_code, dividend_num, dividend_cash))
+            self.info('Dividend register. code: %s, num: %s, cash: %s' %
+                      (dividend.ts_code, dividend_num, dividend_cash))
 
     def __update_price_to_close(self):
         """

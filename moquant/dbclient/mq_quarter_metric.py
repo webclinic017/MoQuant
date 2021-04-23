@@ -1,8 +1,6 @@
-from sqlalchemy import Column, String, DECIMAL, Boolean, Index, INT
+from sqlalchemy import Column, String, DECIMAL, INT
 
 from moquant.dbclient.base import Base
-from moquant.utils import date_utils
-from moquant.utils import decimal_utils
 
 
 class MqQuarterMetric(Base):
@@ -17,7 +15,7 @@ class MqQuarterMetric(Base):
     name = Column('name', String(50), primary_key=True, comment='指标名称')
     value = Column('value', DECIMAL(30, 10), comment='指标值')
     yoy = Column('yoy', DECIMAL(30, 10), comment='同比')
-    mom = Column('mom', DECIMAL(30, 10), comment='环比')
+    mom = Column('mom', DECIMAL(30, 10), comment='环比') # 可能叫sos比较好，季度的环比
     update_date = Column('update_date', String(10), primary_key=True, comment='更新日期')
 
     def __gt__(self, other):
