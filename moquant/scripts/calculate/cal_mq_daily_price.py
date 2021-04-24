@@ -6,6 +6,7 @@ from moquant.dbclient.ts_adj_factor import TsAdjFactor
 from moquant.dbclient.ts_basic import TsBasic
 from moquant.dbclient.ts_daily_trade_info import TsDailyTradeInfo
 from moquant.dbclient.ts_stk_limit import TsStkLimit
+from moquant.dbclient.ts_trade_cal import TsTradeCal
 from moquant.log import get_logger
 from moquant.utils import date_utils, decimal_utils
 
@@ -93,27 +94,41 @@ def calculate_by_code(ts_code: str, to_date: str = date_utils.get_current_dt()):
     limit_arr: list = s.query(TsStkLimit) \
         .filter(TsStkLimit.ts_code == ts_code, TsStkLimit.trade_date >= price_data_from_date) \
         .order_by(TsStkLimit.trade_date.asc()).all()
+    cal_arr: list = s.query(TsTradeCal) \
+        .filter(TsTradeCal.cal_date >= price_data_from_date, TsTradeCal.exchange == basic[0].exchange,
+                TsTradeCal.is_open == 1) \
+        .order_by(TsTradeCal.cal_date.asc()).all()
 
     s.close()
+
+    if len(trade_arr) == 0 and len(limit_arr) == 0:
+        log.info("Nothing to insert into %s %s" % (MqDailyPrice.__tablename__, ts_code))
+        return
 
     adj_i = 0
     trade_i = 0
     limit_i = 0
+    cal_i = 0
     to_insert = []
 
     while last_trade_date <= to_date:
         limit_i = find_index_by_date(limit_arr, limit_i, last_trade_date, 'trade_date')
         adj_i = find_index_by_date(adj_arr, adj_i, last_trade_date, 'trade_date')
         trade_i = find_index_by_date(trade_arr, trade_i, last_trade_date, 'trade_date')
+        cal_i = find_index_by_date(cal_arr, cal_i, last_trade_date, 'cal_date')
 
         adj: TsAdjFactor = adj_arr[adj_i]
         t: TsDailyTradeInfo = trade_arr[trade_i]
         l: TsStkLimit = limit_arr[limit_i]
+        cal: TsTradeCal = cal_arr[cal_i]
 
-        if l.trade_date != last_trade_date:
+        if cal.cal_date != last_trade_date:
             # 非交易日
             last_trade_date = date_utils.format_delta(last_trade_date, 1)
             continue
+
+        if l.trade_date != last_trade_date:  # 涨跌停价格有可能没有数据
+            l = None
 
         is_div: bool = last_trade_date > last_div_date and not decimal_utils.equals(adj.adj_factor, last_adj)
         if not is_div:
@@ -125,20 +140,23 @@ def calculate_by_code(ts_code: str, to_date: str = date_utils.get_current_dt()):
                 p = MqDailyPrice(ts_code=ts_code, div_date=last_div_date, latest_adj=last_adj,
                                  trade_date=last_trade_date, adj=adj.adj_factor, is_trade=1,
                                  open=t.open, close=t.close, high=t.high, low=t.low,
-                                 up_limit=l.up_limit, down_limit=l.down_limit,
                                  open_qfq=decimal_utils.cal_qfq(t.open, adj.adj_factor, last_adj),
                                  close_qfq=decimal_utils.cal_qfq(t.close, adj.adj_factor, last_adj),
                                  high_qfq=decimal_utils.cal_qfq(t.high, adj.adj_factor, last_adj),
                                  low_qfq=decimal_utils.cal_qfq(t.low, adj.adj_factor, last_adj),
-                                 pre_close_qfq=decimal_utils.cal_qfq(t.pre_close, adj.adj_factor, last_adj),
-                                 up_limit_qfq=decimal_utils.cal_qfq(l.up_limit, adj.adj_factor, last_adj),
-                                 down_limit_qfq=decimal_utils.cal_qfq(l.down_limit, adj.adj_factor, last_adj))
+                                 pre_close_qfq=decimal_utils.cal_qfq(t.pre_close, adj.adj_factor, last_adj))
+                if l is not None:
+                    p.up_limit = l.up_limit
+                    p.down_limit = l.down_limit
+                    p.up_limit_qfq = decimal_utils.cal_qfq(l.up_limit, adj.adj_factor, last_adj),
+                    p.down_limit_qfq = decimal_utils.cal_qfq(l.down_limit, adj.adj_factor, last_adj)
+                else:
+                    pass  # TODO 需要的话再自己计算一下涨跌停价格
+
             to_insert.append(p)
             last_trade_date = date_utils.format_delta(last_trade_date, 1)
         else:
-            log.info("batch start insert %d" % len(to_insert))
             db_client.batch_insert(to_insert)
-            log.info("batch end insert %d" % len(to_insert))
             to_insert = []
             # 更正一下最新的复权因子，从上市日重新计算
             last_div_date = last_trade_date

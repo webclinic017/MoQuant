@@ -1,4 +1,8 @@
-""" Declaration of table `ts_adj_factor` """
+"""
+交易日有数据
+停牌日也有
+看上去有上市至今数据
+"""
 
 from sqlalchemy import Column, String, DECIMAL, BIGINT, Index
 

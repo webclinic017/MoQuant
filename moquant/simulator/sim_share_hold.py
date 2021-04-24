@@ -1,24 +1,25 @@
 from decimal import Decimal
 
+from moquant.utils import decimal_utils
+
 
 class SimShareHold(object):
-    __ts_code: str
-    __num: Decimal
-    __price: Decimal
-    __cost: Decimal
-    __earn: Decimal
-    __win_rate: Decimal
-    __lose_rate: Decimal
-    __trade: bool
-    __on_sell: Decimal
+    __ts_code: str  # 股票编码
+    __holding_num: Decimal  # 持有数量
+    __current_price: Decimal  # 当前价格
+
+    __cost: Decimal  # 买入花费
+    __win_rate: Decimal  # 止盈线
+    __lose_rate: Decimal  # 止损线
+    __can_trade: bool  # 是否可以交易
+    __on_sell: Decimal  # 在售数量
 
     def __init__(self, ts_code, num, current_price: Decimal,
                  win_rate: Decimal = 0.25, lose_rate: Decimal = -0.08):
         self.__ts_code = ts_code
-        self.__num = Decimal(num)
+        self.__holding_num = Decimal(num)
         self.__cost = Decimal(current_price) * Decimal(num)
-        self.__earn = Decimal(0)
-        self.__price = Decimal(current_price)
+        self.__current_price = Decimal(current_price)
         self.__win_rate = Decimal(win_rate)
         self.__lose_rate = Decimal(lose_rate)
         self.__can_trade = False
@@ -28,16 +29,17 @@ class SimShareHold(object):
         return self.__ts_code
 
     def get_num(self):
-        return self.__num
+        return self.__holding_num
 
     def get_can_sell(self):
-        return self.__num - self.__on_sell
+        return self.__holding_num - self.__on_sell
 
     def get_earn(self):
-        return self.__earn
-
-    def get_net_earn(self):
-        return self.__earn - self.__cost
+        """
+        当前盈利 = 当前市值 - 买入花费
+        :return: 当前盈利
+        """
+        return self.get_mv() - self.__cost
 
     def get_cost(self):
         return self.__cost
@@ -46,40 +48,62 @@ class SimShareHold(object):
         if self.__win_rate is None:
             return False
         else:
-            return self.get_mv() + self.__earn >= self.__cost * (1 + self.__win_rate)
+            return self.get_mv() >= self.__cost * (1 + self.__win_rate)
 
     def achieve_lose(self):
         if self.__lose_rate is None:
             return False
         else:
-            return self.get_mv() + self.__earn <= self.__cost * (1 + self.__lose_rate)
+            return self.get_mv() <= self.__cost * (1 + self.__lose_rate)
 
     def can_trade(self):
         return self.__can_trade
 
     def get_mv(self):
-        return self.__num * self.__price
+        return self.__holding_num * self.__current_price
 
     """##################################### update part #####################################"""
 
-    def update_by_dividend(self, cash_div_tax, stk_div):
-        self.__price = (self.__price - cash_div_tax) / (1 + stk_div)
+    def sub_cost_for_dividend(self, cash: Decimal):
+        """
+        分红后降低成本
+        :param cash: 拿到的分红钱
+        :return:
+        """
+        self.__cost = decimal_utils.sub(self.__cost, cash)
 
-    def add_dividend(self, dividend_num):
-        self.__num = self.__num + dividend_num
+    def add_dividend_share(self, dividend_num: int):
+        """
+        增加分红获得的股数，暂时默认当天可交易
+        :param dividend_num:
+        :return:
+        """
+        self.__holding_num = self.__holding_num + dividend_num
 
-    def update_after_deal(self, delta_num, earn, cost):
-        self.__num = self.__num + delta_num
-        if delta_num < 0: # sell
+    def update_after_deal(self, delta_num, cost):
+        """
+        成交后，更新持股数和买入费用
+        :param delta_num:
+        :param cost:
+        :return:
+        """
+        self.__holding_num = self.__holding_num + delta_num
+        if delta_num < 0:  # 卖出成功，减少在售数量
             self.__on_sell -= delta_num
-        self.__earn = self.__earn + earn
         self.__cost = self.__cost + cost
 
+    def clear_unsell(self):
+        """
+        清空在售数量
+        :return:
+        """
+        self.__on_sell = 0
+
     def update_price(self, price):
-        self.__price = price
+        self.__current_price = price
 
     def update_can_trade(self, can: bool):
         self.__can_trade = can
 
-    def update_on_sell(self, delte_num):
-        self.__on_sell += delte_num
+    def update_on_sell(self, delta_num):
+        self.__on_sell += delta_num

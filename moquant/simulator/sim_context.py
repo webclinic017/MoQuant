@@ -1,13 +1,13 @@
 import math
 from decimal import Decimal
 
+from moquant.dbclient.mq_daily_price import MqDailyPrice
 from moquant.dbclient.ts_dividend import TsDividend
 from moquant.log import get_logger
 from moquant.simulator.sim_daily_record import SimDailyRecord
 from moquant.simulator.sim_dividend import SimDividend
 from moquant.simulator.sim_order import SimOrder
 from moquant.simulator.sim_share_hold import SimShareHold
-from moquant.simulator.sim_share_price import SimSharePrice
 from moquant.utils.date_utils import format_delta
 from moquant.simulator.data import SimDataService
 
@@ -42,6 +42,7 @@ class SimContext(object):
         self.__dividend = {}  # 登记了分红送股的
         self.__records = {}  #
         self.__orders = {}  # 订单
+        self.__price = {}  # 每日价格信息，只保存当天的
 
         self.__cd = format_delta(sd, -1)  # 当前日期
         self.__next_day()  # 进入下一个交易日
@@ -51,6 +52,9 @@ class SimContext(object):
     def day_init(self):
         self.__merge_yesterday_buy()
         self.__update_for_dividend()
+        self.__fetch_today_price()
+        self.__update_price_to_pre_close()
+
 
     def __merge_yesterday_buy(self):
         """
@@ -58,7 +62,7 @@ class SimContext(object):
         """
         for (ts_code, share) in self.__shares_just_buy.items():  # type: str, SimShareHold
             if ts_code in self.__shares:
-                self.__shares[ts_code].update_after_deal(share.get_num(), share.get_earn(), share.get_cost())
+                self.__shares[ts_code].update_after_deal(share.get_num(), share.get_cost())
             else:
                 self.__shares[ts_code] = share
         self.__shares_just_buy = {}
@@ -73,11 +77,14 @@ class SimContext(object):
             if dividend.pay_date == self.__cd:
                 self.info('Get dividend cash. code: %s, cash: %s' % (dividend.ts_code, dividend.dividend_cash))
                 self.__cash = self.__cash + dividend.dividend_cash
+                if ts_code in self.__shares:
+                    share: SimShareHold = self.__shares[ts_code]
+                    share.sub_cost_for_dividend(dividend.dividend_num)
             if dividend.div_listdate == self.__cd:
                 self.info('Get dividend share. code: %s, num: %s' % (dividend.ts_code, dividend.dividend_num))
                 if ts_code in self.__shares:
                     share: SimShareHold = self.__shares[ts_code]
-                    share.add_dividend(dividend.dividend_num)
+                    share.add_dividend_share(dividend.dividend_num)
                 else:
                     self.__shares[ts_code] = SimShareHold(ts_code, dividend.dividend_num, 0)
             if dividend.finish(self.__cd):
@@ -87,50 +94,81 @@ class SimContext(object):
         for ts_code in finish_dividend:  # type: str
             self.__dividend.pop(ts_code)
 
+    def __fetch_today_price(self):
+        """
+        获取当天所有股票的价格信息，只保存当天
+        :return:
+        """
+        self.__price = {}
+        price_list: list = self.__data.get_qfq_price(now_date=self.__cd, from_date=self.__cd, to_date=self.__cd)
+        for p in price_list:  # type: MqDailyPrice
+            self.__price[p.ts_code] = p
+
+    def __update_price_to_pre_close(self):
+        """
+        更新股票价格到前一个交易日收盘价，前复权
+        :return:
+        """
+        for (ts_code, hold) in self.__shares.items():  # type: str, SimShareHold
+            price: MqDailyPrice = self.get_today_price(ts_code)
+            if price is not None:
+                hold.update_price(price.pre_close_qfq)
+
     def deal_after_morning_auction(self):
         order_list: list = self.__orders[self.__cd]
         for order in order_list:  # type: SimOrder
             if not order.available():
                 continue
-            price: SimSharePrice = self.get_price(order.get_ts_code())
+            price: MqDailyPrice = self.get_today_price(order.get_ts_code())
             if order.get_order_type() == 0:
-                if order.get_price() < price.get_open():
-                    self.__deal_sell(order, price.get_open())
+                if order.get_price() < price.open:
+                    self.__deal_sell(order, price.open)
             elif order.get_order_type() == 1:
-                if order.get_price() > price.get_open():
-                    self.__deal_buy(order, price.get_open())
+                if order.get_price() > price.open:
+                    self.__deal_buy(order, price.open)
         self.__update_price_to_open()
 
     def __update_price_to_open(self):
         for (ts_code, hold) in self.__shares.items():  # type: str, SimShareHold
-            price: SimSharePrice = self.get_price(ts_code)
+            price: MqDailyPrice = self.get_today_price(ts_code)
             if price is not None:
-                hold.update_price(price.get_open())
+                hold.update_price(price.open)
 
     def deal_after_afternoon_auction(self):
         order_list: list = self.__orders[self.__cd]
         for order in order_list:  # type: SimOrder
             if not order.available():
                 continue
-            price: SimSharePrice = self.get_price(order.get_ts_code())
+            price: MqDailyPrice = self.get_today_price(order.get_ts_code())
             if order.get_order_type() == 0:
-                if order.get_price() < price.get_high():
+                if order.get_price() < price.high:
                     self.__deal_sell(order,
-                                     order.get_price() if order.get_price() > price.get_low() else price.get_low())
+                                     order.get_price() if order.get_price() > price.low else price.low)
             elif order.get_order_type() == 1:
-                if order.get_price() > price.get_low():
+                if order.get_price() > price.low:
                     self.__deal_buy(order,
-                                    order.get_price() if order.get_price() < price.get_high() else price.get_high())
+                                    order.get_price() if order.get_price() < price.high else price.high)
 
     def day_end(self):
         """
         交易日结束
         """
         self.__update_price_to_close()
-        self.__orders.pop(self.__cd, None)
+        self.__close_order()
         self.__register_dividend()
         self.__mark_record()
         self.__next_day()
+
+    def __close_order(self):
+        """
+        关闭没成交的订单
+        目前仅删除所有订单记录
+        将持股在售数量归零
+        :return:
+        """
+        self.__orders.pop(self.__cd, None)
+        for (ts_code, share) in self.__shares.items():  # type: str, SimShareHold
+            share.clear_unsell()
 
     def __register_dividend(self):
         """
@@ -159,13 +197,13 @@ class SimContext(object):
         """
         每天结束后更新价格到收盘价
         """
-        for (ts_code, price) in self.__price.items():  # type: str, SimSharePrice
+        for (ts_code, price) in self.__price.items():  # type: str, MqDailyPrice
             if ts_code in self.__shares:
                 share: SimShareHold = self.__shares[ts_code]
-                share.update_price(price.get_close())
+                share.update_price(price.close)
             if ts_code in self.__shares_just_buy:
                 share: SimShareHold = self.__shares_just_buy[ts_code]
-                share.update_price(price.get_close())
+                share.update_price(price.close)
 
     def __clear_empty_hold(self):
         """
@@ -179,7 +217,7 @@ class SimContext(object):
                 to_clear.add(ts_code)
         for ts_code in to_clear:  # type: str
             share: SimShareHold = self.__shares[ts_code]
-            self.info("Finish trade of %s, earn %s" % (share.get_ts_code(), share.get_net_earn()))
+            self.info("Finish trade of %s, earn %s" % (share.get_ts_code(), share.get_earn()))
             self.__shares.pop(ts_code)
 
     def __mark_record(self):
@@ -346,7 +384,7 @@ class SimContext(object):
     def get_cash(self):
         return self.__cash
 
-    def get_price(self, ts_code) -> SimSharePrice:
+    def get_today_price(self, ts_code) -> MqDailyPrice:
         return self.__price[ts_code] if ts_code in self.__price else None
 
     def get_daily_records(self):

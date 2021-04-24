@@ -34,7 +34,7 @@ class TsClient(object):
         self.__pro = self.__ts.pro_api()
 
     def fetch_all_stock(self) -> DataFrame:
-        return self.__pro.stock_basic()
+        return self.__pro.stock_basic(fields='ts_code,symbol,name,area,industry,list_date,exchange')
 
     # 每分钟200次
     def fetch_daily_bar(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
@@ -152,3 +152,8 @@ class TsClient(object):
 
 
 ts_client = TsClient()
+
+
+if __name__ == '__main__':
+    a = ts_client.fetch_daily_bar(ts_code='000001.SZ', start_date='19910101', end_date='19930101')
+    pass

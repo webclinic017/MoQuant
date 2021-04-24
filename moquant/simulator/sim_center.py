@@ -18,7 +18,7 @@ class SimCenter(object):
                  tax: dict(type=Decimal, help="印花税率") = 0.001,
                  pass_tax: dict(type=Decimal, help="过户费率") = 0.00002):
         self.h: SimHandler = handler
-        self.d: SimDataService = SimDataService(sd, ed)
+        self.d: SimDataService = SimDataService()
         self.c: SimContext = SimContext(self.d, sd, ed, cash, charge, tax, pass_tax)
 
     def run(self):

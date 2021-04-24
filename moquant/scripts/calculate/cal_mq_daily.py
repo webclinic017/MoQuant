@@ -1,7 +1,7 @@
-import time
 from decimal import Decimal
 from functools import partial
 
+import time
 from sqlalchemy.orm import Session
 
 from moquant.constants import mq_calculate_start_date, mq_daily_metric_enum, mq_report_type, \
@@ -12,7 +12,7 @@ from moquant.dbclient.mq_quarter_metric import MqQuarterMetric
 from moquant.dbclient.ts_basic import TsBasic
 from moquant.dbclient.ts_daily_basic import TsDailyBasic
 from moquant.dbclient.ts_daily_trade_info import TsDailyTradeInfo
-from moquant.dbclient.ts_stk_limit import TsStkLimit
+from moquant.dbclient.ts_trade_cal import TsTradeCal
 from moquant.log import get_logger
 from moquant.scripts.calculate import cal_grow
 from moquant.service import mq_quarter_store, mq_daily_store
@@ -194,6 +194,12 @@ def calculate_one(ts_code: str, share_name: str, to_date: str = date_utils.get_c
     start_time = time.time()
     result_list = []
     session = db_client.get_session()
+
+    basic: list = session.query(TsBasic).filter(TsBasic.ts_code == ts_code).limit(1).all()
+    if len(basic) == 0:
+        log.error("No basic info found %s" % ts_code)
+        return
+
     last_mq_daily = session.query(MqDailyMetric).filter(MqDailyMetric.ts_code == ts_code) \
         .order_by(MqDailyMetric.update_date.desc()).limit(1).all()
 
@@ -215,9 +221,9 @@ def calculate_one(ts_code: str, share_name: str, to_date: str = date_utils.get_c
         .filter(TsDailyTradeInfo.ts_code == ts_code, TsDailyTradeInfo.trade_date >= from_date) \
         .order_by(TsDailyTradeInfo.trade_date.asc()).all()
 
-    stk_limit_arr = session.query(TsStkLimit) \
-        .filter(TsStkLimit.ts_code == ts_code, TsStkLimit.trade_date >= from_date) \
-        .order_by(TsStkLimit.trade_date.asc()).all()
+    cal_arr: list = session.query(TsTradeCal) \
+        .filter(TsTradeCal.cal_date >= from_date, TsTradeCal.exchange == basic[0].exchange, TsTradeCal.is_open == 1) \
+        .order_by(TsTradeCal.cal_date.asc()).all()
 
     session.close()
 
@@ -230,8 +236,8 @@ def calculate_one(ts_code: str, share_name: str, to_date: str = date_utils.get_c
 
     while from_date <= to_date:
         is_trade_day: bool = False
-        if len(stk_limit_arr) > 0 and stk_limit_arr[0].trade_date == from_date:
-            stk_limit_arr.pop(0)
+        if len(cal_arr) > 0 and cal_arr[0].cal_date == from_date:
+            cal_arr.pop(0)
             is_trade_day = True
 
         if is_trade_day:
@@ -245,7 +251,8 @@ def calculate_one(ts_code: str, share_name: str, to_date: str = date_utils.get_c
                 on_trade += 1
 
             if on_trade == 1:
-                log.error("ts_daily_basic doesn't match ts_daily_trade_info %s %s" % (ts_code, from_date))
+                log.error("%s doesn't match %s %s %s" % (TsDailyBasic.__tablename__, TsDailyTradeInfo.__tablename__,
+                                                         ts_code, from_date))
                 break
 
             if on_trade == 0:
@@ -298,5 +305,6 @@ def remove_from_date(ts_code: str, from_date: str):
                                         MqDailyMetric.update_date >= from_date).delete()
     session.close()
 
+
 if __name__ == '__main__':
-    calculate_by_code('002762.SZ')
+    calculate_by_code('000050.SZ')

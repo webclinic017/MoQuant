@@ -1,5 +1,7 @@
 """
-Declaration of table `ts_daily_basic`
+仅交易日有数据
+停牌没有
+有上市至今数据
 """
 
 from sqlalchemy import Column, String, DECIMAL, Index, BIGINT

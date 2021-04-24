@@ -2,6 +2,7 @@
 涨跌停价格信息
 节假日没有
 停牌日有
+数据从 20070103 开始
 """
 from sqlalchemy import Column, String, DECIMAL, BIGINT, Index
 
