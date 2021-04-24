@@ -49,6 +49,9 @@ class TsClient(object):
                                                 decimal_utils.mul(row.float_share, 10000, err_default=None), axis=1)
             df.loc[:, 'free_share'] = df.apply(lambda row:
                                                decimal_utils.mul(row.free_share, 10000, err_default=None), axis=1)
+            df.loc[:, 'free_share'] = df.apply(lambda row:
+                                               row.float_share if row.free_share is None or math.isnan(row.free_share)
+                                               else row.free_share, axis=1)
             df.loc[:, 'total_mv'] = df.apply(lambda row:
                                              decimal_utils.mul(row.total_mv, 10000, err_default=None), axis=1)
         return df

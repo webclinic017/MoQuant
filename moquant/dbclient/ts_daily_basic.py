@@ -35,7 +35,3 @@ class TsDailyBasic(Base):
     free_share = Column('free_share', DECIMAL(30, 10), comment='自由流通股本 （万）')
     total_mv = Column('total_mv', DECIMAL(30, 10), comment='总市值 （万元）')
     circ_mv = Column('circ_mv', DECIMAL(30, 10), comment='流通市值（万元）')
-
-
-def create(engine):
-    Base.metadata.create_all(engine)
