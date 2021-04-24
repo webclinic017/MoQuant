@@ -5,24 +5,23 @@ from sqlalchemy.orm import Session
 
 from moquant.constants import fetch_data_start_date
 from moquant.dbclient import db_client
-from moquant.dbclient.mq_sys_param import MqSysParam
+from moquant.dbclient.ts_basic import TsBasic
 from moquant.dbclient.ts_dividend import TsDividend
 from moquant.log import get_logger
 from moquant.tsclient import ts_client
-from moquant.utils.date_utils import format_delta, get_current_dt
+from moquant.utils import date_utils
 
 log = get_logger(__name__)
 
-param_key = 'DIVIDEND_DATE'
 
-
-def common_fetch_dividend(dt: str = None):
+def common_fetch_dividend(ts_code: str = None, dt: str = None):
+    target: str = dt if ts_code is None else ts_code
     df: DataFrame = None
     for cnt in range(2):
-        log.info('To fetch dividend %s' % dt)
+        log.info('To fetch dividend %s' % target)
         try:
             # https://tushare.pro/document/2?doc_id=103 分红
-            df = ts_client.fetch_dividend(ann_date=dt)
+            df = ts_client.fetch_dividend(ts_code=ts_code, ann_date=dt)
             break
         except Exception as e:
             log.error('Calling TuShare too fast. Will sleep 1 minutes...')
@@ -31,30 +30,36 @@ def common_fetch_dividend(dt: str = None):
 
     if df is not None and not df.empty:
         db_client.store_dataframe(df, TsDividend.__tablename__)
-        print('Successfully save dividend %s' % dt)
+        log.info('Successfully save dividend %s' % target)
 
 
 def fetch_dividend_by_date(dt: str):
-    common_fetch_dividend(dt=dt)
+    common_fetch_dividend(ts_code=None, dt=dt)
 
 
 def update_dividend_to(dt: str):
     session: Session = db_client.get_session()
-    param_list = session.query(MqSysParam).filter(MqSysParam.param_key == param_key).all()
-    param: MqSysParam = None if len(param_list) == 0 else param_list[0]
-    if param is None:
-        param = MqSysParam(param_key=param_key, param_value=format_delta(fetch_data_start_date, -1))
-        session.add(param)
-        session.flush()
-    now: str = format_delta(param.param_value, 1)
+    td: list = session.query(TsDividend).order_by(TsDividend.ann_date.desc()).limit(1).all()
+    session.close()
+
+    now: str = fetch_data_start_date if len(td) == 0 else date_utils.format_delta(td[0].ann_date, 1)
 
     while now <= dt:
         fetch_dividend_by_date(now)
-        param.param_value = now
-        session.flush()
-        now = format_delta(now, 1)
+        now = date_utils.format_delta(now, 1)
+
+
+def init_dividend():
+    """
+    按股票初始化分红数据
+    :return:
+    """
+    session: Session = db_client.get_session()
+    basic_list = session.query(TsBasic).all()
     session.close()
+    for basic in basic_list:  # type: TsBasic
+        common_fetch_dividend(basic.ts_code)
 
 
 if __name__ == '__main__':
-    update_dividend_to(get_current_dt())
+    init_dividend()

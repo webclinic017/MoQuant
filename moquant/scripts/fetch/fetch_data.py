@@ -13,6 +13,7 @@ from moquant.dbclient.ts_balance_sheet import TsBalanceSheet
 from moquant.dbclient.ts_cashflow import TsCashFlow
 from moquant.dbclient.ts_daily_basic import TsDailyBasic
 from moquant.dbclient.ts_daily_trade_info import TsDailyTradeInfo
+from moquant.dbclient.ts_dividend import TsDividend
 from moquant.dbclient.ts_express import TsExpress
 from moquant.dbclient.ts_fina_indicator import TsFinaIndicator
 from moquant.dbclient.ts_forecast import TsForecast
@@ -146,5 +147,4 @@ def fetch_data_by_code(ts_code: dict(type=str, help='股票编码'),
     r, d7 = common_fetch_data(ts_code, 'fetch_stk_limit', TsStkLimit,
                               TsStkLimit.trade_date, TsStkLimit.ts_code,
                               to_date=to_date, to_do=r)
-
     return r, compare_utils.mini(d1, d2, d3, d4, d5, d6, d7)

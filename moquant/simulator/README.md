@@ -13,9 +13,10 @@
 5. context - deal_after_afternoon_auction - 尾盘竞价结束后成交
     - 买价 < 日内最高价，成交
     - 卖价 > 日内最低价，成交
-6. context - day_end - 交易日结束，登记统计数据
+6. context - day_end - 交易日结束
     - __update_price_to_close - 更新价格到收盘价
     - 清空卖光的股票
     - 分红登记
-    - 统计
     - 清空未成交订单
+7. center - daily_record - 记录净值
+8. context - next_day - 进入下一天

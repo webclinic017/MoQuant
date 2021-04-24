@@ -6,7 +6,7 @@ import pymysql
 import sqlalchemy.engine.url as url
 from pandas import DataFrame
 from sqlalchemy import create_engine
-from sqlalchemy.engine import ResultProxy
+from sqlalchemy.engine import ResultProxy, RowProxy
 from sqlalchemy.engine.base import Engine, Connection
 from sqlalchemy.orm import sessionmaker, Session
 
@@ -48,6 +48,17 @@ class DBClient(object):
     def execute_sql(self, sql: str) -> ResultProxy:
         con: Connection = self.__engine.connect()
         return con.execute(sql)
+
+    def query_with_sql(self, sql: str, target) -> list:
+        proxy_list = self.execute_sql(sql).fetchall()
+        result = []
+        for proxy_item in proxy_list:  # type: RowProxy
+            item = target()
+            for k in proxy_item.keys():
+                setattr(item, k, proxy_item[k])
+            result.append(item)
+        return result
+
 
     # session is not thread-safe, create a new session for every call
     def get_session(self, is_auto_commit: bool = True) -> Session:

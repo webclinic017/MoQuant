@@ -8,6 +8,7 @@ class TsDividend(Base):
     __table_args__ = (
         Index('code', 'ts_code'),
         Index('record', 'record_date'),
+        Index('ann', 'ann_date'),
         Index('ex', 'ex_date'),
         Index('pay', 'pay_date'),
         {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}

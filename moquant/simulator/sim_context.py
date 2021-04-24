@@ -4,7 +4,6 @@ from decimal import Decimal
 from moquant.dbclient.mq_daily_price import MqDailyPrice
 from moquant.dbclient.ts_dividend import TsDividend
 from moquant.log import get_logger
-from moquant.simulator.sim_daily_record import SimDailyRecord
 from moquant.simulator.sim_dividend import SimDividend
 from moquant.simulator.sim_order import SimOrder
 from moquant.simulator.sim_share_hold import SimShareHold
@@ -22,7 +21,7 @@ class SimContext(object):
         :param sd: 回测开始日期
         :param ed: 回测结束日期
         :param cash: 起始现金
-        :param charge: 交易费率
+        :param charge: 交易费率 - 券商佣金
         :param tax: 印花税率
         :param pass_tax: 过户费率
         """
@@ -30,7 +29,7 @@ class SimContext(object):
         self.__ed = ed  # 回测结束日期
         self.__init_cash = Decimal(cash)  # 初始现金
         self.__cash = Decimal(cash)  # 现金
-        self.__charge = Decimal(charge)  # 交易费率
+        self.__charge = Decimal(charge)  # 交易费率 - 券商佣金
         self.__tax = Decimal(tax)  # 印花税率
         self.__pass = Decimal(pass_tax)  # 过户费率
 
@@ -45,7 +44,7 @@ class SimContext(object):
         self.__price = {}  # 每日价格信息，只保存当天的
 
         self.__cd = format_delta(sd, -1)  # 当前日期
-        self.__next_day()  # 进入下一个交易日
+        self.next_day()  # 进入下一个交易日
 
     """##################################### flow part #####################################"""
 
@@ -100,7 +99,8 @@ class SimContext(object):
         :return:
         """
         self.__price = {}
-        price_list: list = self.__data.get_qfq_price(now_date=self.__cd, from_date=self.__cd, to_date=self.__cd)
+        price_list: list = self.__data.get_qfq_price(ts_code_arr=None, now_date=self.__cd,
+                                                     from_date=self.__cd, to_date=self.__cd)
         for p in price_list:  # type: MqDailyPrice
             self.__price[p.ts_code] = p
 
@@ -156,8 +156,6 @@ class SimContext(object):
         self.__update_price_to_close()
         self.__close_order()
         self.__register_dividend()
-        self.__mark_record()
-        self.__next_day()
 
     def __close_order(self):
         """
@@ -174,7 +172,7 @@ class SimContext(object):
         """
         根据持股登记分红配股
         """
-        dividend_list = self.__data.get_dividend(self.__cd)
+        dividend_list = self.__data.get_dividend_in_record_day(self.__cd)
         for dividend in dividend_list:  # type: TsDividend
             total_num = 0
             if dividend.ts_code in self.__shares:
@@ -220,22 +218,12 @@ class SimContext(object):
             self.info("Finish trade of %s, earn %s" % (share.get_ts_code(), share.get_earn()))
             self.__shares.pop(ts_code)
 
-    def __mark_record(self):
-        record = SimDailyRecord()
-        for (ts_code, share) in self.__shares.items():  # type: str, SimShareHold
-            record.add_share(share)
-        for (ts_code, share) in self.__shares_just_buy.items():  # type: str, SimShareHold
-            record.add_share(share)
-        record.add_cash(self.__cash)
-        self.__records[self.__cd] = record
-        self.info("Market value. cash: %s. share: %s" % (record.get_cash(), record.get_share_value()))
-
-    def __next_day(self):
+    def next_day(self):
         if self.__cd > self.__ed:
             return
         self.__cd = format_delta(self.__cd, 1)
         if self.__cd not in self.__sz and self.__cd not in self.__sh:
-            self.__next_day()
+            self.next_day()
 
     def is_finish(self):
         """
@@ -259,7 +247,7 @@ class SimContext(object):
         pass_cost = self.__get_pass_cost(order.get_num())
         tax_cost = self.__get_tax_cost(earn)
         deal_cost = charge_cost + pass_cost + tax_cost
-        hold.update_after_deal(order.get_num() * (-1), earn, deal_cost)
+        hold.update_after_deal(order.get_num() * (-1), deal_cost - earn)
         self.__cash = self.__cash + earn - deal_cost
         self.info(
             "Sell %s of %s with price %s. Tax: %s" % (order.get_num(), order.get_ts_code(), deal_price, deal_cost))
@@ -272,17 +260,17 @@ class SimContext(object):
         ts_code = order.get_ts_code()
         hold: SimShareHold = self.get_hold(ts_code)
         buy_cost = order.get_num() * deal_price
-        charge_cost = self.__get_charge_cost(buy_cost)
-        pass_cost = self.__get_pass_cost(buy_cost)
+        charge_cost = self.__get_charge_cost(buy_cost)  # 券商佣金
+        pass_cost = self.__get_pass_cost(buy_cost)  # 过户费
         deal_cost = charge_cost + pass_cost
         if hold is None:
             hold = SimShareHold(ts_code, order.get_num(), deal_price)
             self.__shares[ts_code] = hold
-            hold.update_after_deal(0, 0, deal_cost)
+            hold.update_after_deal(0, deal_cost)  # 增加手续费
         else:
-            hold.update_after_deal(order.get_num(), 0, buy_cost + deal_cost)
+            hold.update_after_deal(order.get_num(), buy_cost + deal_cost)
 
-        self.__cash = self.__cash + (order.get_num() * order.get_price()) - buy_cost
+        self.__cash = self.__cash + (order.get_num() * order.get_price()) - buy_cost - deal_cost
         self.info("Buy %s of %s with price %s. Pay cost: %s. Deal cost: %s" %
                   (order.get_num(), order.get_ts_code(), deal_price, buy_cost, deal_cost))
         order.deal()
@@ -334,14 +322,14 @@ class SimContext(object):
         elif self.__cash < cash:
             cash = self.__cash
 
-        num = math.floor(cash / (price * 100)) * 100
+        num = self.get_max_can_buy(cash, price)
         total_cost = num * price
         if not self.__can_trade(ts_code):
             msg = 'Cant trade %s in %s' % (ts_code, self.__cd)
         elif ts_code not in self.__price:
             msg = '%s is in suspension' % ts_code
         elif num == 0:
-            msg = 'You cant buy nothing'
+            msg = 'You cant buy anything'
 
         if msg is None:
             order = SimOrder(1, ts_code, num, price)
@@ -351,6 +339,16 @@ class SimContext(object):
         self.__add_order(order)
         return order
 
+    def get_max_can_buy(self, cash: Decimal, price: Decimal):
+        """
+        获取最大可买数量，包括手续费
+        :param cash: 可用现金
+        :param price: 买入价格
+        :return: 可买数量
+        """
+        return math.floor(cash / (1 + self.__charge + self.__pass) / (price * 100)) * 100
+
+
     def __can_trade(self, ts_code: str) -> bool:
         if ts_code.endswith('.SZ') and self.__cd not in self.__sz:
             return False
@@ -359,6 +357,8 @@ class SimContext(object):
         return True
 
     def __add_order(self, order: SimOrder):
+        if self.__cd not in self.__orders:
+            self.__orders[self.__cd] = []
         self.__orders[self.__cd].append(order)
         if order.available():
             self.info('Send order successfully. type: %d, code: %s, price: %s' % (
@@ -375,7 +375,7 @@ class SimContext(object):
     def get_holding(self):
         return self.__shares
 
-    def get_hold(self, ts_code):
+    def get_hold(self, ts_code) -> SimShareHold:
         return self.__shares[ts_code] if ts_code in self.__shares else None
 
     def get_dt(self):
@@ -384,31 +384,14 @@ class SimContext(object):
     def get_cash(self):
         return self.__cash
 
+    def get_holding_just_buy(self):
+        return self.__shares_just_buy
+
     def get_today_price(self, ts_code) -> MqDailyPrice:
         return self.__price[ts_code] if ts_code in self.__price else None
 
     def get_daily_records(self):
         return self.__records
-
-    def analyse(self):
-        self.info('-------------------Analyse start-------------------')
-        d = self.__sd
-        max_mv = self.__init_cash
-        last_mv = self.__init_cash
-        max_retrieve = 0
-        while d <= self.__ed:
-            if d in self.__records:
-                record: SimDailyRecord = self.__records[d]
-                mv = record.get_total()
-                if mv > max_mv:
-                    max_mv = mv
-                last_mv = mv
-                retrieve = (max_mv - last_mv) / max_mv
-                if retrieve > max_retrieve:
-                    max_retrieve = retrieve
-            d = format_delta(d, 1)
-        self.info('Final market value is %s' % last_mv)
-        self.info('Max retrieve: %s' % max_retrieve)
 
     """##################################### log part #####################################"""
 

@@ -1,14 +1,19 @@
 from decimal import Decimal
 
+from matplotlib import pyplot
+
 from moquant.log import get_logger
 from moquant.simulator.sim_context import SimContext
+from moquant.simulator.sim_daily_record import SimDailyRecord
 from moquant.simulator.sim_handler import SimHandler
 from moquant.simulator.data import SimDataService
+from moquant.utils import date_utils
 
 log = get_logger(__name__)
 
 
 class SimCenter(object):
+
     def __init__(self,
                  handler: SimHandler,
                  sd: dict(type=str, help="回测开始日期"),
@@ -17,16 +22,70 @@ class SimCenter(object):
                  charge: dict(type=Decimal, help="交易费率") = 0.00025,
                  tax: dict(type=Decimal, help="印花税率") = 0.001,
                  pass_tax: dict(type=Decimal, help="过户费率") = 0.00002):
+        self.__cash = cash
+        self.__sd = sd
+        self.__ed = ed
         self.h: SimHandler = handler
         self.d: SimDataService = SimDataService()
         self.c: SimContext = SimContext(self.d, sd, ed, cash, charge, tax, pass_tax)
+        self.__dr: dict = {}
 
     def run(self):
         while not self.c.is_finish():
+            dt = self.c.get_dt()
             self.c.day_init()
             self.h.morning_auction(self.c, self.d)
             self.c.deal_after_morning_auction()
             self.h.before_trade(self.c, self.d)
             self.c.deal_after_afternoon_auction()
             self.c.day_end()
-        self.c.analyse()
+            self.daily_record(dt)
+            self.c.next_day()
+        self.analyse()
+
+    def daily_record(self, dt: str):
+        """
+        交易日结束后
+        做净值记录
+        :param dt:
+        :return:
+        """
+        record = SimDailyRecord()
+        for (ts_code, share) in self.c.get_holding().items():  # type: str, SimShareHold
+            record.add_share(share)
+        for (ts_code, share) in self.c.get_holding_just_buy().items():  # type: str, SimShareHold
+            record.add_share(share)
+        record.add_cash(self.c.get_cash())
+        self.__dr[dt] = record
+        log.info("[%s] Market value. cash: %s. share: %s" % (dt, record.get_cash(), record.get_share_value()))
+
+    def analyse(self):
+        log.info('-------------------Analyse start-------------------')
+        d = self.__sd
+        max_mv = self.__cash
+        last_mv = self.__cash
+        max_retrieve = 0
+        va = [1]
+        da = [date_utils.format_delta(d, -1)]
+        while d <= self.__ed:
+            if d in self.__dr:
+                record: SimDailyRecord = self.__dr[d]
+                mv = record.get_total()
+                if mv > max_mv:
+                    max_mv = mv
+                last_mv = mv
+                retrieve = (max_mv - last_mv) / max_mv
+                if retrieve > max_retrieve:
+                    max_retrieve = retrieve
+
+                va.append(mv / self.__cash)
+                da.append(d)
+            d = date_utils.format_delta(d, 1)
+        log.info('Final market value is %s' % last_mv)
+        log.info('Max retrieve: %s' % max_retrieve)
+        log.info('-------------------Analyse end-------------------')
+
+        pyplot.plot(da, va, label="net value")
+        pyplot.xlabel("date")
+        pyplot.ylabel("value")
+        pyplot.show()

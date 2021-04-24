@@ -21,7 +21,7 @@ def run():
     if to_date is None:
         to_date = date_utils.get_current_dt()
 
-    fetch_dividend.update_dividend_to(dt=to_date)
+    # fetch_dividend.update_dividend_to(dt=to_date)
     fetch_trade_cal.fetch()
 
     init_ts_basic.init()
