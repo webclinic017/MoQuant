@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from moquant.log import get_logger
-from moquant.scripts.calculate import cal_mq_quarter, cal_message
+from moquant.scripts.calculate import cal_mq_quarter, cal_message, cal_mq_daily_price
 from moquant.scripts.calculate import cal_mq_daily
 from moquant.utils import date_utils
 
@@ -14,6 +14,7 @@ def run(ts_code, to_date=date_utils.get_current_dt()):
         return
     cal_mq_quarter.calculate_by_code(ts_code=ts_code, to_date=to_date)
     cal_mq_daily.calculate_by_code(ts_code=ts_code, to_date=to_date)
+    cal_mq_daily_price.calculate_by_code(ts_code=ts_code, to_date=to_date)
     cal_message.calculate_by_code(ts_code=ts_code, to_date=to_date)
 
 
@@ -27,6 +28,7 @@ def recalculate(ts_code: str, to_date=date_utils.get_current_dt(), from_date=Non
     else:
         cal_mq_quarter.recalculate_by_code(ts_code=ts_code, to_date=to_date)
         cal_mq_daily.recalculate_by_code(ts_code=ts_code, to_date=to_date)
+        cal_mq_daily_price.recalculate_by_code(ts_code=ts_code, to_date=to_date)
         cal_message.recalculate_by_code(ts_code=ts_code, to_date=to_date)
 
 
@@ -60,4 +62,5 @@ def get_val(obj: object, field: str = None, none_ret: Decimal = Decimal(0)) -> D
 def remove_after_fetch(ts_code: str, from_date: str):
     cal_mq_quarter.remove_from_date(ts_code, from_date)
     cal_mq_daily.remove_from_date(ts_code, from_date)
+    cal_mq_daily_price.remove_from_date(ts_code, from_date)
     cal_message.remove_from_date(ts_code, from_date)

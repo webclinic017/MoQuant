@@ -17,6 +17,7 @@ from moquant.dbclient.ts_express import TsExpress
 from moquant.dbclient.ts_fina_indicator import TsFinaIndicator
 from moquant.dbclient.ts_forecast import TsForecast
 from moquant.dbclient.ts_income import TsIncome
+from moquant.dbclient.ts_stk_limit import TsStkLimit
 from moquant.log import get_logger
 from moquant.tsclient import ts_client
 from moquant.utils import compare_utils
@@ -37,15 +38,24 @@ def fetch_from_date(date_column: dict(type=str, help='对应发布日期的字�
     return from_date
 
 
-def common_fetch_data(ts_code: dict(type=str, help='股票编码'),
-                      api_name: dict(type=str, help='调用tsclient的方法名'),
-                      table: dict(type=Table, help='sqlalchemy的表定义'),
-                      date_field: dict(type=str, help='对应发布日期的字段名 用于获取该类型数据在DB中最新日期'),
-                      code_field: dict(type=str, help='对应股票编码的字段名'),
-                      empty_to_end: dict(type=bool, help='是否获取到空返回时就结束') = False,
-                      to_date: dict(type=str, help='数据要获取到哪天') = get_current_dt(),
-                      to_do: dict(type=bool, help='是否要进行此次获取') = True,
+def common_fetch_data(ts_code: str, api_name: str, table: Table,
+                      date_field: str, code_field: str,
+                      empty_to_end: bool = False,
+                      to_date: str = get_current_dt(), to_do: bool = True,
                       **kwargs):
+    """
+
+    :param ts_code: 股票编码
+    :param api_name: 调用tsclient的方法名
+    :param table: sqlalchemy的表定义
+    :param date_field: 对应发布日期的字段名 用于获取该类型数据在DB中最新日期
+    :param code_field: 对应股票编码的字段名
+    :param empty_to_end: 是否获取到空返回时就结束
+    :param to_date: 数据要获取到哪天
+    :param to_do: 是否要进行此次获取
+    :param kwargs:
+    :return:
+    """
     if not to_do:
         return False, None
     to_date = format_delta(to_date, 1)
@@ -132,5 +142,9 @@ def fetch_data_by_code(ts_code: dict(type=str, help='股票编码'),
     r, d6 = common_fetch_data(ts_code, 'fetch_express', TsExpress,
                               TsExpress.ann_date, TsExpress.ts_code,
                               to_date=to_date, to_do=r)
+    # https://tushare.pro/document/2?doc_id=183
+    r, d7 = common_fetch_data(ts_code, 'fetch_stk_limit', TsStkLimit,
+                              TsStkLimit.trade_date, TsStkLimit.ts_code,
+                              to_date=to_date, to_do=r)
 
-    return r, compare_utils.mini(d1, d2, d3, d4, d5, d6)
+    return r, compare_utils.mini(d1, d2, d3, d4, d5, d6, d7)

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from moquant.dbclient import db_client
 from moquant.dbclient.ts_basic import TsBasic
 from moquant.scripts import calculate
-from moquant.scripts.fetch import fetch_dividend, fetch_stk_limit, fetch_trade_cal, fetch_data, clear_after_fetch
+from moquant.scripts.fetch import fetch_dividend, fetch_trade_cal, fetch_data, clear_after_fetch
 from moquant.utils import date_utils, threadpool, env_utils
 from moquant.scripts.fetch import init_ts_basic
 
@@ -22,7 +22,6 @@ def run():
         to_date = date_utils.get_current_dt()
 
     fetch_dividend.update_dividend_to(dt=to_date)
-    fetch_stk_limit.update_stk_limit_to(dt=to_date)
     fetch_trade_cal.fetch()
 
     init_ts_basic.init()

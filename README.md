@@ -20,10 +20,10 @@ Key|Value|Desc
 复制ts.json.sample至ts.json。
 
 到https://tushare.pro/注册获取token，本脚本需要至少620积分。
-
 ## TODO List
 |待完成点|优先级|备注|
 |:----:|:----:|:----:|
+|前复权价格不准|高|复权因子的精度太低了|
 |回测框架|高|快捷获取所有指标|
 
 ## 备忘

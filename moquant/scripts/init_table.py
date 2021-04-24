@@ -5,6 +5,7 @@
 import moquant.dbclient as client
 from moquant.dbclient.base import Base
 from moquant.dbclient.mq_daily_metric import MqDailyMetric
+from moquant.dbclient.mq_daily_price import MqDailyPrice
 from moquant.dbclient.mq_dcf_config import MqDcfConfig
 from moquant.dbclient.mq_manual_metric import MqManualMetric
 from moquant.dbclient.mq_message import MqMessage
@@ -28,7 +29,7 @@ from moquant.dbclient.ts_trade_cal import TsTradeCal
 def create_table():
     engine = client.db_client.get_engine()
     all_table = [MqSysParam, MqManualMetric, MqDcfConfig,
-                 MqQuarterMetric, MqDailyMetric, MqMessage,
+                 MqQuarterMetric, MqDailyMetric, MqMessage, MqDailyPrice,
                  TsBasic, TsDailyBasic, TsDailyTradeInfo, TsAdjFactor,
                  TsIncome, TsBalanceSheet, TsCashFlow, TsForecast, TsExpress,
                  TsFinaIndicator, TsDividend, TsStkLimit, TsTradeCal]

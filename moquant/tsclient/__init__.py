@@ -144,5 +144,11 @@ class TsClient(object):
                         end_date: str = None):
         return self.__pro.stk_limit(ts_code=ts_code, trade_date=trade_date, start_date=start_date, end_date=end_date)
 
+    def get_pro(self):
+        return self.__pro
+
+    def get_ts(self):
+        return self.__ts
+
 
 ts_client = TsClient()

@@ -53,5 +53,22 @@ class DBClient(object):
     def get_session(self, is_auto_commit: bool = True) -> Session:
         return self.__session_auto() if is_auto_commit else self.__session()
 
+    def batch_insert(self, to_insert: list):
+        """
+        批量插入数据
+        :param to_insert: 需要插入的数据
+        :return:
+        """
+        if len(to_insert) > 0:
+            s: Session = db_client.get_session()
+            i = 0
+            for item in to_insert:
+                s.add(item)
+                i += 1
+                if i % 1000 == 0:
+                    s.flush()
+            s.flush()
+            s.close()
+
 
 db_client = DBClient()

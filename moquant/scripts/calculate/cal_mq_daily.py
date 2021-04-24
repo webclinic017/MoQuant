@@ -260,7 +260,7 @@ def calculate_one(ts_code: str, share_name: str, to_date: str = date_utils.get_c
         from_date = date_utils.format_delta(from_date, 1)
 
     calculate_time = time.time()
-    log.info("Calculate mq_daily_indicator for %s: %s seconds" % (ts_code, calculate_time - prepare_time))
+    log.info("Calculate %s for %s: %s seconds" % (MqDailyMetric.__tablename__, ts_code, calculate_time - prepare_time))
     return result_list
 
 
@@ -273,9 +273,9 @@ def calculate_and_insert(ts_code: str, share_name: str, to_date: str = date_util
             session.add(item)
         session.flush()
         session.close()
-        log.info("Insert mq_daily_indicator for %s: %s seconds" % (ts_code, time.time() - start_time))
+        log.info("Insert %s for %s: %s seconds" % (MqDailyMetric.__tablename__, ts_code, time.time() - start_time))
     else:
-        log.info('Nothing to insert into mq_daily_indicator %s' % ts_code)
+        log.info('Nothing to insert into %s %s' % (MqDailyMetric.__tablename__, ts_code))
 
 
 def calculate_by_code(ts_code: str, to_date: str = date_utils.get_current_dt()):

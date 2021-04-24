@@ -116,3 +116,31 @@ def negative(num):
         return 0
     else:
         return num * (-1)
+
+
+def equals(a: Decimal, b: Decimal) -> bool:
+    """
+    判断两个数是否相等，相差1e-9以内即可
+    :param a:
+    :param b:
+    :return: 是否精度内相等
+    """
+    if a is None and b is None:
+        return True
+    elif a is None:
+        return False
+    elif b is None:
+        return False
+    else:
+        return abs(a - b) < 1e-9
+
+
+def cal_qfq(ori: Decimal, now_adj: Decimal, latest_ajd: Decimal) -> Decimal:
+    """
+    根据复权因子计算前复权价格，复权因子相等则不计算避免误差出现
+    :param ori: 原来的值
+    :param now_adj: 当天的复权因子
+    :param latest_ajd: 最新的复权因子
+    :return: 前复权价格
+    """
+    return ori if equals(now_adj, latest_ajd) else round(div(mul(ori, now_adj), latest_ajd), 2)

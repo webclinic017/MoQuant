@@ -597,8 +597,6 @@ def cal_fcf(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_co
         ])
 
     else:
-        dprofit = call_find(name='dprofit')
-
         dprofit_ltm_lp = call_find_lp(name='dprofit_ltm')
         fcf_ltm_lp = call_find_lp(name='fcf_ltm')
         dprofit = call_find(name='dprofit')
@@ -606,7 +604,7 @@ def cal_fcf(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_co
             dprofit, quarter_cal_utils.dividend(fcf_ltm_lp, dprofit_ltm_lp, '_'), 'fcf'
         )
 
-    if fcf is None:
+    if fcf is None or fcf.period != period:
         call_log(name='fcf')
     else:
         call_add(to_add=fcf)
@@ -754,9 +752,9 @@ def calculate_and_insert(ts_code: str, share_name: str, to_date=date_utils.get_c
             session.add(item)
         session.flush()
         session.close()
-        log.info("Insert mq_quarter_indicator for %s: %s seconds" % (ts_code, time.time() - start))
+        log.info("Insert %s for %s: %s seconds" % (MqQuarterMetric.__tablename__, ts_code, time.time() - start))
     else:
-        log.info('Nothing to insert into mq_quarter_indicator %s' % ts_code)
+        log.info('Nothing to insert into %s %s' % (MqQuarterMetric.__tablename__, ts_code))
 
 
 def calculate_by_code(ts_code: str, to_date=date_utils.get_current_dt()):
