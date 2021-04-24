@@ -60,14 +60,8 @@ class DBClient(object):
         :return:
         """
         if len(to_insert) > 0:
-            s: Session = db_client.get_session()
-            i = 0
-            for item in to_insert:
-                s.add(item)
-                i += 1
-                if i % 1000 == 0:
-                    s.flush()
-            s.flush()
+            s: Session = self.get_session()
+            s.bulk_save_objects(to_insert)
             s.close()
 
 

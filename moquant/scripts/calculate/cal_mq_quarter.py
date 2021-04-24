@@ -746,12 +746,8 @@ def calculate_one(ts_code: str, share_name: str, from_date: str = None, to_date=
 def calculate_and_insert(ts_code: str, share_name: str, to_date=date_utils.get_current_dt()):
     result_list = calculate_one(ts_code, share_name, to_date=to_date)
     if len(result_list) > 0:
-        session: Session = db_client.get_session()
         start = time.time()
-        for item in result_list:  # type: MqQuarterBasic
-            session.add(item)
-        session.flush()
-        session.close()
+        db_client.batch_insert(result_list)
         log.info("Insert %s for %s: %s seconds" % (MqQuarterMetric.__tablename__, ts_code, time.time() - start))
     else:
         log.info('Nothing to insert into %s %s' % (MqQuarterMetric.__tablename__, ts_code))

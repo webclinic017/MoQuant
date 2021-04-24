@@ -143,4 +143,5 @@ def cal_qfq(ori: Decimal, now_adj: Decimal, latest_ajd: Decimal) -> Decimal:
     :param latest_ajd: 最新的复权因子
     :return: 前复权价格
     """
-    return ori if equals(now_adj, latest_ajd) else round(div(mul(ori, now_adj), latest_ajd), 2)
+    return ori if equals(now_adj, latest_ajd) else \
+        div(mul(ori, now_adj), latest_ajd).quantize(Decimal('1.00'), rounding='ROUND_UP')

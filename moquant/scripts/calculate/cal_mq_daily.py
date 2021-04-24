@@ -231,6 +231,7 @@ def calculate_one(ts_code: str, share_name: str, to_date: str = date_utils.get_c
     while from_date <= to_date:
         is_trade_day: bool = False
         if len(stk_limit_arr) > 0 and stk_limit_arr[0].trade_date == from_date:
+            stk_limit_arr.pop(0)
             is_trade_day = True
 
         if is_trade_day:
@@ -268,11 +269,7 @@ def calculate_and_insert(ts_code: str, share_name: str, to_date: str = date_util
     result_list = calculate_one(ts_code, share_name, to_date)
     if len(result_list) > 0:
         start_time = time.time()
-        session: Session = db_client.get_session()
-        for item in result_list:  # type: MqDailyMetric
-            session.add(item)
-        session.flush()
-        session.close()
+        db_client.batch_insert(result_list)
         log.info("Insert %s for %s: %s seconds" % (MqDailyMetric.__tablename__, ts_code, time.time() - start_time))
     else:
         log.info('Nothing to insert into %s %s' % (MqDailyMetric.__tablename__, ts_code))
@@ -300,3 +297,6 @@ def remove_from_date(ts_code: str, from_date: str):
     session.query(MqDailyMetric).filter(MqDailyMetric.ts_code == ts_code,
                                         MqDailyMetric.update_date >= from_date).delete()
     session.close()
+
+if __name__ == '__main__':
+    calculate_by_code('002762.SZ')

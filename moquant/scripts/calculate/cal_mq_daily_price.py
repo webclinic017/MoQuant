@@ -121,6 +121,7 @@ def calculate_by_code(ts_code: str, to_date: str = date_utils.get_current_dt()):
                 p = MqDailyPrice(ts_code=ts_code, div_date=last_div_date, latest_adj=last_adj,
                                  trade_date=last_trade_date, adj=adj.adj_factor, is_trade=0)
             else:
+                # 虽然前一天收盘价是前复权的，t-1当天的复权因子 / t的复权因子 * t的复权因子 / 最新的复权因子，所以没有影响
                 p = MqDailyPrice(ts_code=ts_code, div_date=last_div_date, latest_adj=last_adj,
                                  trade_date=last_trade_date, adj=adj.adj_factor, is_trade=1,
                                  open=t.open, close=t.close, high=t.high, low=t.low,
@@ -135,7 +136,9 @@ def calculate_by_code(ts_code: str, to_date: str = date_utils.get_current_dt()):
             to_insert.append(p)
             last_trade_date = date_utils.format_delta(last_trade_date, 1)
         else:
+            log.info("batch start insert %d" % len(to_insert))
             db_client.batch_insert(to_insert)
+            log.info("batch end insert %d" % len(to_insert))
             to_insert = []
             # 更正一下最新的复权因子，从上市日重新计算
             last_div_date = last_trade_date
@@ -173,3 +176,7 @@ def remove_from_date(ts_code: str, from_date: str):
     session.query(MqDailyPrice).filter(MqDailyPrice.ts_code == ts_code,
                                        MqDailyPrice.trade_date >= from_date).delete()
     session.close()
+
+
+if __name__ == '__main__':
+    calculate_by_code('002762.SZ')

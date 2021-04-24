@@ -83,11 +83,7 @@ def calculate_by_code(ts_code, to_date: str = date_utils.get_current_dt()):
 
     if len(report_message_list) > 0:
         start = time.time()
-        session: Session = db_client.get_session()
-        for item in report_message_list:  # type: MqMessage
-            session.add(item)
-        session.flush()
-        session.close()
+        db_client.batch_insert(report_message_list)
         log.info("Insert mq_message for %s: %s seconds" % (ts_code, time.time() - start))
     else:
         log.info('Nothing to insert into mq_message %s' % ts_code)
