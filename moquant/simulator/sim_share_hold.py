@@ -14,11 +14,11 @@ class SimShareHold(object):
     __can_trade: bool  # 是否可以交易
     __on_sell: Decimal  # 在售数量
 
-    def __init__(self, ts_code, num, current_price: Decimal,
+    def __init__(self, ts_code, num, current_price: Decimal, buy_cost: Decimal,
                  win_rate: Decimal = 0.25, lose_rate: Decimal = -0.08):
         self.__ts_code = ts_code
         self.__holding_num = Decimal(num)
-        self.__cost = Decimal(current_price) * Decimal(num)
+        self.__cost = buy_cost
         self.__current_price = Decimal(current_price)
         self.__win_rate = Decimal(win_rate)
         self.__lose_rate = Decimal(lose_rate)
@@ -62,6 +62,9 @@ class SimShareHold(object):
     def get_mv(self):
         return self.__holding_num * self.__current_price
 
+    def get_current_price(self):
+        return self.__current_price
+
     """##################################### update part #####################################"""
 
     def sub_cost_for_dividend(self, cash: Decimal):
@@ -89,7 +92,7 @@ class SimShareHold(object):
         """
         self.__holding_num = self.__holding_num + delta_num
         if delta_num < 0:  # 卖出成功，减少在售数量
-            self.__on_sell -= delta_num
+            self.__on_sell = self.__on_sell + delta_num
         self.__cost = self.__cost + cost
 
     def clear_unsell(self):

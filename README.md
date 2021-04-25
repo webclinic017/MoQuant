@@ -10,25 +10,24 @@ Key|Value|Desc
 |MQ_DB_SCHEMA|xxx|所用database|
 |DB_USER|root|mysql 用户|
 |DB_PWD|password|mysql 密码|
-|ECHO_SQL|1|输出Sql
+|ECHO_SQL|1|输出Sql|
 
 
 ## Database - MySql
 复制db_info.json.sample至db_info.json, 填你自己的MySQL信息. 
 
 ## TuShare
-复制ts.json.sample至ts.json。
+到 https://tushare.pro/ 注册获取token，本脚本需要至少800积分。
 
-到https://tushare.pro/注册获取token，本脚本需要至少620积分。
 ## TODO List
 |待完成点|优先级|备注|
 |:----:|:----:|:----:|
-|前复权价格不准|高|复权因子的精度太低了|
+|相同走势|中|个股跟指数|
 |回测框架|低|分红扣税，配股可卖时间|
-|回测框架|高|快捷获取所有指标|
+|回测框架|高|指标缓存|
 
 
 ## 备忘
 |注意点|备注|
 |:----:|:----:|
-|复权相关|需要回测时再计算，要根据当时数据算前复权|
+|前复权价格不准|复权因子的精度太低了|

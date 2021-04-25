@@ -9,7 +9,7 @@ from moquant.simulator.sim_share_hold import SimShareHold
 log = get_logger(__name__)
 
 
-class FoolStrategyHandler(SimHandler):
+class NormalBuy(SimHandler):
 
     def init(self, context: SimContext, data: SimDataService):
         pass
@@ -28,6 +28,6 @@ class FoolStrategyHandler(SimHandler):
 
 
 if __name__ == '__main__':
-    strategy: FoolStrategyHandler = FoolStrategyHandler()
+    strategy: NormalBuy = NormalBuy()
     center: SimCenter = SimCenter(strategy, '20200428', '20200528')
     center.run()

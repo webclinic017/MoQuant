@@ -19,4 +19,8 @@
     - 分红登记
     - 清空未成交订单
 7. center - daily_record - 记录净值
-8. context - next_day - 进入下一天
+8. handler - after_trade - 每日结束
+9. context - next_day - 进入下一天
+
+### 测试相关
+见 [覆盖情况](https://github.com/SYSU-Momojie/MoQuant/blob/master/moquant/simulator/test/README.md)

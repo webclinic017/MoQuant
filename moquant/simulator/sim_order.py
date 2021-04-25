@@ -1,24 +1,32 @@
 from decimal import Decimal
 
+from moquant.simulator.constants import order_status, order_type
+
 
 class SimOrder(object):
     __msg: str
-    __type: int  # 0 sell 1 buy
+    __type: int
     __ts_code: str
     __num: int
     __price: Decimal
-    __status: int  # 0 sent, 1 deal, -1 rejected, -2 retrieve, -99 not available
+    __cost: Decimal
+    __status: int
 
-    def __init__(self, type: int, ts_code: str, num: int, price: Decimal, success: bool = True, msg: str = ''):
-        self.__type = type
+    __deal_price: Decimal
+    __deal_cost: Decimal
+
+    def __init__(self, t: int, ts_code: str, num: int, price: Decimal, cost: Decimal,
+                 success: bool = True, msg: str = ''):
+        self.__type = t
         self.__ts_code = ts_code
         self.__num = num
         self.__price = price
+        self.__cost = cost
         self.__msg = msg
-        self.__status = 0 if success else -1
+        self.__status = order_status.sent if success else order_status.fail
 
     def available(self):
-        return self.__status == 0
+        return self.__status == order_status.sent
 
     def get_order_type(self):
         return self.__type
@@ -36,12 +44,42 @@ class SimOrder(object):
         return self.__msg
 
     def is_deal(self):
-        return self.__status == 1
+        return self.__status == order_status.deal
+
+    def get_cost(self):
+        return self.__cost
+
+    def is_buy_order(self):
+        return self.__type == order_type.buy
+
+    def is_sell_order(self):
+        return self.__type == order_type.sell
+
+    def get_deal_price(self):
+        return self.__deal_price
+
+    def get_deal_cost(self):
+        """
+        买入= 买入话费 + 手续费
+        卖出= 手续费
+        :return: 订单成交的花费
+        """
+        return self.__deal_cost
 
     """##################################### update part #####################################"""
 
-    def deal(self):
-        self.__status = 1
+    def deal(self, deal_price: Decimal, deal_cost: Decimal):
+        """
+        成交后更新订单
+        :param deal_price:
+        :param deal_cost:
+        """
+        self.__status = order_status.deal
+        self.__deal_price = deal_price
+        self.__deal_cost = deal_cost
 
     def day_pass(self):
-        self.__status = -99
+        """
+        天过去后把旧订单作废
+        """
+        self.__status = order_status.outdated

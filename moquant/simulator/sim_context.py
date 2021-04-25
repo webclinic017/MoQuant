@@ -4,9 +4,11 @@ from decimal import Decimal
 from moquant.dbclient.mq_daily_price import MqDailyPrice
 from moquant.dbclient.ts_dividend import TsDividend
 from moquant.log import get_logger
+from moquant.simulator.constants import order_type
 from moquant.simulator.sim_dividend import SimDividend
 from moquant.simulator.sim_order import SimOrder
 from moquant.simulator.sim_share_hold import SimShareHold
+from moquant.utils import decimal_utils
 from moquant.utils.date_utils import format_delta
 from moquant.simulator.data import SimDataService
 
@@ -53,7 +55,6 @@ class SimContext(object):
         self.__update_for_dividend()
         self.__fetch_today_price()
         self.__update_price_to_pre_close()
-
 
     def __merge_yesterday_buy(self):
         """
@@ -115,15 +116,19 @@ class SimContext(object):
                 hold.update_price(price.pre_close_qfq)
 
     def deal_after_morning_auction(self):
-        order_list: list = self.__orders[self.__cd]
+        """
+        早盘竞价后成交，仅需要判断开盘价
+        :return:
+        """
+        order_list: list = self.get_today_orders()
         for order in order_list:  # type: SimOrder
             if not order.available():
                 continue
             price: MqDailyPrice = self.get_today_price(order.get_ts_code())
-            if order.get_order_type() == 0:
+            if order.is_sell_order():
                 if order.get_price() < price.open:
                     self.__deal_sell(order, price.open)
-            elif order.get_order_type() == 1:
+            elif order.is_buy_order():
                 if order.get_price() > price.open:
                     self.__deal_buy(order, price.open)
         self.__update_price_to_open()
@@ -135,16 +140,16 @@ class SimContext(object):
                 hold.update_price(price.open)
 
     def deal_after_afternoon_auction(self):
-        order_list: list = self.__orders[self.__cd]
+        order_list: list = self.get_today_orders()
         for order in order_list:  # type: SimOrder
             if not order.available():
                 continue
             price: MqDailyPrice = self.get_today_price(order.get_ts_code())
-            if order.get_order_type() == 0:
+            if order.is_sell_order():
                 if order.get_price() < price.high:
                     self.__deal_sell(order,
                                      order.get_price() if order.get_price() > price.low else price.low)
-            elif order.get_order_type() == 1:
+            elif order.is_buy_order():
                 if order.get_price() > price.low:
                     self.__deal_buy(order,
                                     order.get_price() if order.get_price() < price.high else price.high)
@@ -225,6 +230,18 @@ class SimContext(object):
         if self.__cd not in self.__sz and self.__cd not in self.__sh:
             self.next_day()
 
+    def is_first_day(self):
+        """
+        :return: 是否第一天
+        """
+        return self.__cd == self.__sd
+
+    def is_last_day(self):
+        """
+        :return: 是否最后一天
+        """
+        return self.__cd == self.__ed
+
     def is_finish(self):
         """
         是否回测结束
@@ -234,8 +251,17 @@ class SimContext(object):
     """##################################### deal part #####################################"""
 
     def __deal_sell(self, order: SimOrder, deal_price: Decimal):
-        if order.get_order_type() != 0:
-            self.error('[deal_sell] Not sell type order')
+        """
+        卖出成交
+        1. 计算手续费
+        2. 增加现金
+        3. 减少持股数量
+        4. 更新订单状态
+        :param order: 卖出订单
+        :param deal_price: 成交价格
+        """
+        if not order.is_sell_order():
+            raise Exception('Not a sell order %s' % order)
             return
         ts_code = order.get_ts_code()
         hold: SimShareHold = self.__shares[ts_code] if ts_code in self.__shares else None
@@ -243,37 +269,44 @@ class SimContext(object):
             self.error('[deal_sell] not holding %s' % ts_code)
             return
         earn = order.get_num() * deal_price
-        charge_cost = self.__get_charge_cost(earn)
-        pass_cost = self.__get_pass_cost(order.get_num())
-        tax_cost = self.__get_tax_cost(earn)
-        deal_cost = charge_cost + pass_cost + tax_cost
-        hold.update_after_deal(order.get_num() * (-1), deal_cost - earn)
-        self.__cash = self.__cash + earn - deal_cost
-        self.info(
-            "Sell %s of %s with price %s. Tax: %s" % (order.get_num(), order.get_ts_code(), deal_price, deal_cost))
-        order.deal()
+        deal_cost = self.__get_total_sell_cost(earn)
+        net_earn = earn - deal_cost
+        self.info("Sell %s of %s with price %.2f. Tax: %.2f. Profit: %.2f" %
+                  (order.get_num(), order.get_ts_code(), deal_price, deal_cost, net_earn - hold.get_cost()))
+
+        hold.update_after_deal(order.get_num() * (-1), deal_cost - net_earn)
+        self.__cash = self.__cash + net_earn
+        order.deal(deal_price, deal_cost)
 
     def __deal_buy(self, order: SimOrder, deal_price: Decimal):
-        if order.get_order_type() != 1:
-            self.error('[deal_buy] Not buy type order')
-            return
+        """
+        买入成交
+        1. 计算总费用
+        2. 回退未使用金额
+        3. 增加持股
+        4. 更新订单状态
+        :param order: 买入订单
+        :param deal_price:
+        :return:
+        """
+        if not order.is_buy_order():
+            raise Exception('Not a buy order %s' % order)
         ts_code = order.get_ts_code()
         hold: SimShareHold = self.get_hold(ts_code)
         buy_cost = order.get_num() * deal_price
-        charge_cost = self.__get_charge_cost(buy_cost)  # 券商佣金
-        pass_cost = self.__get_pass_cost(buy_cost)  # 过户费
-        deal_cost = charge_cost + pass_cost
+        deal_cost = self.__get_deal_buy_cost(buy_cost)
+        total_buy_cost = buy_cost + deal_cost
         if hold is None:
-            hold = SimShareHold(ts_code, order.get_num(), deal_price)
+            hold = SimShareHold(ts_code, order.get_num(), deal_price, total_buy_cost)
             self.__shares[ts_code] = hold
-            hold.update_after_deal(0, deal_cost)  # 增加手续费
         else:
-            hold.update_after_deal(order.get_num(), buy_cost + deal_cost)
+            hold.update_after_deal(order.get_num(), total_buy_cost)
 
-        self.__cash = self.__cash + (order.get_num() * order.get_price()) - buy_cost - deal_cost
+        self.__cash = self.__cash + order.get_cost() - total_buy_cost
         self.info("Buy %s of %s with price %s. Pay cost: %s. Deal cost: %s" %
                   (order.get_num(), order.get_ts_code(), deal_price, buy_cost, deal_cost))
-        order.deal()
+
+        order.deal(deal_price, total_buy_cost)
 
     def __get_tax_cost(self, deal):
         return deal * self.__tax
@@ -290,11 +323,21 @@ class SimContext(object):
     """##################################### send order part #####################################"""
 
     def sell_share(self, ts_code: str, num: Decimal = 0, price: Decimal = 0) -> SimOrder:
+        """
+        按价格卖出
+        :param ts_code: 股票编码
+        :param num: 卖出数量
+        :param price: 卖出价格
+        :return: 卖出订单
+        """
         order: SimOrder = None
         msg: str = None
         if not self.__can_trade(ts_code):
             msg = 'Cant trade %s in %s' % (ts_code, self.__cd)
         elif ts_code not in self.__price:
+            msg = 'Cant find price of %s' % ts_code
+            self.error(msg)
+        elif self.__price[ts_code].is_trade == 0:
             msg = '%s is in suspension' % ts_code
         elif num == 0:
             msg = 'You cant sell nothing'
@@ -305,16 +348,22 @@ class SimContext(object):
             if share.get_can_sell() < num:
                 msg = 'You have only %d of %s that can be sold' % (share.get_can_sell(), ts_code)
             else:
-                order = SimOrder(0, ts_code, num, price)
-                share.update_on_sell(num)
+                order = self.__gen_sell_order(ts_code, price, num)
 
         if msg is not None:
-            order = SimOrder(0, ts_code, num, price, False, msg)
+            order = SimOrder(0, ts_code, num, price, 0, False, msg)
         self.__add_order(order)
         return order
 
     # Buy share with cash as more as possible
-    def buy_amap(self, ts_code: str, price: Decimal, cash: Decimal = None):
+    def buy_amap(self, ts_code: str, price: Decimal, cash: Decimal = None) -> SimOrder:
+        """
+        按照金额、价格尽量购买，会算入手续费
+        :param ts_code: 买入股票
+        :param price: 买入价格
+        :param cash: 所用资金
+        :return: 下单结果
+        """
         order: SimOrder = None
         msg: str = None
         if cash is None:
@@ -323,23 +372,75 @@ class SimContext(object):
             cash = self.__cash
 
         num = self.get_max_can_buy(cash, price)
-        total_cost = num * price
+
         if not self.__can_trade(ts_code):
             msg = 'Cant trade %s in %s' % (ts_code, self.__cd)
         elif ts_code not in self.__price:
-            msg = '%s is in suspension' % ts_code
+            msg = 'Cant find price of %s' % ts_code
+            self.error(msg)
+        elif self.__price[ts_code].is_trade == 0:
+            msg = '%s is suspended' % ts_code
         elif num == 0:
             msg = 'You cant buy anything'
 
         if msg is None:
-            order = SimOrder(1, ts_code, num, price)
-            self.__cash -= total_cost
+            order: SimOrder = self.__gen_buy_order(ts_code, price, num)
+            self.__cash -= order.get_cost()
         else:
-            order = SimOrder(1, ts_code, num, price, False, msg)
+            order = SimOrder(1, ts_code, num, price, 0, False, msg)
         self.__add_order(order)
         return order
 
-    def get_max_can_buy(self, cash: Decimal, price: Decimal):
+    def __gen_buy_order(self, ts_code: str, price: Decimal, num: int):
+        """
+        生成买入订单
+        :param ts_code: 股票编码
+        :param price: 买入价格
+        :param num: 买入数量
+        :return: 买入订单
+        """
+        buy_cost: Decimal = num * price
+        total_buy_cost = self.__get_total_buy_cost(buy_cost)
+        return SimOrder(order_type.buy, ts_code, num, price, total_buy_cost)
+
+    def __get_total_buy_cost(self, buy_cost: Decimal) -> Decimal:
+        """
+        根据买入金额获取买入总费用
+        :param buy_cost: 纯股票买入金额
+        :return: 总费用 = 纯股票买入金额 + 手续费
+        """
+        deal_cost = self.__get_deal_buy_cost(buy_cost)
+        return buy_cost + deal_cost
+
+    def __get_deal_buy_cost(self, buy_cost: Decimal):
+        """
+        买入手续费
+        :param buy_cost: 纯股票买入金额
+        :return: 手续费 = 佣金 + 过户费
+        """
+        return self.__get_charge_cost(buy_cost) + self.__get_pass_cost(buy_cost)
+
+    def __gen_sell_order(self, ts_code: str, price: Decimal, num: int):
+        """
+        生成卖出订单
+        :param ts_code: 股票编码
+        :param price: 卖出价格
+        :param num: 卖出数量
+        :return: 卖出订单
+        """
+        earn: Decimal = num * price
+        return SimOrder(order_type.sell, ts_code, num, price, self.__get_total_sell_cost(earn))
+
+    def __get_total_sell_cost(self, buy_cost: Decimal) -> Decimal:
+        """
+        根据卖出金额获取卖出总费用
+        手续费 = 佣金 + 过户费 + 印花税
+        :param buy_cost: 股票卖出金额
+        :return: 总费用 = 手续费
+        """
+        return self.__get_charge_cost(buy_cost) + self.__get_pass_cost(buy_cost) + self.__get_tax_cost(buy_cost)
+
+    def get_max_can_buy(self, cash: Decimal, price: Decimal) -> int:
         """
         获取最大可买数量，包括手续费
         :param cash: 可用现金
@@ -347,7 +448,6 @@ class SimContext(object):
         :return: 可买数量
         """
         return math.floor(cash / (1 + self.__charge + self.__pass) / (price * 100)) * 100
-
 
     def __can_trade(self, ts_code: str) -> bool:
         if ts_code.endswith('.SZ') and self.__cd not in self.__sz:
@@ -361,13 +461,37 @@ class SimContext(object):
             self.__orders[self.__cd] = []
         self.__orders[self.__cd].append(order)
         if order.available():
-            self.info('Send order successfully. type: %d, code: %s, price: %s' % (
-            order.get_order_type(), order.get_ts_code(), order.get_price()))
+            self.info('Send order successfully. type: %d, code: %s, price: %.2f' %
+                      (order.get_order_type(), order.get_ts_code(), order.get_price()))
+            if order.is_sell_order():
+                ts_code = order.get_ts_code()
+                share: SimShareHold = self.__shares[ts_code]
+                if ts_code not in self.__shares:
+                    raise Exception('No holding of %s' % ts_code)
+                share.update_on_sell(order.get_num())
         else:
             self.warn('Send order fail. type: %d, code: %s, reason: %s' %
                       (order.get_order_type(), order.get_ts_code(), order.get_msg()))
 
     """##################################### get info part #####################################"""
+
+    def get_charge(self):
+        """
+        :return: 佣金比例
+        """
+        return self.__charge
+
+    def get_tax(self):
+        """
+        :return: 印花税率
+        """
+        return self.__tax
+
+    def get_pass_tax(self):
+        """
+        :return: 过户税率
+        """
+        return self.__pass
 
     def get_simulate_period(self):
         return self.__sd, self.__ed
@@ -381,6 +505,9 @@ class SimContext(object):
     def get_dt(self):
         return self.__cd
 
+    def get_init_cash(self):
+        return self.__init_cash
+
     def get_cash(self):
         return self.__cash
 
@@ -392,6 +519,9 @@ class SimContext(object):
 
     def get_daily_records(self):
         return self.__records
+
+    def get_today_orders(self):
+        return self.__orders[self.__cd] if self.__cd in self.__orders else []
 
     """##################################### log part #####################################"""
 

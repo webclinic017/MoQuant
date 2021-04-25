@@ -12,3 +12,6 @@ class SimHandler(object):
 
     def before_trade(self, context: SimContext, data: SimDataService):
         pass
+
+    def after_trade(self, context: SimContext, data: SimDataService):
+        pass

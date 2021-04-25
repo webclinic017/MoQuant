@@ -40,6 +40,7 @@ class SimCenter(object):
             self.c.deal_after_afternoon_auction()
             self.c.day_end()
             self.daily_record(dt)
+            self.h.after_trade(self.c, self.d)
             self.c.next_day()
         self.analyse()
 
@@ -57,7 +58,7 @@ class SimCenter(object):
             record.add_share(share)
         record.add_cash(self.c.get_cash())
         self.__dr[dt] = record
-        log.info("[%s] Market value. cash: %s. share: %s" % (dt, record.get_cash(), record.get_share_value()))
+        log.info("[%s] Market value. cash: %.2f. share: %.2f" % (dt, record.get_cash(), record.get_share_value()))
 
     def analyse(self):
         log.info('-------------------Analyse start-------------------')
@@ -81,8 +82,8 @@ class SimCenter(object):
                 va.append(mv / self.__cash)
                 da.append(d)
             d = date_utils.format_delta(d, 1)
-        log.info('Final market value is %s' % last_mv)
-        log.info('Max retrieve: %s' % max_retrieve)
+        log.info('Final market value is %.2f' % last_mv)
+        log.info('Max retrieve: %.2f' % max_retrieve)
         log.info('-------------------Analyse end-------------------')
 
         pyplot.plot(da, va, label="net value")
