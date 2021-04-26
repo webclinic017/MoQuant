@@ -134,11 +134,8 @@ class TsClient(object):
     def fetch_disclosure_date(self, date: str) -> DataFrame:
         return self.__pro.disclosure_date(pre_date=date)
 
-    def fetch_trade_cal(self, start_date=None, end_date=None, is_open=None) -> DataFrame:
-        df1: DataFrame = self.__pro.trade_cal(exchange='SSE', start_date=start_date, end_date=end_date, is_open=is_open)
-        df2: DataFrame = self.__pro.trade_cal(exchange='SZSE', start_date=start_date, end_date=end_date,
-                                              is_open=is_open)
-        return df1.append(df2)
+    def fetch_trade_cal(self, exchange: str = None, start_date=None, end_date=None, is_open=None) -> DataFrame:
+        return self.__pro.trade_cal(exchange=exchange, start_date=start_date, end_date=end_date, is_open=is_open)
 
     def fetch_dividend(self, ts_code: str = None, ann_date: str = None) -> DataFrame:
         return self.__pro.dividend(ts_code=ts_code, ann_date=ann_date)

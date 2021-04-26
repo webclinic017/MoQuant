@@ -101,6 +101,10 @@ def calculate_by_code(ts_code: str, to_date: str = date_utils.get_current_dt()):
 
     s.close()
 
+    if len(cal_arr) == 0:
+        log.error("No trade calendar from %s" % price_data_from_date)
+        return
+
     if len(trade_arr) == 0 and len(limit_arr) == 0:
         log.info("Nothing to insert into %s %s" % (MqDailyPrice.__tablename__, ts_code))
         return
@@ -197,4 +201,4 @@ def remove_from_date(ts_code: str, from_date: str):
 
 
 if __name__ == '__main__':
-    calculate_by_code('002762.SZ')
+    calculate_by_code('000001.SZ')

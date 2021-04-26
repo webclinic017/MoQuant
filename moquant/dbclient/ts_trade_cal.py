@@ -6,7 +6,7 @@ from moquant.dbclient.base import Base
 class TsTradeCal(Base):
     __tablename__ = 'ts_trade_cal'
     __table_args__ = (
-        Index('exchange', 'exchange'),
+        Index('exchange', 'exchange', 'cal_date'),
         Index('is_open', 'is_open'),
         {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
     )
