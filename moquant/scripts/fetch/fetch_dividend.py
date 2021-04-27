@@ -61,5 +61,17 @@ def init_dividend():
         common_fetch_dividend(basic.ts_code)
 
 
+
+
+def fix_dividend(ts_code: str, from_date: str, to_date: str):
+    """
+    清理一些脏数据
+    :param ts_code:
+    :param from_date:
+    :param to_date:
+    :return:
+    """
+    pass
+
 if __name__ == '__main__':
     init_dividend()

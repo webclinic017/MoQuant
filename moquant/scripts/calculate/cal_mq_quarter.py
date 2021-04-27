@@ -1,8 +1,8 @@
-import sys
 import time
 from decimal import Decimal
 from functools import partial
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from moquant.constants import mq_calculate_start_date, mq_report_type, mq_quarter_metric_enum
@@ -70,7 +70,8 @@ def ready_data(ts_code: str, from_date: str):
         .order_by(TsFinaIndicator.ann_date.asc(), TsFinaIndicator.end_date.asc()).all()
 
     dividend_arr = session.query(TsDividend) \
-        .filter(TsDividend.ts_code == ts_code, TsDividend.ann_date >= from_date, TsDividend.div_proc == '实施') \
+        .filter(TsDividend.ts_code == ts_code, TsDividend.ann_date >= from_date, TsDividend.div_proc == '实施',
+                or_(TsDividend.cash_div > 0, TsDividend.cash_div_tax > 0)) \
         .order_by(TsDividend.ann_date.asc()).all()
 
     forecast_arr = session.query(TsForecast) \
@@ -778,4 +779,4 @@ def remove_from_date(ts_code: str, from_date: str):
 
 
 if __name__ == '__main__':
-    calculate_by_code(sys.argv[1])
+    calculate_by_code('000001.SZ')

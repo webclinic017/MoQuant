@@ -1,4 +1,7 @@
 # 脚本
+- 需要初始化 init_table
+- 第一次获取分红数据，可用 fetch_dividend.init_dividend
+
 ## 每日拉取数据
 总入口 daily.py 拉取顺序
 1. fetch_dividend - 获取分红数据

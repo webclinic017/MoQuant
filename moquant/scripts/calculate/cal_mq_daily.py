@@ -262,7 +262,7 @@ def calculate_one(ts_code: str, share_name: str, to_date: str = date_utils.get_c
 
             cal_pepb(result_list, daily_store, quarter_store, ts_code, from_date)
             cal_dividend(result_list, daily_store, quarter_store, ts_code, from_date)
-            cal_dcf(result_list, daily_store, quarter_store, dcf_service, ts_code, from_date)
+            # cal_dcf(result_list, daily_store, quarter_store, dcf_service, ts_code, from_date)
             cal_score(result_list, daily_store, quarter_store, ts_code, from_date)
 
         from_date = date_utils.format_delta(from_date, 1)

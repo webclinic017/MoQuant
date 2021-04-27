@@ -62,5 +62,5 @@ def get_val(obj: object, field: str = None, none_ret: Decimal = Decimal(0)) -> D
 def remove_after_fetch(ts_code: str, from_date: str):
     cal_mq_quarter.remove_from_date(ts_code, from_date)
     cal_mq_daily.remove_from_date(ts_code, from_date)
-    cal_mq_daily_price.remove_from_date(ts_code, from_date)
+    # cal_mq_daily_price.remove_from_date(ts_code, from_date)
     cal_message.remove_from_date(ts_code, from_date)

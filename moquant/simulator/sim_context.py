@@ -74,7 +74,7 @@ class SimContext(object):
         finish_dividend = set([])
         for ts_code in self.__dividend:
             dividend: SimDividend = self.__dividend[ts_code]
-            if dividend.pay_date == self.__cd:
+            if dividend.ex_date == self.__cd:
                 self.info('Get dividend cash. code: %s, cash: %s' % (dividend.ts_code, dividend.dividend_cash))
                 self.__cash = self.__cash + dividend.dividend_cash
                 if ts_code in self.__shares:
@@ -192,7 +192,7 @@ class SimContext(object):
             dividend_num = math.floor(math.floor(total_num / 10) * (dividend.stk_div * 10))
             dividend_cash = total_num * dividend.cash_div
             self.__dividend[dividend.ts_code] = SimDividend(dividend.ts_code, dividend_num, dividend_cash,
-                                                            dividend.pay_date, dividend.div_listdate)
+                                                            dividend.ex_date, dividend.div_listdate)
             self.info('Dividend register. code: %s, num: %s, cash: %s' %
                       (dividend.ts_code, dividend_num, dividend_cash))
 

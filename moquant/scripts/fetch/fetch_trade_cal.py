@@ -31,12 +31,12 @@ def common_fetch(exchange: str, to_date: str = date_utils.get_current_dt()):
     :return:
     """
     from_date = fetch_from_date(exchange)
-    while from_date < to_date:
+    while from_date <= to_date:
         next_date = date_utils.format_delta(from_date, 1000)
         if next_date > to_date:
             next_date = to_date
         for cnt in range(2):
-            log.info('To fetch trade calendar %s %s~%s' % (exchange, from_date, to_date))
+            log.info('To fetch trade calendar %s %s~%s' % (exchange, from_date, next_date))
             try:
                 df: DataFrame = ts_client.fetch_trade_cal(exchange=exchange, start_date=from_date, end_date=next_date)
                 if not df.empty:
@@ -47,7 +47,7 @@ def common_fetch(exchange: str, to_date: str = date_utils.get_current_dt()):
                 log.exception('Calling TuShare too fast. Will sleep 1 minutes...', exc_info=e)
                 time.sleep(60)
                 ts_client.init_token()
-        from_date = date_utils.format_delta(to_date, 1)
+        from_date = date_utils.format_delta(next_date, 1)
 
 
 def fetch(to_date: str = date_utils.get_current_dt()):

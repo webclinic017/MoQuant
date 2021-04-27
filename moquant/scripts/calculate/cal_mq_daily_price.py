@@ -1,3 +1,5 @@
+import time
+
 from sqlalchemy.orm import Session
 
 from moquant.dbclient import db_client
@@ -160,7 +162,7 @@ def calculate_by_code(ts_code: str, to_date: str = date_utils.get_current_dt()):
             to_insert.append(p)
             last_trade_date = date_utils.format_delta(last_trade_date, 1)
         else:
-            db_client.batch_insert(to_insert)
+            insert_with_msg(ts_code, to_insert)
             to_insert = []
             # 更正一下最新的复权因子，从上市日重新计算
             last_div_date = last_trade_date
@@ -169,7 +171,22 @@ def calculate_by_code(ts_code: str, to_date: str = date_utils.get_current_dt()):
             adj_i = 0
             trade_i = 0
             limit_i = 0
-    db_client.batch_insert(to_insert)
+    insert_with_msg(ts_code, to_insert)
+
+
+def insert_with_msg(ts_code: str, to_insert: list):
+    """
+    插入数据，打印日志
+    :param ts_code: 股票编码
+    :param to_insert: 插入数据
+    :return:
+    """
+    if len(to_insert) > 0:
+        start_time = time.time()
+        db_client.batch_insert(to_insert)
+        log.info("Insert %s for %s: %s seconds" % (MqDailyPrice.__tablename__, ts_code, time.time() - start_time))
+    else:
+        log.info('Nothing to insert into %s %s' % (MqDailyPrice.__tablename__, ts_code))
 
 
 def recalculate_by_code(ts_code: str, to_date: str = date_utils.get_current_dt()):
