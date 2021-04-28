@@ -29,6 +29,7 @@ class SimCenter(object):
         self.d: SimDataService = SimDataService()
         self.c: SimContext = SimContext(self.d, sd, ed, cash, charge, tax, pass_tax)
         self.__dr: dict = {}
+        self.h.init(self.c, self.d)
 
     def run(self):
         while not self.c.is_finish():

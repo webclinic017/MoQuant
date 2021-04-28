@@ -8,6 +8,7 @@ from moquant.dbclient import db_client
 from moquant.dbclient.ts_basic import TsBasic
 from moquant.dbclient.ts_dividend import TsDividend
 from moquant.log import get_logger
+from moquant.scripts.fetch import clear_after_fetch
 from moquant.tsclient import ts_client
 from moquant.utils import date_utils
 
@@ -21,7 +22,7 @@ def common_fetch_dividend(ts_code: str = None, dt: str = None):
         log.info('To fetch dividend %s' % target)
         try:
             # https://tushare.pro/document/2?doc_id=103 分红
-            df = ts_client.fetch_dividend(ts_code=ts_code, ann_date=dt)
+            df = ts_client.fetch_dividend(ts_code=ts_code, imp_ann_date=dt)
             break
         except Exception as e:
             log.error('Calling TuShare too fast. Will sleep 1 minutes...')
@@ -31,6 +32,7 @@ def common_fetch_dividend(ts_code: str = None, dt: str = None):
     if df is not None and not df.empty:
         db_client.store_dataframe(df, TsDividend.__tablename__)
         log.info('Successfully save dividend %s' % target)
+        fix_dividend(ts_code, df['imp_ann_date'].min(), df['imp_ann_date'].max())
 
 
 def fetch_dividend_by_date(dt: str):
@@ -39,7 +41,7 @@ def fetch_dividend_by_date(dt: str):
 
 def update_dividend_to(dt: str):
     session: Session = db_client.get_session()
-    td: list = session.query(TsDividend).order_by(TsDividend.ann_date.desc()).limit(1).all()
+    td: list = session.query(TsDividend).order_by(TsDividend.imp_ann_date.desc()).limit(1).all()
     session.close()
 
     now: str = fetch_data_start_date if len(td) == 0 else date_utils.format_delta(td[0].ann_date, 1)
@@ -58,12 +60,24 @@ def init_dividend():
     basic_list = session.query(TsBasic).all()
     session.close()
     for basic in basic_list:  # type: TsBasic
-        common_fetch_dividend(basic.ts_code)
+        session: Session = db_client.get_session()
+        td: list = session.query(TsDividend).filter(TsDividend.ts_code == basic.ts_code).limit(1).all()
+        session.close()
+        if len(td) == 0:
+            common_fetch_dividend(basic.ts_code)
+        db_client.execute_sql(clear_after_fetch.clear_duplicate_dividend(basic.ts_code))
+        db_client.execute_sql(clear_after_fetch.clear_duplicate_dividend_2(basic.ts_code))
+        log.info('clear duplicate %s' % basic.ts_code)
 
 
+# 个人发现的有问题的分红数据
+to_fix_list = [
+    {'ts_code': '002142.SZ', 'end_date': '20170930', 'imp_ann_date': '20171109', 'div_proc': '实施',
+     'cash_div': 0, 'cash_div_tax': 0}
+]
 
 
-def fix_dividend(ts_code: str, from_date: str, to_date: str):
+def fix_dividend(ts_code: str = None, from_date: str = None, to_date: str = None):
     """
     清理一些脏数据
     :param ts_code:
@@ -71,7 +85,21 @@ def fix_dividend(ts_code: str, from_date: str, to_date: str):
     :param to_date:
     :return:
     """
-    pass
+
+    for i in to_fix_list:
+        if ts_code is not None and ts_code != i['ts_code']:
+            continue
+        if from_date is not None and to_date is not None \
+                and from_date <= i['imp_ann_date'] <= to_date:
+            session: Session = db_client.get_session()
+            d = session.query(TsDividend) \
+                .filter(TsDividend.ts_code == i['ts_code'], TsDividend.end_date == i['end_date'],
+                        TsDividend.imp_ann_date == i['imp_ann_date'], TsDividend.div_proc == i['div_proc']).one()
+            for key in i:
+                setattr(d, key, i[key])
+            session.flush([d])
+            session.close()
+
 
 if __name__ == '__main__':
     init_dividend()

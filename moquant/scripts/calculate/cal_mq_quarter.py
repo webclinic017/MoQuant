@@ -69,10 +69,11 @@ def ready_data(ts_code: str, from_date: str):
                 TsFinaIndicator.ann_date != None) \
         .order_by(TsFinaIndicator.ann_date.asc(), TsFinaIndicator.end_date.asc()).all()
 
+    # 只看有分红的就够了
     dividend_arr = session.query(TsDividend) \
-        .filter(TsDividend.ts_code == ts_code, TsDividend.ann_date >= from_date, TsDividend.div_proc == '实施',
+        .filter(TsDividend.ts_code == ts_code, TsDividend.imp_ann_date >= from_date, TsDividend.div_proc == '实施',
                 or_(TsDividend.cash_div > 0, TsDividend.cash_div_tax > 0)) \
-        .order_by(TsDividend.ann_date.asc()).all()
+        .order_by(TsDividend.imp_ann_date.asc()).all()
 
     forecast_arr = session.query(TsForecast) \
         .filter(TsForecast.ts_code == ts_code, TsForecast.ann_date >= from_date) \

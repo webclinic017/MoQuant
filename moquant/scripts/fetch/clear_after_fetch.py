@@ -62,14 +62,34 @@ def clear_duplicate_dividend(ts_code):
     delete source from ts_dividend source
     left join
     (
-        select ts_code as code, end_date, ann_date, div_proc, max(id) as id
+        select ts_code as code, imp_ann_date, div_proc, ex_date, min(end_date) as end_date
         from ts_dividend where %s
-        group by ts_code, end_date, ann_date, div_proc
+        group by ts_code, imp_ann_date, div_proc, ex_date
+        having count(0) > 1
+    ) to_keep
+    on to_keep.code=source.ts_code
+            and to_keep.imp_ann_date=source.imp_ann_date
+            and to_keep.div_proc=source.div_proc
+            and to_keep.ex_date=source.ex_date
+            and to_keep.end_date != source.end_date
+    where %s and to_keep.end_date is not null
+    """ % (code_where, code_where)
+
+
+def clear_duplicate_dividend_2(ts_code):
+    code_where = '1=1' if ts_code is None else 'ts_code = \'%s\'' % ts_code
+    return """
+    delete source from ts_dividend source
+    left join
+    (
+        select ts_code as code, end_date, imp_ann_date, div_proc, max(id) as id
+        from ts_dividend where %s
+        group by ts_code, end_date, imp_ann_date, div_proc
         having count(0) > 1
     ) to_keep
     on to_keep.code=source.ts_code
             and to_keep.end_date=source.end_date
-            and to_keep.ann_date=source.ann_date
+            and to_keep.imp_ann_date=source.imp_ann_date
             and to_keep.div_proc=source.div_proc
             and to_keep.id!=source.id
     where %s and to_keep.id is not null
@@ -85,6 +105,7 @@ def clear(ts_code: str = None):
     db_client.execute_sql(clear_duplicate_forecast('ts_forecast', ts_code))
     db_client.execute_sql(clear_duplicate_forecast('ts_express', ts_code))
     db_client.execute_sql(clear_duplicate_dividend(ts_code))
+    db_client.execute_sql(clear_duplicate_dividend_2(ts_code))
     log.info('clear duplicate %s' % ts_code)
 
 

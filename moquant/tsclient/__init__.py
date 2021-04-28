@@ -10,7 +10,7 @@ from pandas import DataFrame
 from tushare.pro.client import DataApi
 
 from moquant.log import get_logger
-from moquant.utils import decimal_utils
+from moquant.utils import decimal_utils, date_utils
 from moquant.utils.compare_utils import mini
 from moquant.utils.env_utils import get_env_value
 
@@ -153,8 +153,15 @@ class TsClient(object):
     def fetch_trade_cal(self, exchange: str = None, start_date=None, end_date=None, is_open=None) -> DataFrame:
         return self.__pro.trade_cal(exchange=exchange, start_date=start_date, end_date=end_date, is_open=is_open)
 
-    def fetch_dividend(self, ts_code: str = None, ann_date: str = None) -> DataFrame:
-        return self.__pro.dividend(ts_code=ts_code, ann_date=ann_date)
+    def fetch_dividend(self, ts_code: str = None, imp_ann_date: str = None) -> DataFrame:
+        df: DataFrame = self.__pro.dividend(ts_code=ts_code, imp_ann_date=imp_ann_date)
+        df = df[df['div_proc'] == '实施']
+        if not df.empty:
+            df.loc[:, 'end_date'] = df.apply(lambda row:
+                                             date_utils.latest_period_date(row.end_date),
+                                             axis=1)
+            df = df.astype({"imp_ann_date": str})
+        return df
 
     def fetch_stk_limit(self, ts_code: str = None, trade_date: str = None, start_date: str = None,
                         end_date: str = None):

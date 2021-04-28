@@ -72,3 +72,37 @@ def q_format_period(period: str) -> str:
 def q4_last_year(period: str) -> str:
     year = period[0:4]
     return get_period(int(year) - 1, 12)
+
+
+def latest_period_date(dt: str) -> str:
+    """
+    根据日期返回之前最近的财报季度日期
+    :param dt: 日期
+    :return: 0331, 0630, 0930, 1231
+    """
+    year = int(dt[0:4])
+    month = int(dt[4:6])
+    while month != 3 and month != 6 and month != 9 and month != 12:
+        month = month - 1
+        if month == 0:
+            month = 12
+            year = year - 1
+
+    return get_period(year, month)
+
+
+def is_valid_dt(dt: str) -> bool:
+    """
+    判断是否合格的日期格式 yyyyMMdd
+    :param dt: 日期
+    :return: bool
+    """
+    try:
+        parse_str(dt)
+        return True
+    except Exception as e:
+        return False
+
+
+if __name__ == '__main__':
+    print(is_valid_dt('20210228'))
