@@ -6,6 +6,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from moquant.constants import mq_calculate_start_date, mq_report_type, mq_quarter_metric_enum
+from moquant.constants.mq_quarter_metric_enum import MqQuarterMetricEnum
 from moquant.dbclient import db_client
 from moquant.dbclient.mq_manual_metric import MqManualMetric
 from moquant.dbclient.mq_quarter_metric import MqQuarterMetric
@@ -284,13 +285,23 @@ def extract_from_fina_indicator(result_list: list, store: MqQuarterStore, period
 
 
 def extract_from_dividend(result_list: list, store: MqQuarterStore, period_dict: dict, d: TsDividend):
+    # 有可能有非固定分红的派钱
+    lp: str = date_utils.latest_period_date(d.end_date)
+    update_date: str = date_utils.format_delta(d.imp_ann_date, -1)
+
     call_add_nx = partial(
-        add_nx, ts_code=d.ts_code, period=d.end_date, update_date=date_utils.format_delta(d.imp_ann_date, -1),
+        add_nx, ts_code=d.ts_code, period=lp, update_date=update_date,
         report_type=mq_report_type.report,
         store=store, result_list=result_list, period_dict=period_dict
     )
 
-    dividend = decimal_utils.mul(d.cash_div_tax, d.base_share)
+    # 叠加到最近一个季度的分红中
+    dividend: Decimal = decimal_utils.mul(d.cash_div_tax, d.base_share)
+    if lp != d.end_date:
+        ori_d: MqQuarterMetric = store.find_period_latest(ts_code=d.ts_code, period=lp, update_date=update_date,
+                                                          name=mq_quarter_metric_enum.dividend.name)
+        if ori_d is not None:
+            dividend = dividend + ori_d.value
     call_add_nx(name='dividend', value=dividend)
 
 
@@ -308,6 +319,15 @@ def copy_indicator_from_latest(result_list: list, store: MqQuarterStore, period:
 
 
 def copy_from_latest(result_list: list, store: MqQuarterStore, period_dict: dict, ts_code: str, update_date: str):
+    """
+    同一指标，同一季度，从上一个日期中获取
+    :param result_list:
+    :param store:
+    :param period_dict:
+    :param ts_code:
+    :param update_date:
+    :return:
+    """
     call_copy = partial(copy_indicator_from_latest, result_list=result_list, store=store,
                         ts_code=ts_code, update_date=update_date)
     period_list = list(period_dict.keys())
@@ -353,6 +373,7 @@ def fill_empty(result_list: list, store: MqQuarterStore, period_dict: dict, ts_c
 
 def cal_quarter_ltm(result_list: list, store: MqQuarterStore, period_o: PeriodObj, ts_code: str, update_date: str):
     period = period_o.end_date
+    quarter_num = date_utils.get_quarter_num(period)
     report_type = period_o.report_type
     call_find_now = partial(store.find_period_exact, ts_code=ts_code, update_date=update_date)
     call_find_pre = partial(store.find_period_latest, ts_code=ts_code, update_date=update_date)
@@ -376,7 +397,12 @@ def cal_quarter_ltm(result_list: list, store: MqQuarterStore, period_o: PeriodOb
         i2 = call_find_pre(period=date_utils.period_delta(period, -1), name=from_name)
         i3 = call_find_pre(period=date_utils.period_delta(period, -2), name=from_name)
         i4 = call_find_pre(period=date_utils.period_delta(period, -3), name=from_name)
-        ltm = quarter_cal_utils.cal_ltm_with_quarter(name, i1, i2, i3, i4)
+
+        ltm: MqQuarterMetric = quarter_cal_utils.cal_ltm_with_quarter(name, i1, i2, i3, i4)
+        if ltm is None and quarter_num == 4:
+            q_m: MqQuarterMetricEnum = mq_quarter_metric_enum.find_by_name(from_name)
+            ltm = quarter_cal_utils.add_up(name, [call_find_now(period=period, name=q_m.from_name)])
+
         if ltm is None:
             common_log_err(ts_code, period, report_type, update_date, name)
         else:
@@ -616,7 +642,7 @@ def cal_complex_quarter_ltm(result_list: list, store: MqQuarterStore, period_o: 
                             update_date: str):
     '''
     计算复杂指标的单季和ltm, 在所有复杂指标计算后
-    依赖 cal_fcf
+    暂无
     '''
     period = period_o.end_date
     report_type = period_o.report_type
@@ -653,7 +679,7 @@ def cal_indicator(result_list: list, store: MqQuarterStore, period: PeriodObj, t
     cal_avg(result_list, store, period, ts_code, update_date)
     cal_du_pont(result_list, store, period, ts_code, update_date)
     cal_rev_pay(result_list, store, period, ts_code, update_date)
-    cal_fcf(result_list, store, period, ts_code, update_date)
+    # cal_fcf(result_list, store, period, ts_code, update_date)
     cal_ratio(result_list, store, period, ts_code, update_date)
     cal_complex_quarter_ltm(result_list, store, period, ts_code, update_date)
     cal_risk_point(result_list, store, period, ts_code, update_date)
@@ -780,4 +806,4 @@ def remove_from_date(ts_code: str, from_date: str):
 
 
 if __name__ == '__main__':
-    calculate_by_code('000001.SZ')
+    calculate_by_code('601318.SH')

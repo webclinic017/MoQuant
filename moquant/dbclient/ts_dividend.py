@@ -1,4 +1,4 @@
-from sqlalchemy import Column, BIGINT, Index, String, DECIMAL
+from sqlalchemy import Column, BIGINT, Index, String, DECIMAL, INT
 
 from moquant.dbclient.base import Base
 
@@ -8,7 +8,7 @@ class TsDividend(Base):
     __table_args__ = (
         Index('code', 'ts_code'),
         Index('record', 'record_date'),
-        Index('ann', 'ann_date'),
+        Index('ann', 'imp_ann_date'),
         Index('ex', 'ex_date'),
         Index('pay', 'pay_date'),
         {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
@@ -31,3 +31,4 @@ class TsDividend(Base):
     imp_ann_date = Column('imp_ann_date', String(10), comment='实施公告日')
     base_date = Column('base_date', String(10), comment='基准日')
     base_share = Column('base_share', DECIMAL(30, 10), comment='基准股本（万）')
+    is_fix = Column('is_fix', INT, comment='是否有人工修复')

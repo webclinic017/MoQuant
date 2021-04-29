@@ -71,7 +71,7 @@ class TsClient(object):
                                                        axis=1)
             df.loc[:, 'assets_impair_loss'] = df.apply(
                 lambda row: decimal_utils.negative(row.assets_impair_loss) if row.end_date < '20190630' or (
-                            row.end_date >= '20190630' and row.assets_impair_loss > 0) else row.assets_impair_loss,
+                        row.end_date >= '20190630' and row.assets_impair_loss > 0) else row.assets_impair_loss,
                 axis=1)
         return df
 
@@ -92,6 +92,12 @@ class TsClient(object):
             df.loc[:, 'total_nca'] = df.apply(lambda row: decimal_utils.none_to_zero(row.total_nca), axis=1)
             df.loc[:, 'fa_avail_for_sale'] = df.apply(lambda row: decimal_utils.none_to_zero(row.fa_avail_for_sale),
                                                       axis=1)
+            df.loc[:, 'total_cur_liab'] = df.apply(lambda row: decimal_utils.none_to_zero(row.total_cur_liab), axis=1)
+            df.loc[:, 'total_cur_assets'] = df.apply(lambda row: decimal_utils.none_to_zero(row.total_cur_assets), axis=1)
+            df.loc[:, 'lt_borr'] = df.apply(lambda row: decimal_utils.none_to_zero(row.lt_borr), axis=1)
+            df.loc[:, 'st_borr'] = df.apply(lambda row: decimal_utils.none_to_zero(row.st_borr), axis=1)
+            df.loc[:, 'money_cap'] = df.apply(lambda row: decimal_utils.none_to_zero(row.money_cap), axis=1)
+            df.loc[:, 'oth_cur_assets'] = df.apply(lambda row: decimal_utils.none_to_zero(row.oth_cur_assets), axis=1)
             # 待摊费用(新会计准则取消) -> 长期待摊费用
             df.loc[:, 'lt_amor_exp'] = df.apply(lambda row: decimal_utils.add(row.amor_exp, row.lt_amor_exp), axis=1)
         return df
@@ -113,7 +119,7 @@ class TsClient(object):
             df.loc[:, 'loss_scr_fa'] = df.apply(lambda row: decimal_utils.none_to_zero(row.loss_scr_fa), axis=1)
         return df
 
-    def fetch_forecast(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
+    def fetch_forecast(self, ts_code: str, end_date: str = None, start_date: str= None) -> DataFrame:
         df: DataFrame = self.__pro.forecast(ts_code=ts_code, start_date=start_date, end_date=end_date)
         return self.__handle_forecast(self.__replace_nan(df))
 
@@ -136,7 +142,7 @@ class TsClient(object):
     def __replace_nan(self, df: DataFrame):
         return df.where(pandas.notnull(df), None)
 
-    def fetch_express(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
+    def fetch_express(self, ts_code: str, end_date: str = None, start_date: str = None) -> DataFrame:
         return self.__pro.express(ts_code=ts_code, start_date=start_date, end_date=end_date)
 
     def fetch_fina_indicator(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
@@ -157,9 +163,11 @@ class TsClient(object):
         df: DataFrame = self.__pro.dividend(ts_code=ts_code, imp_ann_date=imp_ann_date)
         df = df[df['div_proc'] == '实施']
         if not df.empty:
-            df.loc[:, 'end_date'] = df.apply(lambda row:
-                                             date_utils.latest_period_date(row.end_date),
-                                             axis=1)
+            df['is_fix'] = 0
+            df.loc[:, 'imp_ann_date'] = df.apply(lambda row:
+                                                 row.end_date if row.imp_ann_date is None else row.imp_ann_date,
+                                                 axis=1)
+            # df.loc[:, 'end_date'] = df.apply(lambda row: date_utils.latest_period_date(row.end_date), axis=1)
             df = df.astype({"imp_ann_date": str})
         return df
 
@@ -177,5 +185,5 @@ class TsClient(object):
 ts_client = TsClient()
 
 if __name__ == '__main__':
-    a = ts_client.fetch_forecast(ts_code='000001.SZ', start_date='20160101', end_date='20161231')
+    a = ts_client.fetch_express(ts_code='601318.SH', start_date='20200101', end_date='20200131')
     pass

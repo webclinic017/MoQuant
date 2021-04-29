@@ -30,7 +30,6 @@ def cal_ltm_with_quarter(name: str, i1: MqQuarterMetric, i2: MqQuarterMetric, i3
                                period=i1.period, update_date=i1.update_date,
                                name=name, value=decimal_utils.add(i1.value, i2.value, i3.value, i4.value))
 
-
 def cal_ltm_with_period(name: str, current: MqQuarterMetric, last_year_q4: MqQuarterMetric, last_year: MqQuarterMetric) -> MqQuarterMetric:
     '''
     用季度去计算LTM

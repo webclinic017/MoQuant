@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """ DB Client """
+from warnings import filterwarnings
 
 import pymysql
 import sqlalchemy.engine.url as url
@@ -14,6 +15,8 @@ from moquant.log import get_logger
 from moquant.utils.env_utils import to_echo_sql, get_env_value
 
 log = get_logger(__name__)
+
+filterwarnings('ignore', category=pymysql.Warning)
 
 
 class DBClient(object):
@@ -59,20 +62,27 @@ class DBClient(object):
             result.append(item)
         return result
 
-
     # session is not thread-safe, create a new session for every call
     def get_session(self, is_auto_commit: bool = True) -> Session:
         return self.__session_auto() if is_auto_commit else self.__session()
 
-    def batch_insert(self, to_insert: list):
+    def batch_insert(self, to_insert: list, page_size: int = 1000):
         """
         批量插入数据
         :param to_insert: 需要插入的数据
+        :param page_size: 每页数量 默认1000
         :return:
         """
         if len(to_insert) > 0:
             s: Session = self.get_session()
-            s.bulk_save_objects(to_insert)
+            page_list = []
+            for i in to_insert:
+                page_list.append(i)
+                if len(page_list) == page_size:
+                    s.bulk_save_objects(page_list)
+                    page_list = []
+            if len(page_list) > 0:
+                s.bulk_save_objects(page_list)
             s.close()
 
 

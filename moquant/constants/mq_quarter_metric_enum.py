@@ -44,7 +44,8 @@ lt_amor_exp = MqQuarterMetricEnum('lt_amor_exp', '长期待摊费用(原待摊�
 total_nca = MqQuarterMetricEnum('total_nca', '非流动资产合计')
 fa_avail_for_sale = MqQuarterMetricEnum('fa_avail_for_sale', '可供出售金融资产')
 
-extract_from_bs_list = [total_share, notes_receiv, accounts_receiv, oth_receiv, div_receiv, int_receiv, lt_rec, total_cur_liab,
+extract_from_bs_list = [total_share, notes_receiv, accounts_receiv, oth_receiv, div_receiv, int_receiv, lt_rec,
+                        total_cur_liab,
                         total_cur_assets, goodwill, r_and_d, intan_assets, nassets, total_assets, oth_eqt_tools_p_shr,
                         money_cap, oth_cur_assets, lt_borr, st_borr, notes_payable, acct_payable, prepayment,
                         adv_receipts, inventories, lt_amor_exp, total_nca, fa_avail_for_sale]
@@ -59,7 +60,6 @@ loss_scr_fa = MqQuarterMetricEnum('loss_scr_fa', '固定资产报废损失', is_
 
 extract_from_cf_list = [n_cashflow_act, prov_depr_assets, depr_fa_coga_dpba, amort_intang_assets, lt_amort_deferred_exp,
                         loss_scr_fa]
-
 
 # fina indicator
 dprofit = MqQuarterMetricEnum('dprofit', '归母扣非净利润', from_name='profit_dedt')
@@ -77,7 +77,6 @@ extract_from_forecast_list = [nprofit]
 dividend = MqQuarterMetricEnum('dividend', '分红总额')
 dividend_ratio = MqQuarterMetricEnum('dividend_ratio', '分红率', is_percent=True)
 dividend_ltm = MqQuarterMetricEnum('dividend_ltm', '分红LTM', from_name='dividend')
-
 
 # ltm
 revenue_quarter = MqQuarterMetricEnum('revenue_quarter', '营业收入-单季', from_name='revenue')
@@ -122,8 +121,8 @@ fcf = MqQuarterMetricEnum('fcf', '自由现金流')
 fcf_quarter = MqQuarterMetricEnum('fcf_quarter', '自由现金流-单季', from_name='fcf')
 fcf_ltm = MqQuarterMetricEnum('fcf_ltm', '自由现金流-LTM', from_name='fcf')
 
-complex_quarter_list = [fcf_quarter]
-complex_ltm_list = [fcf_ltm]
+complex_quarter_list = []
+complex_ltm_list = []
 
 all_indicators_list = extract_from_income_list + extract_from_bs_list + extract_from_cf_list + extract_from_fi_list + \
                       extract_from_forecast_list + cal_quarter_list + cal_ltm_list + cal_avg_list + \
@@ -147,3 +146,12 @@ for i in all_indicators_list:  # type: MqQuarterMetricEnum
 def is_percent_indicator(name: str) -> bool:
     i = all_indicators_map[name]
     return i is not None and i.is_percent
+
+
+def find_by_name(name: str) -> MqQuarterMetricEnum:
+    """
+    根据指标名称返回定义
+    :param name: 名称
+    :return:
+    """
+    return all_indicators_map[name] if name in all_indicators_map else None

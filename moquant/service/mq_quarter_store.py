@@ -53,7 +53,7 @@ def init_quarter_store(ts_code, from_period=mq_calculate_start_date) -> MqQuarte
     store = MqQuarterStore()
     session: Session = db_client.get_session()
     arr = session.query(MqQuarterMetric).filter(MqQuarterMetric.ts_code == ts_code,
-                                                   MqQuarterMetric.period >= from_period).all()
+                                                MqQuarterMetric.period >= from_period).all()
     for i in arr:
         store.add(i)
     session.close()
@@ -64,7 +64,7 @@ def init_quarter_store_by_date(ts_code, from_date=mq_calculate_start_date) -> Mq
     store = MqQuarterStore()
     session: Session = db_client.get_session()
     arr = session.query(MqQuarterMetric).filter(MqQuarterMetric.ts_code == ts_code,
-                                                   MqQuarterMetric.update_date >= from_date).all()
+                                                MqQuarterMetric.update_date >= from_date).all()
     session.close()
     for i in arr:
         store.add(i)
