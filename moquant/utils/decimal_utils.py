@@ -27,7 +27,7 @@ def sub(a, *args):
 
 
 def mul(a, b, err_default=0):
-    if a is None or b is None:
+    if a is None or b is None or math.isnan(a) or math.isnan(b):
         return Decimal(err_default) if err_default is not None else None
     if not isinstance(a, Decimal):
         a = Decimal(a)

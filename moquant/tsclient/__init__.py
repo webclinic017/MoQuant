@@ -44,6 +44,13 @@ class TsClient(object):
     def fetch_daily_basic(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
         df: DataFrame = self.__pro.daily_basic(ts_code=ts_code, start_date=start_date, end_date=end_date)
         if not df.empty:
+            # 按日期升序
+            df = df.sort_values(by='trade_date')
+            df.loc[:, 'turnover_rate'] = df.apply(lambda row: decimal_utils.none_to_zero(row.turnover_rate), axis=1)
+            df.loc[:, 'volume_ratio'] = df.apply(lambda row: decimal_utils.none_to_zero(row.volume_ratio), axis=1)
+
+            # 替换掉所有需要是0的之后，取最近的值填充
+            df = df.ffill()
             df.loc[:, 'total_share'] = df.apply(lambda row:
                                                 decimal_utils.mul(row.total_share, 10000, err_default=None), axis=1)
             df.loc[:, 'float_share'] = df.apply(lambda row:
@@ -55,6 +62,7 @@ class TsClient(object):
                                                else row.free_share, axis=1)
             df.loc[:, 'total_mv'] = df.apply(lambda row:
                                              decimal_utils.mul(row.total_mv, 10000, err_default=None), axis=1)
+
         return df
 
     def fetch_adj_factor(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:

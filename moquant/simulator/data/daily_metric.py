@@ -24,7 +24,8 @@ class SimDailyMetricService(object):
         session: Session = db_client.get_session()
         ml: list = session.query(MqDailyMetric) \
             .filter(MqDailyMetric.ts_code.in_(ts_codes) if ts_codes is not None else 1 == 1,
-                    MqDailyMetric.update_date.in_(dates), MqDailyMetric.name.in_(metrics))
+                    MqDailyMetric.update_date.in_(dates), MqDailyMetric.name.in_(metrics)) \
+            .all()
         session.close()
         return ml
 
@@ -46,6 +47,7 @@ class SimDailyMetricService(object):
         ml: list = session.query(MqDailyMetric) \
             .filter(MqDailyMetric.ts_code.in_(ts_codes) if ts_codes is not None else 1 == 1,
                     MqDailyMetric.update_date >= from_date, MqDailyMetric.update_date <= to_date,
-                    MqDailyMetric.name.in_(metrics))
+                    MqDailyMetric.name.in_(metrics)) \
+            .all()
         session.close()
         return ml
