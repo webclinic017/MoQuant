@@ -17,7 +17,6 @@ def run():
     args = env_utils.get_args()
     ts_code = args.code
     to_date = args.date
-    parallel = args.parallel
     if to_date is None:
         to_date = date_utils.get_current_dt()
 
@@ -40,7 +39,7 @@ def run():
             continue
         if from_date is not None:
             calculate.remove_after_fetch(ts_code, from_date)
-        if parallel == 1:
+        if env_utils.parallel():
             threadpool.submit(do_after_fetch, ts_code=basic.ts_code, to_date=to_date)
         else:
             do_after_fetch(ts_code=basic.ts_code, to_date=to_date)

@@ -12,13 +12,14 @@ from moquant.utils import date_utils
 log = get_logger(__name__)
 
 
-class DownGap3(SimHandler):
+class DownGapN(SimHandler):
 
-    def __init__(self):
+    def __init__(self, gap_num: int):
         self.target: set = set()
         self.gap: dict = {}
         self.last_trade_date: dict = {}  # 上一个交易日
         self.yesterday_buy: set = set()
+        self.gap_num: int = gap_num
 
     def init(self, context: SimContext, data: SimDataService):
         # 只对市值超过500亿的做回测
@@ -60,7 +61,7 @@ class DownGap3(SimHandler):
                     # 缺口
                     ts_gap.add(p.trade_date)
                     log.info('New gap: %s %s %.2f. Gap num: %d' % (ts_code, context.get_dt(), lp.low_qfq, len(ts_gap)))
-            if len(ts_gap) >= 3:
+            if len(ts_gap) >= self.gap_num:
                 to_buy.append(ts_code)
 
         # 尽量等权买入
@@ -113,6 +114,6 @@ class DownGap3(SimHandler):
 
 
 if __name__ == '__main__':
-    strategy: DownGap3 = DownGap3()
+    strategy: DownGapN = DownGapN(2)
     center: SimCenter = SimCenter(strategy, '20210218', '20210427')
     center.run()
