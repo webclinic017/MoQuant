@@ -23,7 +23,7 @@ class DownGapN(SimHandler):
 
     def init(self, context: SimContext, data: SimDataService):
         # 只对市值超过500亿的做回测
-        mv_arr: list = data.get_daily_metrics(['20210427'], [mq_daily_metric_enum.total_mv.name])
+        mv_arr: list = data.get_daily_metrics(['20210428'], [mq_daily_metric_enum.total_mv.name])
         for mv in mv_arr:  # type: MqDailyMetric
             if mv.value >= 500 * 10000 * 10000:
                 self.target.add(mv.ts_code)
@@ -79,11 +79,11 @@ class DownGapN(SimHandler):
 
         # 清除已补的缺口，或30天前的缺口
         dt: str = context.get_dt()
-        old_dt: str = date_utils.period_delta(dt, -30)
+        old_dt: str = date_utils.format_delta(dt, -30)
         for ts_code in self.target:
             p: MqDailyPrice = context.get_today_price(ts_code)
-            if p.is_trade == 0:
-                # 停牌就不用看了
+            if p is None or p.is_trade == 0:
+                # 未上市 或 停牌就不用看了
                 continue
             self.last_trade_date[ts_code] = dt
             ts_gap: set = self.gap[ts_code]
@@ -115,5 +115,5 @@ class DownGapN(SimHandler):
 
 if __name__ == '__main__':
     strategy: DownGapN = DownGapN(2)
-    center: SimCenter = SimCenter(strategy, '20210218', '20210427')
+    center: SimCenter = SimCenter(strategy, '20210218', '20210428')
     center.run()

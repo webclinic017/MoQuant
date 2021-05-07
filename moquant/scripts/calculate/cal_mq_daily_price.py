@@ -34,25 +34,6 @@ def find_index_by_date(arr: list, from_i: str, target_date: str, date_field: str
     return from_i
 
 
-def need_all_price(adj_arr: list, from_date: str, to_date: str) -> bool:
-    """
-    检测一下两个日期之间有没有除权，有的话价格需要拉取全部数据
-    :param adj_arr: 复权因子列表
-    :param from_date: 开始日期
-    :param to_date: 结束日期
-    :return: 期间有除权
-    """
-    in_period = False
-    for i in range(len(adj_arr)):
-        if adj_arr[i].trade_date == from_date:
-            in_period = True
-        if i > 0 and in_period and not decimal_utils.equals(adj_arr[i].adj_factor, adj_arr[i - 1].adj_factor):
-            return True
-        if adj_arr[i].trade_date == to_date:
-            break
-    return False
-
-
 def calculate_by_code(ts_code: str, to_date: str = date_utils.get_current_dt()):
     """
     按股票计算
@@ -69,26 +50,19 @@ def calculate_by_code(ts_code: str, to_date: str = date_utils.get_current_dt()):
 
     p: list = s.query(MqDailyPrice) \
         .filter(MqDailyPrice.ts_code == ts_code) \
-        .order_by(MqDailyPrice.div_date.desc(), MqDailyPrice.trade_date.desc()) \
+        .order_by(MqDailyPrice.trade_date.desc()) \
         .limit(1).all()
 
-    last_div_date = None
     last_trade_date = None
-    last_adj = None
 
     if len(p) == 0:  # 没有任何记录，需要从上市开始算
-        last_div_date = basic[0].list_date
         last_trade_date = basic[0].list_date
-        last_adj = 1
     else:
-        last_div_date = p[0].div_date
         last_trade_date = date_utils.format_delta(p[0].trade_date, 1)
-        last_adj = p[0].latest_adj
 
     adj_arr: list = s.query(TsAdjFactor).filter(TsAdjFactor.ts_code == ts_code) \
         .order_by(TsAdjFactor.trade_date.asc()).all()
-    need_all = need_all_price(adj_arr, last_trade_date, to_date)
-    price_data_from_date: str = basic[0].list_date if need_all else last_trade_date
+    price_data_from_date: str = last_trade_date
 
     trade_arr: list = s.query(TsDailyTradeInfo) \
         .filter(TsDailyTradeInfo.ts_code == ts_code, TsDailyTradeInfo.trade_date >= price_data_from_date) \
@@ -136,41 +110,21 @@ def calculate_by_code(ts_code: str, to_date: str = date_utils.get_current_dt()):
         if l.trade_date != last_trade_date:  # 涨跌停价格有可能没有数据
             l = None
 
-        is_div: bool = last_trade_date > last_div_date and not decimal_utils.equals(adj.adj_factor, last_adj)
-        if not is_div:
-            if t.trade_date != last_trade_date:  # 在停牌
-                p = MqDailyPrice(ts_code=ts_code, div_date=last_div_date, latest_adj=last_adj,
-                                 trade_date=last_trade_date, adj=adj.adj_factor, is_trade=0)
-            else:
-                # 虽然前一天收盘价是前复权的，t-1当天的复权因子 / t的复权因子 * t的复权因子 / 最新的复权因子，所以没有影响
-                p = MqDailyPrice(ts_code=ts_code, div_date=last_div_date, latest_adj=last_adj,
-                                 trade_date=last_trade_date, adj=adj.adj_factor, is_trade=1,
-                                 open=t.open, close=t.close, high=t.high, low=t.low,
-                                 open_qfq=decimal_utils.cal_qfq(t.open, adj.adj_factor, last_adj),
-                                 close_qfq=decimal_utils.cal_qfq(t.close, adj.adj_factor, last_adj),
-                                 high_qfq=decimal_utils.cal_qfq(t.high, adj.adj_factor, last_adj),
-                                 low_qfq=decimal_utils.cal_qfq(t.low, adj.adj_factor, last_adj),
-                                 pre_close_qfq=decimal_utils.cal_qfq(t.pre_close, adj.adj_factor, last_adj))
-                if l is not None:
-                    p.up_limit = l.up_limit
-                    p.down_limit = l.down_limit
-                    p.up_limit_qfq = decimal_utils.cal_qfq(l.up_limit, adj.adj_factor, last_adj),
-                    p.down_limit_qfq = decimal_utils.cal_qfq(l.down_limit, adj.adj_factor, last_adj)
-                else:
-                    pass  # TODO 需要的话再自己计算一下涨跌停价格
-
-            to_insert.append(p)
-            last_trade_date = date_utils.format_delta(last_trade_date, 1)
+        if t.trade_date != last_trade_date:  # 在停牌
+            p = MqDailyPrice(ts_code=ts_code, trade_date=last_trade_date, adj=adj.adj_factor, is_trade=0)
         else:
-            insert_with_msg(ts_code, to_insert)
-            to_insert = []
-            # 更正一下最新的复权因子，从上市日重新计算
-            last_div_date = last_trade_date
-            last_adj = adj.adj_factor
-            last_trade_date = basic[0].list_date
-            adj_i = 0
-            trade_i = 0
-            limit_i = 0
+            # 虽然前一天收盘价是前复权的，t-1当天的复权因子 / t的复权因子 * t的复权因子 / 最新的复权因子，所以没有影响
+            p = MqDailyPrice(ts_code=ts_code, trade_date=last_trade_date, adj=adj.adj_factor, is_trade=1,
+                             open=t.open, close=t.close, high=t.high, low=t.low, pre_close=t.pre_close)
+            if l is not None:
+                p.up_limit = l.up_limit
+                p.down_limit = l.down_limit
+            else:
+                pass  # TODO 需要的话再自己计算一下涨跌停价格
+
+        to_insert.append(p)
+        last_trade_date = date_utils.format_delta(last_trade_date, 1)
+
     insert_with_msg(ts_code, to_insert)
 
 
@@ -210,8 +164,6 @@ def remove_from_date(ts_code: str, from_date: str):
     :return:
     """
     session: Session = db_client.get_session()
-    session.query(MqDailyPrice).filter(MqDailyPrice.ts_code == ts_code,
-                                       MqDailyPrice.div_date >= from_date).delete()
     session.query(MqDailyPrice).filter(MqDailyPrice.ts_code == ts_code,
                                        MqDailyPrice.trade_date >= from_date).delete()
     session.close()
