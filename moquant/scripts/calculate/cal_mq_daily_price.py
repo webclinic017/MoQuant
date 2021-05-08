@@ -78,7 +78,7 @@ def calculate_by_code(ts_code: str, to_date: str = date_utils.get_current_dt()):
     s.close()
 
     if len(cal_arr) == 0:
-        log.error("No trade calendar from %s" % price_data_from_date)
+        log.warn("No trade calendar from %s" % price_data_from_date)
         return
 
     if len(trade_arr) == 0 and len(limit_arr) == 0:

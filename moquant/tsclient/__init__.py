@@ -40,11 +40,27 @@ class TsClient(object):
     def fetch_all_stock(self) -> DataFrame:
         return self.__pro.stock_basic(fields='ts_code,symbol,name,area,industry,list_date,exchange')
 
-    # 每分钟200次
     def fetch_daily_bar(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
+        """
+        https://tushare.pro/document/2?doc_id=109
+        :param ts_code: 股票编码
+        :param end_date: 起始日期
+        :param start_date: 结束日期
+        :return:
+        """
+        qpm = 200
+        if not self.__rt.get('fetch_adj_factor', 60.0 / qpm, qpm):
+            raise Exception('%d per minute, waiting' % qpm)
         return self.__ts.pro_bar(ts_code=ts_code, start_date=start_date, end_date=end_date)
 
     def fetch_daily_basic(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
+        """
+        https://tushare.pro/document/2?doc_id=32
+        :param ts_code: 股票编码
+        :param end_date: 起始日期
+        :param start_date: 结束日期
+        :return:
+        """
         df: DataFrame = self.__pro.daily_basic(ts_code=ts_code, start_date=start_date, end_date=end_date)
         if not df.empty:
             # 按日期升序
@@ -69,12 +85,29 @@ class TsClient(object):
         return df
 
     def fetch_adj_factor(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
+        """
+        https://tushare.pro/document/2?doc_id=28
+        :param ts_code: 股票编码
+        :param end_date: 起始日期
+        :param start_date: 结束日期
+        :return:
+        """
         qpm = 50
         if not self.__rt.get('fetch_adj_factor', 60.0 / qpm, qpm):
             raise Exception('%d per minute, waiting' % qpm)
         return self.__pro.adj_factor(ts_code=ts_code, start_date=start_date, end_date=end_date)
 
     def fetch_income(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
+        """
+        https://tushare.pro/document/2?doc_id=33
+        :param ts_code: 股票编码
+        :param end_date: 起始日期
+        :param start_date: 结束日期
+        :return:
+        """
+        qpm = 50
+        if not self.__rt.get('fetch_daily_basic', 60.0 / qpm, qpm):
+            raise Exception('%d per minute, waiting' % qpm)
         df1: DataFrame = self.__pro.income(ts_code=ts_code, start_date=start_date, end_date=end_date, report_type=1)
         df2: DataFrame = self.__pro.income(ts_code=ts_code, start_date=start_date, end_date=end_date, report_type=4)
         df: DataFrame = df1.append(df2)
@@ -90,6 +123,13 @@ class TsClient(object):
         return df
 
     def fetch_balance_sheet(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
+        """
+        https://tushare.pro/document/2?doc_id=36
+        :param ts_code: 股票编码
+        :param end_date: 起始日期
+        :param start_date: 结束日期
+        :return:
+        """
         df1 = self.__pro.balancesheet(ts_code=ts_code, start_date=start_date, end_date=end_date, report_type=1)
         df2 = self.__pro.balancesheet(ts_code=ts_code, start_date=start_date, end_date=end_date, report_type=4)
         df = df1.append(df2)
@@ -117,6 +157,13 @@ class TsClient(object):
         return df
 
     def fetch_cash_flow(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
+        """
+        https://tushare.pro/document/2?doc_id=44
+        :param ts_code: 股票编码
+        :param end_date: 起始日期
+        :param start_date: 结束日期
+        :return:
+        """
         df1 = self.__pro.cashflow(ts_code=ts_code, start_date=start_date, end_date=end_date, report_type=1)
         df2 = self.__pro.cashflow(ts_code=ts_code, start_date=start_date, end_date=end_date, report_type=4)
         df = df1.append(df2)
@@ -134,10 +181,24 @@ class TsClient(object):
         return df
 
     def fetch_forecast(self, ts_code: str, end_date: str = None, start_date: str= None) -> DataFrame:
+        """
+        https://tushare.pro/document/2?doc_id=45
+        :param ts_code: 股票编码
+        :param end_date: 起始日期
+        :param start_date: 结束日期
+        :return:
+        """
         df: DataFrame = self.__pro.forecast(ts_code=ts_code, start_date=start_date, end_date=end_date)
         return self.__handle_forecast(self.__replace_nan(df))
 
     def fetch_forecast_by_date(self, ann_date: str) -> DataFrame:
+        """
+        https://tushare.pro/document/2?doc_id=45
+        :param ts_code: 股票编码
+        :param end_date: 起始日期
+        :param start_date: 结束日期
+        :return:
+        """
         return self.__handle_forecast(self.__pro.forecast(ann_date=ann_date))
 
     def __handle_forecast(self, df: DataFrame):
@@ -157,9 +218,23 @@ class TsClient(object):
         return df.where(pandas.notnull(df), None)
 
     def fetch_express(self, ts_code: str, end_date: str = None, start_date: str = None) -> DataFrame:
+        """
+        https://tushare.pro/document/2?doc_id=46
+        :param ts_code: 股票编码
+        :param end_date: 起始日期
+        :param start_date: 结束日期
+        :return:
+        """
         return self.__pro.express(ts_code=ts_code, start_date=start_date, end_date=end_date)
 
     def fetch_fina_indicator(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
+        """
+        https://tushare.pro/document/2?doc_id=79
+        :param ts_code: 股票编码
+        :param end_date: 起始日期
+        :param start_date: 结束日期
+        :return:
+        """
         return self.__pro.fina_indicator(ts_code=ts_code, start_date=start_date, end_date=end_date)
 
     def fetch_data_frame(self, method_name: str, ts_code: str, end_date: str,
@@ -168,12 +243,31 @@ class TsClient(object):
         return func(self)
 
     def fetch_disclosure_date(self, date: str) -> DataFrame:
+        """
+        https://tushare.pro/document/2?doc_id=162
+        :param date: 日期
+        :return:
+        """
         return self.__pro.disclosure_date(pre_date=date)
 
     def fetch_trade_cal(self, exchange: str = None, start_date=None, end_date=None, is_open=None) -> DataFrame:
+        """
+        https://tushare.pro/document/2?doc_id=26
+        :param exchange: 交易所 SSE上交所,SZSE深交所,CFFEX 中金所,SHFE 上期所,CZCE 郑商所,DCE 大商所,INE 上能源
+        :param end_date: 起始日期
+        :param start_date: 结束日期
+        :param is_open: 是否开市
+        :return:
+        """
         return self.__pro.trade_cal(exchange=exchange, start_date=start_date, end_date=end_date, is_open=is_open)
 
     def fetch_dividend(self, ts_code: str = None, imp_ann_date: str = None) -> DataFrame:
+        """
+        https://tushare.pro/document/2?doc_id=103
+        :param ts_code: 股票编码
+        :param imp_ann_date: 实施公告日
+        :return:
+        """
         df: DataFrame = self.__pro.dividend(ts_code=ts_code, imp_ann_date=imp_ann_date)
         df = df[df['div_proc'] == '实施']
         if not df.empty:
@@ -187,6 +281,14 @@ class TsClient(object):
 
     def fetch_stk_limit(self, ts_code: str = None, trade_date: str = None, start_date: str = None,
                         end_date: str = None):
+        """
+        https://tushare.pro/document/2?doc_id=183
+        :param ts_code: 股票编码
+        :param trade_date: 交易日期
+        :param end_date: 起始日期
+        :param start_date: 结束日期
+        :return:
+        """
         return self.__pro.stk_limit(ts_code=ts_code, trade_date=trade_date, start_date=start_date, end_date=end_date)
 
     def get_pro(self):
