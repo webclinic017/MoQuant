@@ -23,6 +23,7 @@ from moquant.tsclient import ts_client
 from moquant.utils import compare_utils, date_utils
 
 log = get_logger(__name__)
+days_of_year100 = 37500
 
 
 def fetch_from_date(date_column: dict(type=str, help='对应发布日期的字段名 用于获取该类型数据在DB中最新日期'),
@@ -63,6 +64,8 @@ def common_fetch_data(ts_code: str, api_name: str, table: Table,
     while from_date < to_date:
         stock_data = None
         next_date = date_utils.format_delta(from_date, page_size)
+        if next_date >= to_date:
+            next_date = to_date
         for cnt in range(2):
             log.info('To fetch %s of stock %s %s~%s' % (table.__tablename__, ts_code, from_date, next_date))
             try:
@@ -95,16 +98,16 @@ def fetch_period_report(ts_code: dict(type=str, help='股票编码'),
         return False, None
     r, d1 = common_fetch_data(ts_code, 'fetch_income', TsIncome,
                               TsIncome.ann_date, TsIncome.ts_code,
-                              to_date=to_date, to_do=True)
+                              to_date=to_date, to_do=True, page_size=days_of_year100)
     r, d2 = common_fetch_data(ts_code, 'fetch_balance_sheet', TsBalanceSheet,
                               TsBalanceSheet.ann_date, TsBalanceSheet.ts_code,
-                              to_date=to_date, to_do=r)
+                              to_date=to_date, to_do=r, page_size=days_of_year100)
     r, d3 = common_fetch_data(ts_code, 'fetch_cash_flow', TsCashFlow,
                               TsCashFlow.ann_date, TsCashFlow.ts_code,
-                              to_date=to_date, to_do=r)
+                              to_date=to_date, to_do=r, page_size=days_of_year100)
     r, d4 = common_fetch_data(ts_code, 'fetch_fina_indicator', TsFinaIndicator,
                               TsFinaIndicator.ann_date, TsFinaIndicator.ts_code,
-                              to_date=to_date, to_do=r)
+                              to_date=to_date, to_do=r, page_size=days_of_year100)
     return r, compare_utils.mini(d1, d2, d3, d4)
 
 
@@ -132,14 +135,14 @@ def fetch_data_by_code(ts_code: str, to_date: str = date_utils.get_current_dt())
     # 季报等
     r, d4 = fetch_period_report(ts_code, to_date, to_do=r)
 
-    # https://tushare.pro/document/2?doc_id=45 预报
+    # https://tushare.pro/document/2?doc_id=45 预报，数量少，直接全拉
     r, d5 = common_fetch_data(ts_code, 'fetch_forecast', TsForecast,
                               TsForecast.ann_date, TsForecast.ts_code,
-                              to_date=to_date, to_do=r)
-    # https://tushare.pro/document/2?doc_id=46 快报
+                              to_date=to_date, to_do=r, page_size=days_of_year100)
+    # https://tushare.pro/document/2?doc_id=46 快报，数量少，直接全拉
     r, d6 = common_fetch_data(ts_code, 'fetch_express', TsExpress,
                               TsExpress.ann_date, TsExpress.ts_code,
-                              to_date=to_date, to_do=r)
+                              to_date=to_date, to_do=r, page_size=days_of_year100)
     # https://tushare.pro/document/2?doc_id=183
     r, d7 = common_fetch_data(ts_code, 'fetch_stk_limit', TsStkLimit,
                               TsStkLimit.trade_date, TsStkLimit.ts_code,
