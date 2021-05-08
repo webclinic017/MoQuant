@@ -1,10 +1,10 @@
 from moquant.constants import mq_daily_metric_enum
 from moquant.dbclient.mq_daily_metric import MqDailyMetric
-from moquant.dbclient.mq_daily_price import MqDailyPrice
 from moquant.log import get_logger
 from moquant.simulator.data import SimDataService
 from moquant.simulator.sim_center import SimCenter
 from moquant.simulator.sim_context import SimContext
+from moquant.simulator.sim_daily_price import SimDailyPrice
 from moquant.simulator.sim_handler import SimHandler
 from moquant.simulator.sim_share_hold import SimShareHold
 from moquant.utils import date_utils
@@ -35,7 +35,7 @@ class DownGapN(SimHandler):
         shares: list = context.get_holding()
         for i in shares:  # type: SimShareHold
             ts_code: str = i.get_ts_code()
-            p: MqDailyPrice = context.get_today_price(ts_code)
+            p: SimDailyPrice = context.get_today_price(ts_code)
             gap: set = self.gap[ts_code]
             if ts_code in self.yesterday_buy:
                 # 第三日无条件卖出
@@ -45,22 +45,22 @@ class DownGapN(SimHandler):
                 context.sell_share(ts_code, i.get_num(), p.down_limit)
             else:
                 # 按补缺卖出
-                lp: MqDailyPrice = self.__get_last_trade_day_price(data, ts_code, dt, self.last_trade_date[ts_code])
-                context.sell_share(ts_code, i.get_num(), lp.low_qfq)
+                lp: SimDailyPrice = self.__get_last_trade_day_price(data, ts_code, dt, self.last_trade_date[ts_code])
+                context.sell_share(ts_code, i.get_num(), lp.low)
 
     def before_trade(self, context: SimContext, data: SimDataService):
         dt: str = context.get_dt()
         to_buy = []
         for ts_code in self.target:
             ts_gap: set = self.gap[ts_code]
-            p: MqDailyPrice = context.get_today_price(ts_code)
+            p: SimDailyPrice = context.get_today_price(ts_code)
 
             if ts_code in self.last_trade_date and p.is_trade == 1:
-                lp: MqDailyPrice = self.__get_last_trade_day_price(data, ts_code, dt, self.last_trade_date[ts_code])
-                if p.open < lp.low_qfq:
+                lp: SimDailyPrice = self.__get_last_trade_day_price(data, ts_code, dt, self.last_trade_date[ts_code])
+                if p.open < lp.low:
                     # 缺口
                     ts_gap.add(p.trade_date)
-                    log.info('New gap: %s %s %.2f. Gap num: %d' % (ts_code, context.get_dt(), lp.low_qfq, len(ts_gap)))
+                    log.info('New gap: %s %s %.2f. Gap num: %d' % (ts_code, context.get_dt(), lp.low, len(ts_gap)))
             if len(ts_gap) >= self.gap_num:
                 to_buy.append(ts_code)
 
@@ -68,7 +68,7 @@ class DownGapN(SimHandler):
         for i in range(len(to_buy)):
             max_num = len(to_buy) - i
             ts_code = to_buy[i]
-            p: MqDailyPrice = context.get_today_price(ts_code)
+            p: SimDailyPrice = context.get_today_price(ts_code)
             context.buy_amap(ts_code, p.open, context.get_cash() / max_num)
 
     def after_trade(self, context: SimContext, data: SimDataService):
@@ -81,7 +81,7 @@ class DownGapN(SimHandler):
         dt: str = context.get_dt()
         old_dt: str = date_utils.format_delta(dt, -30)
         for ts_code in self.target:
-            p: MqDailyPrice = context.get_today_price(ts_code)
+            p: SimDailyPrice = context.get_today_price(ts_code)
             if p is None or p.is_trade == 0:
                 # 未上市 或 停牌就不用看了
                 continue
@@ -91,10 +91,10 @@ class DownGapN(SimHandler):
             if len(ts_gap) == 0:
                 continue
 
-            gap_prices: list = data.get_qfq_price_in([ts_code], dt, list(ts_gap))
-            for gap_price in gap_prices:  # type: MqDailyPrice
-                if gap_price.trade_date < old_dt or p.high >= gap_price.low_qfq:
-                    log.info('Gap clear: %s %s %.2f. Gap num: %d' % (ts_code, dt, gap_price.low_qfq, len(ts_gap)))
+            gap_prices: list = data.get_price_in([ts_code], dt, list(ts_gap), 'qfq')
+            for gap_price in gap_prices:  # type: SimDailyPrice
+                if gap_price.trade_date < old_dt or p.high >= gap_price.low:
+                    log.info('Gap clear: %s %s %.2f. Gap num: %d' % (ts_code, dt, gap_price.low, len(ts_gap)))
                     ts_gap.remove(p.trade_date)
 
     def __get_last_trade_day_price(self, data: SimDataService, ts_code: str, now_date: str, trade_date: str):
@@ -109,7 +109,7 @@ class DownGapN(SimHandler):
         if ts_code not in self.last_trade_date:
             return None
         ltd: str = self.last_trade_date[ts_code]
-        result: list = data.get_qfq_price_in([ts_code], now_date, [trade_date])
+        result: list = data.get_price_in([ts_code], now_date, [trade_date], 'qfq')
         return result[0] if len(result) > 0 else None
 
 

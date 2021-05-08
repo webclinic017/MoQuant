@@ -1,10 +1,10 @@
 from decimal import Decimal
 
-from moquant.dbclient.mq_daily_price import MqDailyPrice
 from moquant.log import get_logger
 from moquant.simulator.data import SimDataService
 from moquant.simulator.sim_center import SimCenter
 from moquant.simulator.sim_context import SimContext
+from moquant.simulator.sim_daily_price import SimDailyPrice
 from moquant.simulator.sim_handler import SimHandler
 from moquant.simulator.sim_order import SimOrder
 from moquant.simulator.sim_share_hold import SimShareHold
@@ -29,7 +29,7 @@ class NormalBuyAndSell(SimHandler):
         pass
 
     def morning_auction(self, context: SimContext, data: SimDataService):
-        price: MqDailyPrice = context.get_today_price(self.__target)
+        price: SimDailyPrice = context.get_today_price(self.__target)
         s: SimShareHold = context.get_hold(self.__target)
 
         if context.is_first_day():
@@ -45,7 +45,7 @@ class NormalBuyAndSell(SimHandler):
             assert decimal_utils.equals(price.pre_close_qfq, s.get_current_price())
 
     def before_trade(self, context: SimContext, data: SimDataService):
-        price: MqDailyPrice = context.get_today_price(self.__target)
+        price: SimDailyPrice = context.get_today_price(self.__target)
         s: SimShareHold = context.get_hold(self.__target)
 
         if context.is_first_day():
@@ -86,7 +86,7 @@ class NormalBuyAndSell(SimHandler):
             assert decimal_utils.equals(price.open, s.get_current_price())
 
     def after_trade(self, context: SimContext, data: SimDataService):
-        price: MqDailyPrice = context.get_today_price(self.__target)
+        price: SimDailyPrice = context.get_today_price(self.__target)
         s: SimShareHold = context.get_hold(self.__target)
         if s is not None:
             assert decimal_utils.equals(price.close, s.get_current_price())

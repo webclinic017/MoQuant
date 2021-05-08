@@ -1,8 +1,8 @@
-from moquant.dbclient.mq_daily_price import MqDailyPrice
 from moquant.log import get_logger
 from moquant.simulator.data import SimDataService
 from moquant.simulator.sim_center import SimCenter
 from moquant.simulator.sim_context import SimContext
+from moquant.simulator.sim_daily_price import SimDailyPrice
 from moquant.simulator.sim_handler import SimHandler
 from moquant.simulator.sim_share_hold import SimShareHold
 
@@ -16,7 +16,7 @@ class NormalBuy(SimHandler):
 
     def morning_auction(self, context: SimContext, data: SimDataService):
         dt = context.get_dt()
-        price: MqDailyPrice = data.get_qfq_price(['000050.SZ'], dt, dt, dt)[0]
+        price: SimDailyPrice = data.get_qfq_price(['000050.SZ'], dt, dt, dt)[0]
         context.buy_amap('000050.SZ', price.pre_close_qfq)
 
         if dt == '20200527':

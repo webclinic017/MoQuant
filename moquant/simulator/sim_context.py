@@ -1,14 +1,13 @@
 import math
 from decimal import Decimal
 
-from moquant.dbclient.mq_daily_price import MqDailyPrice
 from moquant.dbclient.ts_dividend import TsDividend
 from moquant.log import get_logger
 from moquant.simulator.constants import order_type
+from moquant.simulator.sim_daily_price import SimDailyPrice
 from moquant.simulator.sim_dividend import SimDividend
 from moquant.simulator.sim_order import SimOrder
 from moquant.simulator.sim_share_hold import SimShareHold
-from moquant.utils import decimal_utils
 from moquant.utils.date_utils import format_delta
 from moquant.simulator.data import SimDataService
 
@@ -100,9 +99,9 @@ class SimContext(object):
         :return:
         """
         self.__price = {}
-        price_list: list = self.__data.get_qfq_price(ts_code_arr=None, now_date=self.__cd,
-                                                     from_date=self.__cd, to_date=self.__cd)
-        for p in price_list:  # type: MqDailyPrice
+        price_list: list = self.__data.get_price_between(ts_code_arr=None, now_date=self.__cd,
+                                                         from_date=self.__cd, to_date=self.__cd, adj_type='')
+        for p in price_list:  # type: SimDailyPrice
             self.__price[p.ts_code] = p
 
     def __update_price_to_pre_close(self):
@@ -111,7 +110,7 @@ class SimContext(object):
         :return:
         """
         for (ts_code, hold) in self.__shares.items():  # type: str, SimShareHold
-            price: MqDailyPrice = self.get_today_price(ts_code)
+            price: SimDailyPrice = self.get_today_price(ts_code)
             if price is not None:
                 hold.update_price(price.pre_close_qfq)
 
@@ -124,7 +123,7 @@ class SimContext(object):
         for order in order_list:  # type: SimOrder
             if not order.available():
                 continue
-            price: MqDailyPrice = self.get_today_price(order.get_ts_code())
+            price: SimDailyPrice = self.get_today_price(order.get_ts_code())
             if order.is_sell_order():
                 if order.get_price() < price.open:
                     self.__deal_sell(order, price.open)
@@ -135,7 +134,7 @@ class SimContext(object):
 
     def __update_price_to_open(self):
         for (ts_code, hold) in self.__shares.items():  # type: str, SimShareHold
-            price: MqDailyPrice = self.get_today_price(ts_code)
+            price: SimDailyPrice = self.get_today_price(ts_code)
             if price is not None:
                 hold.update_price(price.open)
 
@@ -144,7 +143,7 @@ class SimContext(object):
         for order in order_list:  # type: SimOrder
             if not order.available():
                 continue
-            price: MqDailyPrice = self.get_today_price(order.get_ts_code())
+            price: SimDailyPrice = self.get_today_price(order.get_ts_code())
             if order.is_sell_order():
                 if order.get_price() < price.high:
                     self.__deal_sell(order,
@@ -200,7 +199,7 @@ class SimContext(object):
         """
         每天结束后更新价格到收盘价
         """
-        for (ts_code, price) in self.__price.items():  # type: str, MqDailyPrice
+        for (ts_code, price) in self.__price.items():  # type: str, SimDailyPrice
             if ts_code in self.__shares:
                 share: SimShareHold = self.__shares[ts_code]
                 share.update_price(price.close)
@@ -514,7 +513,7 @@ class SimContext(object):
     def get_holding_just_buy(self):
         return self.__shares_just_buy
 
-    def get_today_price(self, ts_code) -> MqDailyPrice:
+    def get_today_price(self, ts_code) -> SimDailyPrice:
         return self.__price[ts_code] if ts_code in self.__price else None
 
     def get_daily_records(self):
