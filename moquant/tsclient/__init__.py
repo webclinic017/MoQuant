@@ -49,8 +49,8 @@ class TsClient(object):
         :return:
         """
         qpm = 200
-        if not self.__rt.get('fetch_adj_factor', 60.0 / qpm, qpm):
-            raise Exception('%d per minute, waiting' % qpm)
+        if not self.__rt.get('fetch_daily_bar', 60.0 / qpm, qpm):
+            raise Exception('fetch_daily_bar %d per minute, waiting' % qpm)
         return self.__ts.pro_bar(ts_code=ts_code, start_date=start_date, end_date=end_date)
 
     def fetch_daily_basic(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
@@ -94,7 +94,7 @@ class TsClient(object):
         """
         qpm = 50
         if not self.__rt.get('fetch_adj_factor', 60.0 / qpm, qpm):
-            raise Exception('%d per minute, waiting' % qpm)
+            raise Exception('fetch_adj_factor %d per minute, waiting' % qpm)
         return self.__pro.adj_factor(ts_code=ts_code, start_date=start_date, end_date=end_date)
 
     def fetch_income(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
@@ -106,8 +106,8 @@ class TsClient(object):
         :return:
         """
         qpm = 50
-        if not self.__rt.get('fetch_daily_basic', 60.0 / qpm, qpm):
-            raise Exception('%d per minute, waiting' % qpm)
+        if not self.__rt.get('fetch_income', 60.0 / qpm, qpm):
+            raise Exception('fetch_income %d per minute, waiting' % qpm)
         df1: DataFrame = self.__pro.income(ts_code=ts_code, start_date=start_date, end_date=end_date, report_type=1)
         df2: DataFrame = self.__pro.income(ts_code=ts_code, start_date=start_date, end_date=end_date, report_type=4)
         df: DataFrame = df1.append(df2)
