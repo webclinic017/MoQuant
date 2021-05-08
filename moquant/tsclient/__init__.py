@@ -9,6 +9,7 @@ import tushare as ts
 from pandas import DataFrame
 from tushare.pro.client import DataApi
 
+from moquant.algo.ratelimit import RateLimiter
 from moquant.log import get_logger
 from moquant.utils import decimal_utils, date_utils
 from moquant.utils.compare_utils import mini
@@ -20,11 +21,13 @@ log = get_logger(__name__)
 class TsClient(object):
     __ts: ts = None
     __pro: DataApi = None
+    __rt: RateLimiter = None
 
     def __new__(cls, *args, **kwargs):
         if not hasattr(cls, '__inst'):
             cls.__inst = super(TsClient, cls).__new__(cls, *args, **kwargs)
             cls.__inst.__ts = ts
+            cls.__inst.__rt = RateLimiter()
             cls.__inst.init_token()
         return cls.__inst
 
@@ -66,6 +69,9 @@ class TsClient(object):
         return df
 
     def fetch_adj_factor(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
+        qpm = 50
+        if not self.__rt.get('fetch_adj_factor', 60.0 / qpm, qpm):
+            raise Exception('%d per minute, waiting' % qpm)
         return self.__pro.adj_factor(ts_code=ts_code, start_date=start_date, end_date=end_date)
 
     def fetch_income(self, ts_code: str, end_date: str, start_date: str) -> DataFrame:
