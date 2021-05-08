@@ -43,7 +43,6 @@ def common_fetch_data(ts_code: str, api_name: str, table: Table,
                       page_size: int = 1000,
                       **kwargs):
     """
-
     :param ts_code: 股票编码
     :param api_name: 调用tsclient的方法名
     :param table: sqlalchemy的表定义

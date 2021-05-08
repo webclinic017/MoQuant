@@ -25,7 +25,7 @@ class DownGapN(SimHandler):
         # 只对市值超过500亿的做回测
         mv_arr: list = data.get_daily_metrics(['20210428'], [mq_daily_metric_enum.total_mv.name])
         for mv in mv_arr:  # type: MqDailyMetric
-            if mv.value >= 500 * 10000 * 10000:
+            if mv.value >= 200 * 10000 * 10000:
                 self.target.add(mv.ts_code)
                 self.gap[mv.ts_code] = set()
         pass
@@ -114,6 +114,6 @@ class DownGapN(SimHandler):
 
 
 if __name__ == '__main__':
-    strategy: DownGapN = DownGapN(2)
-    center: SimCenter = SimCenter(strategy, '20210218', '20210428')
+    strategy: DownGapN = DownGapN(3)
+    center: SimCenter = SimCenter(strategy, '20210218', '20210507')
     center.run()

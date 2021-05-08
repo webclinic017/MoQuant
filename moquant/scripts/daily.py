@@ -8,7 +8,12 @@ from moquant.scripts.fetch import init_ts_basic
 from moquant.utils import date_utils, threadpool, env_utils
 
 
-def do_after_fetch(ts_code: str, to_date: str = date_utils.get_current_dt()):
+def fetch_by_code(ts_code: str, to_date: str = date_utils.get_current_dt()):
+    r, from_date = fetch_data.fetch_data_by_code(ts_code, to_date)
+    if not r:
+        return
+    if from_date is not None:
+        calculate.remove_after_fetch(ts_code, from_date)
     clear_after_fetch.clear(ts_code)
     calculate.run(ts_code=ts_code, to_date=to_date)
 
@@ -34,14 +39,9 @@ def run():
     session.close()
 
     for basic in basic_list:
-        r, from_date = fetch_data.fetch_data_by_code(basic.ts_code, to_date)
-        if not r:
-            continue
-        if from_date is not None:
-            calculate.remove_after_fetch(ts_code, from_date)
         if env_utils.parallel():
-            threadpool.submit(do_after_fetch, ts_code=basic.ts_code, to_date=to_date)
+            threadpool.submit(fetch_by_code, ts_code=basic.ts_code, to_date=to_date)
         else:
-            do_after_fetch(ts_code=basic.ts_code, to_date=to_date)
+            fetch_by_code(ts_code=basic.ts_code, to_date=to_date)
 
     threadpool.join()
