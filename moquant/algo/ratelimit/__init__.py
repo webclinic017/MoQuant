@@ -58,10 +58,11 @@ class RateLimiter(object):
                         if new_num > max_num:
                             new_num = max_num
                         self.__left[name] = new_num
-                    # 处理增加令牌后，有令牌可以消耗
-                    if self.__left[name] > 0:
-                        self.__left[name] = self.__left[name] - 1
-                        get = True
+
+                # 处理增加令牌后，有令牌可以消耗
+                if self.__left[name] > 0:
+                    self.__left[name] = self.__left[name] - 1
+                    get = True
             finally:
                 l.release()
 
