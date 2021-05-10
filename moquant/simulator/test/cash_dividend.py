@@ -17,11 +17,11 @@ class NormalBuy(SimHandler):
     def morning_auction(self, context: SimContext, data: SimDataService):
         dt = context.get_dt()
         price: SimDailyPrice = data.get_qfq_price(['000050.SZ'], dt, dt, dt)[0]
-        context.buy_amap('000050.SZ', price.pre_close_qfq)
+        context.buy_amap('000050.SZ', price.pre_close)
 
         if dt == '20200527':
             s: SimShareHold = context.get_hold('000050.SZ')
-            context.sell_share(s.get_ts_code(), s.get_can_sell(), price.pre_close_qfq)
+            context.sell_share(s.get_ts_code(), price.pre_close)
 
     def before_trade(self, context: SimContext, data: SimDataService):
         pass

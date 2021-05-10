@@ -46,6 +46,7 @@ class SimContext(object):
 
         self.__cd = format_delta(sd, -1)  # 当前日期
         self.next_day()  # 进入下一个交易日
+        self.info('Ready for simulation')
 
     """##################################### flow part #####################################"""
 
@@ -112,7 +113,7 @@ class SimContext(object):
         for (ts_code, hold) in self.__shares.items():  # type: str, SimShareHold
             price: SimDailyPrice = self.get_today_price(ts_code)
             if price is not None:
-                hold.update_price(price.pre_close_qfq)
+                hold.update_price(price.pre_close)
 
     def deal_after_morning_auction(self):
         """
@@ -157,6 +158,7 @@ class SimContext(object):
         """
         交易日结束
         """
+        self.__clear_empty_hold()
         self.__update_price_to_close()
         self.__close_order()
         self.__register_dividend()
@@ -166,11 +168,15 @@ class SimContext(object):
         关闭没成交的订单
         目前仅删除所有订单记录
         将持股在售数量归零
+        将未买入现金归还
         :return:
         """
-        self.__orders.pop(self.__cd, None)
-        for (ts_code, share) in self.__shares.items():  # type: str, SimShareHold
-            share.clear_unsell()
+        if self.__cd not in self.__orders:
+            return
+        for o in self.__orders[self.__cd]:  # type: SimOrder
+            r: bool = o.outdated()
+            if r:
+                self.__revert_from_order(o)
 
     def __register_dividend(self):
         """
@@ -219,7 +225,7 @@ class SimContext(object):
                 to_clear.add(ts_code)
         for ts_code in to_clear:  # type: str
             share: SimShareHold = self.__shares[ts_code]
-            self.info("Finish trade of %s, earn %s" % (share.get_ts_code(), share.get_earn()))
+            self.info("Finish trade of %s, earn %.2f" % (share.get_ts_code(), share.get_earn()))
             self.__shares.pop(ts_code)
 
     def next_day(self):
@@ -273,7 +279,7 @@ class SimContext(object):
         self.info("Sell %s of %s with price %.2f. Tax: %.2f. Profit: %.2f" %
                   (order.get_num(), order.get_ts_code(), deal_price, deal_cost, net_earn - hold.get_cost()))
 
-        hold.update_after_deal(order.get_num() * (-1), deal_cost - net_earn)
+        hold.update_after_deal(order.get_num() * (-1), -net_earn)
         self.__cash = self.__cash + net_earn
         order.deal(deal_price, deal_cost)
 
@@ -319,14 +325,26 @@ class SimContext(object):
     def __get_pass_cost(self, deal):
         return deal * self.__pass
 
+    def __revert_from_order(self, order: SimOrder):
+        """
+        订单过期或者撤回后，进行相应更新
+        :param order: 委托订单
+        :return:
+        """
+        if order.is_buy_order():
+            self.__cash += order.get_cost()
+        elif order.is_sell_order():
+            sell: SimShareHold = self.get_hold(order.get_ts_code())
+            sell.retrieve_sell(order.get_num())
+
     """##################################### send order part #####################################"""
 
-    def sell_share(self, ts_code: str, num: Decimal = 0, price: Decimal = 0) -> SimOrder:
+    def sell_share(self, ts_code: str, price: Decimal, num: Decimal = None) -> SimOrder:
         """
         按价格卖出
-        :param ts_code: 股票编码
-        :param num: 卖出数量
-        :param price: 卖出价格
+        :param ts_code: 股票编码，不可为空
+        :param num: 卖出数量，为空时默认全部卖出
+        :param price: 卖出价格，不可为空
         :return: 卖出订单
         """
         order: SimOrder = None
@@ -338,14 +356,16 @@ class SimContext(object):
             self.error(msg)
         elif self.__price[ts_code].is_trade == 0:
             msg = '%s is in suspension' % ts_code
-        elif num == 0:
-            msg = 'You cant sell nothing'
         elif ts_code not in self.__shares:
             msg = 'You dont hold any %s' % ts_code
         else:
             share: SimShareHold = self.__shares[ts_code]
+            if num is None:
+                num = share.get_can_sell()
             if share.get_can_sell() < num:
                 msg = 'You have only %d of %s that can be sold' % (share.get_can_sell(), ts_code)
+            elif num == 0:
+                msg = 'You cant sell nothing'
             else:
                 order = self.__gen_sell_order(ts_code, price, num)
 
@@ -472,6 +492,19 @@ class SimContext(object):
             self.warn('Send order fail. type: %d, code: %s, reason: %s' %
                       (order.get_order_type(), order.get_ts_code(), order.get_msg()))
 
+    def retrieve_order(self, order: SimOrder):
+        """
+        撤回取消订单
+        :param order:
+        :return:
+        """
+        ret: bool = order.retrieve()
+        if ret:
+            log.info("Retrieve order. type: %d, code: %s, price: %.2f'" %
+                     (order.get_order_type(), order.get_ts_code(), order.get_price()))
+            self.__revert_from_order(order)
+        return ret
+
     """##################################### get info part #####################################"""
 
     def get_charge(self):
@@ -495,7 +528,7 @@ class SimContext(object):
     def get_simulate_period(self):
         return self.__sd, self.__ed
 
-    def get_holding(self):
+    def get_holding(self) -> dict:
         return self.__shares
 
     def get_hold(self, ts_code) -> SimShareHold:
@@ -510,7 +543,7 @@ class SimContext(object):
     def get_cash(self):
         return self.__cash
 
-    def get_holding_just_buy(self):
+    def get_holding_just_buy(self) -> dict:
         return self.__shares_just_buy
 
     def get_today_price(self, ts_code) -> SimDailyPrice:

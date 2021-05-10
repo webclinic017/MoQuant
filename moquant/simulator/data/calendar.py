@@ -30,5 +30,4 @@ class SimCalendarService(object):
             elif trade.exchange == 'SSE':
                 sh.add(trade.cal_date)
         session.close()
-        log.info('Init trade cal')
         return sz, sh

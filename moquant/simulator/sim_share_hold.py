@@ -95,12 +95,15 @@ class SimShareHold(object):
             self.__on_sell = self.__on_sell + delta_num
         self.__cost = self.__cost + cost
 
-    def clear_unsell(self):
+    def retrieve_sell(self, num: int):
         """
-        清空在售数量
+        撤回卖出数量
+        :param num: 卖出数量
         :return:
         """
-        self.__on_sell = 0
+        if num < self.__on_sell:
+            raise Exception("Only %d in selling" % self.__on_sell)
+        self.__on_sell -= num
 
     def update_price(self, price):
         self.__current_price = price

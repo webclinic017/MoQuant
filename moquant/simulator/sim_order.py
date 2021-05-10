@@ -70,7 +70,7 @@ class SimOrder(object):
 
     def deal(self, deal_price: Decimal, deal_cost: Decimal):
         """
-        成交后更新订单
+        成交后更新订单，请勿在handler中调用
         :param deal_price:
         :param deal_cost:
         """
@@ -80,6 +80,26 @@ class SimOrder(object):
 
     def day_pass(self):
         """
-        天过去后把旧订单作废
+        天过去后把旧订单作废，请勿在handler中调用
         """
         self.__status = order_status.outdated
+
+    def retrieve(self):
+        """
+        撤回订单，请勿在handler中调用
+        :return:
+        """
+        if self.available():
+            self.__status = order_status.retrieve
+            return True
+        return False
+
+    def outdated(self):
+        """
+        关闭订单，请勿在handler中调用
+        :return:
+        """
+        if self.available():
+            self.__status = order_status.outdated
+            return True
+        return False

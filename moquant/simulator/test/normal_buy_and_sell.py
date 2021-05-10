@@ -33,16 +33,16 @@ class NormalBuyAndSell(SimHandler):
         s: SimShareHold = context.get_hold(self.__target)
 
         if context.is_first_day():
-            predict_num = context.get_max_can_buy(context.get_cash(), price.pre_close_qfq)
-            self.__buy_order = context.buy_amap(self.__target, price.pre_close_qfq)
+            predict_num = context.get_max_can_buy(context.get_cash(), price.pre_close)
+            self.__buy_order = context.buy_amap(self.__target, price.pre_close)
             # 可买入数量应考虑了手续费
             assert self.__buy_order.get_num() == predict_num
 
         elif context.is_last_day():
-            self.__sell_order = context.sell_share(s.get_ts_code(), s.get_can_sell(), price.pre_close_qfq)
+            self.__sell_order = context.sell_share(s.get_ts_code(), price.pre_close)
 
         elif s is not None:
-            assert decimal_utils.equals(price.pre_close_qfq, s.get_current_price())
+            assert decimal_utils.equals(price.pre_close, s.get_current_price())
 
     def before_trade(self, context: SimContext, data: SimDataService):
         price: SimDailyPrice = context.get_today_price(self.__target)
