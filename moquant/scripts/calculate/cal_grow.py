@@ -36,6 +36,7 @@ def cal(daily_store: mq_daily_store.MqDailyStore,
         quarter_store: mq_quarter_store.MqQuarterStore,
         ts_code: str, update_date: str) -> MqDailyMetric:
     score = 0
+    peg = 0
     report_type = 0
     period = '00000000'
     pe: MqDailyMetric = daily_store.find_date_exact(ts_code, mq_daily_metric_enum.pe.name, update_date)
@@ -58,8 +59,7 @@ def cal(daily_store: mq_daily_store.MqDailyStore,
             calculate.lt(decimal_utils.div(dprofit_quarter.value, dprofit_ltm.value), min_dprofit_percent):
         score = -1
     else:
-        peg = decimal_utils.div(
-            decimal_utils.div(pe.value, dprofit_quarter.yoy), 100)
+        peg = decimal_utils.div(decimal_utils.div(pe.value, dprofit_quarter.yoy), 100)
         report_type = pe.report_type | dprofit_quarter.report_type
         period = max(pe.period, dprofit_quarter.period)
         if peg > max_peg:
@@ -67,7 +67,13 @@ def cal(daily_store: mq_daily_store.MqDailyStore,
         else:
             score = (1 - peg / max_peg) * 100
 
-    return MqDailyMetric(ts_code=ts_code, report_type=report_type,
-                         period=period, update_date=update_date,
-                         name=mq_daily_metric_enum.grow_score.name,
-                         value=valid_score(score))
+    peg_metric = MqDailyMetric(ts_code=ts_code, report_type=report_type,
+                               period=period, update_date=update_date,
+                               name=mq_daily_metric_enum.peg.name,
+                               value=peg)
+    grow_score_metric = MqDailyMetric(ts_code=ts_code, report_type=report_type,
+                                      period=period, update_date=update_date,
+                                      name=mq_daily_metric_enum.grow_score.name,
+                                      value=valid_score(score))
+
+    return [peg_metric, grow_score_metric]

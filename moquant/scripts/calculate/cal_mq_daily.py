@@ -14,7 +14,7 @@ from moquant.dbclient.ts_daily_basic import TsDailyBasic
 from moquant.dbclient.ts_daily_trade_info import TsDailyTradeInfo
 from moquant.dbclient.ts_trade_cal import TsTradeCal
 from moquant.log import get_logger
-from moquant.scripts.calculate import cal_grow
+from moquant.scripts.calculate import cal_grow, cal_val
 from moquant.service import mq_quarter_store, mq_daily_store
 from moquant.service.mq_dcf_service import MqDcfService
 from moquant.utils import decimal_utils, date_utils
@@ -186,8 +186,13 @@ def cal_score(result_list: list, daily_store: mq_daily_store.MqDailyStore,
               ts_code: str, update_date: str):
     call_add = partial(common_add, result_list=result_list, store=daily_store)
 
-    grow_score = cal_grow.cal(daily_store, quarter_store, ts_code, update_date)
-    call_add(to_add=grow_score)
+    grow_metric_list: list = cal_grow.cal(daily_store, quarter_store, ts_code, update_date)
+    for gm in grow_metric_list:
+        call_add(to_add=gm)
+
+    val_metric_list: list = cal_val.cal(daily_store, quarter_store, ts_code, update_date)
+    for vm in val_metric_list:
+        call_add(to_add=vm)
 
 
 def calculate_one(ts_code: str, share_name: str, to_date: str = date_utils.get_current_dt()):

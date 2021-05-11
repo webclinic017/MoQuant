@@ -18,9 +18,8 @@ pe, pb, pepb 各 10%
 from decimal import Decimal
 from functools import partial
 
-from constants import mq_report_type
-from moquant.constants import mq_quarter_metric_enum, mq_daily_metric_enum
-from moquant.dbclient.mq_daily_indicator import MqDailyIndicator
+from moquant.constants import mq_quarter_metric_enum, mq_daily_metric_enum, mq_report_type
+from moquant.dbclient.mq_daily_metric import MqDailyMetric
 from moquant.log import get_logger
 from moquant.scripts import calculate
 from moquant.service import mq_daily_store, mq_quarter_store
@@ -117,7 +116,7 @@ def history_dividend_yoy_score(quarter_store: mq_quarter_store.MqQuarterStore,
 
 def cal(daily_store: mq_daily_store.MqDailyStore,
         quarter_store: mq_quarter_store.MqQuarterStore,
-        ts_code: str, update_date: str) -> MqDailyIndicator:
+        ts_code: str, update_date: str) -> MqDailyMetric:
     daily_find = partial(daily_store.find_date_exact, ts_code=ts_code, update_date=update_date)
     quarter_find = partial(quarter_store.find_latest, ts_code=ts_code, update_date=update_date)
     score = 0
@@ -161,9 +160,8 @@ def cal(daily_store: mq_daily_store.MqDailyStore,
                 decimal_utils.mul((pe_score + pb_score + pepb_score), 0.1),
                 decimal_utils.mul(profit_yoy_score, 0.2))
 
-    return MqDailyIndicator(ts_code=ts_code, report_type=mq_report_type.mq_predict,
-                            period=dividend_yields.period, update_date=update_date,
-                            name=mq_daily_metric_enum.grow_score.name,
-                            value=decimal_utils.valid_score(score))
-
-    return decimal_utils.valid_score(score)
+    val_score_metric = MqDailyMetric(ts_code=ts_code, report_type=mq_report_type.mq_predict,
+                                     period=dividend_yields.period, update_date=update_date,
+                                     name=mq_daily_metric_enum.val_score.name,
+                                     value=decimal_utils.valid_score(score))
+    return [val_score_metric]

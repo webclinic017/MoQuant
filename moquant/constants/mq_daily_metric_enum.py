@@ -32,5 +32,6 @@ dividend_yields = MqDailyMetricEnum('dividend_yields', '股息率')
 mv_10 = MqDailyMetricEnum('mv_10', '10年现金流折现')
 mv = MqDailyMetricEnum('mv', '永续现金流折现')
 
+peg = MqDailyMetricEnum('peg', 'PEG')
 grow_score = MqDailyMetricEnum('grow_score', '成长评分')
 val_score = MqDailyMetricEnum('val_score', '价值评分')
