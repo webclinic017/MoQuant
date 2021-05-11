@@ -18,7 +18,7 @@ low = MqDailyMetricEnum('low', '最低价')
 close = MqDailyMetricEnum('close', '收盘价')
 pre_close = MqDailyMetricEnum('pre_close', '上一个交易日收盘价')
 
-extract_from_daily_trade = [open, high, low, close, pre_close]
+extract_from_daily_trade = [close]
 
 copy_for_suspend = [total_share, float_share, free_share, total_mv, close]
 
