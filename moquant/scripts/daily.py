@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 
+from moquant import strategy
 from moquant.dbclient import db_client
 from moquant.dbclient.ts_basic import TsBasic
 from moquant.scripts import calculate
@@ -45,3 +46,5 @@ def run():
             fetch_by_code(ts_code=basic.ts_code, to_date=to_date)
 
     threadpool.join()
+
+    strategy.run(to_date)
