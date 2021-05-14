@@ -19,12 +19,13 @@ class RateLimiter(object):
         self.__left: dict = {}
         self.__last_time: dict = {}
 
-    def get(self, name: str, rate: float, max_num: int):
+    def get(self, name: str, rate: float, max_num: int, num_to_get: int = 1):
         """
         获取令牌，会阻塞等待
         :param name: 方法名，每个方法会记录自己的令牌数
         :param rate: 生成速率，每个令牌需要多少秒去生成 = 1 / qps
         :param max_num: 该方法允许的最大令牌数
+        :param num_to_get: 需要获取多少个令牌
         :return:
         """
         if name not in self.__locks:
@@ -59,9 +60,9 @@ class RateLimiter(object):
                             new_num = max_num
                         self.__left[name] = new_num
 
-                # 处理增加令牌后，有令牌可以消耗
-                if self.__left[name] > 0:
-                    self.__left[name] = self.__left[name] - 1
+                # 处理增加令牌后，有足够令牌可以消耗
+                if self.__left[name] >= num_to_get:
+                    self.__left[name] = self.__left[name] - num_to_get
                     get = True
             finally:
                 l.release()

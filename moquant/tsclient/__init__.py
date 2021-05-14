@@ -106,7 +106,7 @@ class TsClient(object):
         :return:
         """
         qpm = 50
-        if not self.__rt.get('fetch_income', 60.0 / qpm, qpm):
+        if not self.__rt.get('fetch_income', 60.0 / qpm, qpm, 2):
             raise Exception('fetch_income %d per minute, waiting' % qpm)
         df1: DataFrame = self.__pro.income(ts_code=ts_code, start_date=start_date, end_date=end_date, report_type=1)
         df2: DataFrame = self.__pro.income(ts_code=ts_code, start_date=start_date, end_date=end_date, report_type=4)
