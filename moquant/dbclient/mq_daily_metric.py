@@ -7,6 +7,8 @@ class MqDailyMetric(Base):
     __tablename__ = 'mq_daily_metric'
     __table_args__ = (
         Index('score_list', 'name', 'update_date'),
+        Index('code_date_name', 'ts_code', 'update_date', 'name'),
+        Index('code_name_date', 'ts_code', 'name', 'update_date'),
         {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
     )
 

@@ -7,6 +7,7 @@ class MqSharePool(Base):
     __tablename__ = 'mq_share_pool'
     __table_args__ = (
         Index('date_type', 'dt', 'strategy'),
+        Index('type_date', 'strategy', 'dt'),
         {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
     )
 
