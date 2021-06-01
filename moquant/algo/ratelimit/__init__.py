@@ -3,6 +3,7 @@ import time
 from multiprocessing import Lock
 
 from moquant.log import get_logger
+from moquant.utils import threadpool
 
 log = get_logger(__name__)
 
@@ -71,4 +72,17 @@ class RateLimiter(object):
                 break
             else:
                 time.sleep(rate)
+
+        log.debug('Rate limiter. api: %s. time: %s. cnt: %d' % (name, self.__last_time[name], self.__left[name]))
         return True
+
+
+def test_get(trt):
+    trt.get('test', 60.0 / 40, 40, 2)
+
+
+if __name__ == '__main__':
+    trt = RateLimiter()
+    for i in range(200):
+        threadpool.submit(test_get, trt=trt)
+    threadpool.join()

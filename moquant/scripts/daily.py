@@ -1,9 +1,8 @@
 from sqlalchemy.orm import Session
 
-from moquant import strategy
 from moquant.dbclient import db_client
 from moquant.dbclient.ts_basic import TsBasic
-from moquant.scripts import calculate
+from moquant.scripts import calculate, strategy
 from moquant.scripts.fetch import fetch_trade_cal, fetch_data, clear_after_fetch, fetch_dividend
 from moquant.scripts.fetch import init_ts_basic
 from moquant.utils import date_utils, threadpool, env_utils
