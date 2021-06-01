@@ -33,6 +33,7 @@ class SimCenter(object):
         self.c: SimContext = SimContext(self.d, sd, ed, cash, charge, tax, pass_tax)
         self.__dr: dict = {}
         self.h.init(self.c, self.d)
+        self.c.finish_init()
 
     def run(self):
         while not self.c.is_finish():

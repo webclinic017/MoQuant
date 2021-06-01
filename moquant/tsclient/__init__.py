@@ -301,5 +301,5 @@ class TsClient(object):
 ts_client = TsClient()
 
 if __name__ == '__main__':
-    a = ts_client.fetch_express(ts_code='601318.SH', start_date='20200101', end_date='20200131')
+    ts_client.get_pro().moneyflow(trade_date='20210525')
     pass

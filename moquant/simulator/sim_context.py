@@ -48,6 +48,25 @@ class SimContext(object):
         self.next_day()  # 进入下一个交易日
         self.info('Ready for simulation')
 
+        self.__register_code = set()
+        self.__inited = False
+
+    def register_code(self, ts_code_set):
+        if self.__inited:
+            raise Exception('Can only register code during init')
+        for i in ts_code_set:
+            self.__register_code.add(i)
+
+    def __with_cache(self):
+        return len(self.__register_code) > 0
+
+    def finish_init(self):
+        self.__inited = True
+        if not self.__with_cache():
+            return
+        self.__data.init_cache(self.__register_code, self.__sd, self.__ed)
+
+
     """##################################### flow part #####################################"""
 
     def day_init(self):
