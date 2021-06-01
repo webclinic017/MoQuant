@@ -7,8 +7,9 @@ import pymysql
 import sqlalchemy.engine.url as url
 from pandas import DataFrame
 from sqlalchemy import create_engine
-from sqlalchemy.engine import ResultProxy, RowProxy
+from sqlalchemy.engine import ResultProxy
 from sqlalchemy.engine.base import Engine, Connection
+from sqlalchemy.engine.row import RowProxy
 from sqlalchemy.orm import sessionmaker, Session
 
 from moquant.log import get_logger

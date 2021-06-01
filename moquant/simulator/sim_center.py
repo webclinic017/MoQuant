@@ -1,3 +1,6 @@
+import pandas as pd
+import pyfolio as pf
+
 from decimal import Decimal
 
 from matplotlib import pyplot
@@ -62,17 +65,17 @@ class SimCenter(object):
         log.info("[%s] Market value. cash: %.2f. share: %.2f" % (dt, record.get_cash(), record.get_share_value()))
 
     def analyse(self):
-        log.info('-------------------Analyse start-------------------')
         d = self.__sd
         max_mv = self.__cash
         last_mv = self.__cash
         max_retrieve = 0
-        va = [1]
-        da = [date_utils.format_delta(d, -1)]
+        ra = []
+        da = []
         while d <= self.__ed:
             if d in self.__dr:
                 record: SimDailyRecord = self.__dr[d]
                 mv = record.get_total()
+                ret = (mv - last_mv) / last_mv
                 if mv > max_mv:
                     max_mv = mv
                 last_mv = mv
@@ -80,14 +83,10 @@ class SimCenter(object):
                 if retrieve > max_retrieve:
                     max_retrieve = retrieve
 
-                va.append(mv / self.__cash)
-                da.append(d)
+                ra.append(float(ret))
+                da.append(date_utils.parse_str(d))
             d = date_utils.format_delta(d, 1)
-        log.info('Final market value is %.2f' % last_mv)
-        log.info('Max retrieve: %.2f' % max_retrieve)
-        log.info('-------------------Analyse end-------------------')
-
-        pyplot.plot(da, va, label="net value")
-        pyplot.xlabel("date")
-        pyplot.ylabel("value")
+        returns = pd.Series(ra, da)
+        pf.plot_returns(returns)
         pyplot.show()
+
