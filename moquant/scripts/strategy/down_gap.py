@@ -84,3 +84,4 @@ def run(dt: str, min_mv=5e10, gap_num=2):
             )
 
     db_client.batch_insert(to_insert)
+    log.info('Down gap strategy done. Dt: %s. Total: %d' % (dt, len(to_insert)))

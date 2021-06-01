@@ -35,3 +35,4 @@ def run(dt: str, min_grow_score=50):
         to_insert.append(MqSharePool(dt=dt, strategy=__strategy, ts_code=mq.ts_code))
 
     db_client.batch_insert(to_insert)
+    log.info('Grow strategy done. Dt: %s. Total: %d' % (dt, len(to_insert)))
