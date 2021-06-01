@@ -13,7 +13,7 @@ log = get_logger(__name__)
 __strategy = 'down_gap'
 
 
-def run(dt: str, min_mv=5e8, gap_num=2):
+def run(dt: str, min_mv=5e10, gap_num=2):
     """
     市值 > 500亿
     近一个月向下缺口 >=2

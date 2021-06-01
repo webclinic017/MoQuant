@@ -119,13 +119,15 @@ def cal(daily_store: mq_daily_store.MqDailyStore,
         ts_code: str, update_date: str) -> MqDailyMetric:
     daily_find = partial(daily_store.find_date_exact, ts_code=ts_code, update_date=update_date)
     quarter_find = partial(quarter_store.find_latest, ts_code=ts_code, update_date=update_date)
-    score = 0
+    score = -1
+    period = '00000000'
     dividend_yields = daily_find(name=mq_daily_metric_enum.dividend_yields.name)
     risk_point = quarter_find(name=mq_quarter_metric_enum.risk_point.name)
     revenue_quarter = quarter_find(name=mq_quarter_metric_enum.revenue_quarter.name)
     dprofit_quarter = quarter_find(name=mq_quarter_metric_enum.dprofit_quarter.name)
 
-    if calculate.gt(risk_point, 0, 'value', True) or \
+    if dividend_yields is None or \
+            calculate.gt(risk_point, 0, 'value', True) or \
             calculate.lt(dividend_yields, 0.03, 'value', True) or \
             not earn_and_dividend_in_year(quarter_store, ts_code, dividend_yields.period, update_date, 5) or \
             not earn_in_period(quarter_store, ts_code, dividend_yields.period, update_date, 4) or \
@@ -133,10 +135,11 @@ def cal(daily_store: mq_daily_store.MqDailyStore,
             calculate.lt(revenue_quarter, dprofit_quarter, 'yoy', True):
         score = -1
     else:
+        period = dividend_yields.period
         pe = daily_find(name=mq_daily_metric_enum.pe.name)
         pb = daily_find(name=mq_daily_metric_enum.pb.name)
 
-        dividend_score = decimal_utils.mul(dividend_yields, Decimal(1000))  # * 100 / 10 * 100
+        dividend_score = decimal_utils.mul(dividend_yields.value, Decimal(1000))  # * 100 / 10 * 100
         pe_score = decimal_utils.valid_score(
             (1 - decimal_utils.div(calculate.get_val(pe, 'value', max_pe), max_pe, err_default=0)) * 100)
         pb_score = decimal_utils.valid_score(
@@ -161,7 +164,7 @@ def cal(daily_store: mq_daily_store.MqDailyStore,
                 decimal_utils.mul(profit_yoy_score, 0.2))
 
     val_score_metric = MqDailyMetric(ts_code=ts_code, report_type=mq_report_type.mq_predict,
-                                     period=dividend_yields.period, update_date=update_date,
+                                     period=period, update_date=update_date,
                                      name=mq_daily_metric_enum.val_score.name,
                                      value=decimal_utils.valid_score(score))
     return [val_score_metric]
