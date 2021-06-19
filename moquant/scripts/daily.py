@@ -46,4 +46,4 @@ def run():
 
     threadpool.join()
 
-    strategy.run(to_date)
+    strategy.generate_strategy_pool(to_date)
